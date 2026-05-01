@@ -6,7 +6,7 @@ import { ACCESS_TOKEN_COOKIE } from './lib/constants';
 // included as an exact match — it can't go in PUBLIC_PATHS because
 // pathname.startsWith('/') would match every URL.
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/invoice'];
-const PUBLIC_EXACT = new Set<string>(['/', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/llms.txt']);
+const PUBLIC_EXACT = new Set<string>(['/', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/llms.txt', '/humans.txt']);
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
