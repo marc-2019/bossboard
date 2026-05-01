@@ -1,7 +1,6 @@
-/* https://bossboard.instilligent.com/humans.txt */
-
 /* TEAM */
-Instilligent (CEO: Marc Armstrong, marc@instilligent.com, https://instilligent.com/)
+Instilligent
+CEO: Marc Armstrong, marc@instilligent.com, https://instilligent.com/
 
 /* SITE */
 Last update: 2026-04-29
