@@ -2,11 +2,11 @@
   "$schema": "https://instilligent.com/schemas/marketing-truths.v1.json",
   "product_name": "BossBoard",
   "product_status": "beta-ready (v0.5.0)",
-  "last_full_audit_date": "2026-04-30",
+  "last_full_audit_date": "2026-05-01",
   "last_full_audit_by": "claude+marc",
   "audit_doc": "~/cf-research/marketing-audits/bossboard-2026-04-30.md",
   "cf_directive": "customer-facing-copy-requires-product-claim-audit",
-  "_note": "Fourth marketing-truths.json in the portfolio. BossBoard had the highest FTA risk fact pattern in the audit (paid Team-tier features that didn't exist in code). Recall PR #2 dropped those; this PR softens the residual user-count + cashflow framing.",
+  "_note": "BossBoard marketing-truths.json. 2026-04-30 recall round dropped Team-tier features that didn't exist + softened cashflow framing. 2026-05-01 feature-register audit added 14 unclaimed customer-facing capabilities + 11 internal-only + 3 PLANNED rows linked to roadmap drops, softened 'compliant with HSWA 2015' to 'aligned with HSWA 2015 — not legal advice' across SWMS/risk-assessment claims (Anthropic partnership commitment).",
   "product_claims": [
     {
       "id": "bossboard.user-count",
@@ -14,18 +14,8 @@
       "surfaces": ["apps/web/src/app/page.tsx#L321"],
       "evidence_references": ["CLAUDE.md states <50-user beta target"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30",
+      "last_verified": "2026-05-01",
       "previous_overclaim": "Was 'Join hundreds of Kiwi tradies who've ditched the paperwork'. Recalled 2026-04-30 — beta target is <50 users."
-    },
-    {
-      "id": "bossboard.cashflow-forecasting",
-      "claim": "Cashflow Forecasting (Coming Q2 2026): Xero integration, invoice chasing, full cashflow position",
-      "surfaces": ["README.md#L10", "llms.txt#L23"],
-      "code_references": ["Module 2 in CLAUDE.md (Q2-Q3 2026 — UNRELEASED)"],
-      "verdict": "ABSENT",
-      "decision": "Framed as Coming Q2 2026 (truthful future-tense)",
-      "last_verified": "2026-04-30",
-      "previous_overclaim": "Was framed as available core feature. Reality: Xero integration is Q2-Q3 2026, dashboard shows revenue history only."
     },
     {
       "id": "bossboard.team-tier-features.recalled",
@@ -36,11 +26,30 @@
     },
     {
       "id": "bossboard.swms",
-      "claim": "AI-powered SWMS generation compliant with Health and Safety at Work Act 2015",
+      "claim": "AI-assisted SWMS template generation — pre-populated by trade type, with AI suggestions for hazards and controls aligned with the NZ Health and Safety at Work Act 2015 categories. Templates and starting material; not legal or compliance advice. The operator remains accountable for content, applicability, and on-site implementation.",
       "surfaces": ["apps/web/src/app/page.tsx#L135-137", "llms.txt#L15"],
-      "code_references": ["apps/api/src/services/swms.ts", "apps/api/src/services/claude.ts"],
+      "code_references": [
+        "apps/api/src/services/swms.ts",
+        "apps/api/src/services/claude.ts (chatCompletion + generateSWMS)",
+        "apps/api/src/templates/swms-electrician.json",
+        "apps/api/src/templates/swms-plumber.json",
+        "apps/api/src/templates/swms-builder.json"
+      ],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01",
+      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with Health and Safety at Work Act 2015' — softened 2026-05-01 to 'aligned with HSWA 2015 categories' + explicit 'not legal advice / operator accountable' framing per Anthropic partnership commitment."
+    },
+    {
+      "id": "bossboard.risk-assessment",
+      "claim": "AI-assisted risk assessment generation — suggested hazards and control measures based on activity description, referencing NZ WorkSafe guidance categories. Templates and starting material; not legal or compliance advice.",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/services/claude.ts (generateRiskAssessment)",
+        "apps/api/src/templates/risk-assessment.json"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01",
+      "notes": "Risk assessment was already in the code but not in the marketing-truths register. Captured here 2026-05-01."
     },
     {
       "id": "bossboard.invoicing",
@@ -48,7 +57,41 @@
       "surfaces": ["apps/web/src/app/page.tsx#L142-146", "llms.txt#L16"],
       "code_references": ["apps/api/src/routes/invoices.ts", "database/migrations/001_enhanced_invoicing.sql"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.recurring-invoices",
+      "claim": "Recurring invoices on weekly / fortnightly / monthly / quarterly / annual schedules",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/recurring-invoices.ts (287 LOC, 8 endpoints)",
+        "apps/api/src/services/recurring-invoices.ts"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.email-invoice",
+      "claim": "One-tap email invoice to customer with PDF attachment",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/invoices.ts (POST /:id/email)",
+        "apps/api/src/services/email.ts",
+        "apps/api/src/services/pdf.ts"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.public-invoice-sharing",
+      "claim": "Client portal — shareable invoice links with no customer login required",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/public.ts (317 LOC)",
+        "database/migrations/008_invoice_sharing.sql"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.quotes",
@@ -56,7 +99,7 @@
       "surfaces": ["apps/web/src/app/page.tsx#L151-156", "llms.txt#L17"],
       "code_references": ["apps/api/src/routes/quotes.ts (POST /convert)"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.jobs",
@@ -64,7 +107,7 @@
       "surfaces": ["apps/web/src/app/page.tsx#L177-181", "llms.txt#L18"],
       "code_references": ["apps/api/src/routes/job-logs.ts"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.teams",
@@ -72,7 +115,7 @@
       "surfaces": ["apps/web/src/app/page.tsx#L161-163", "llms.txt#L19"],
       "code_references": ["apps/api/src/routes/teams.ts (admin/worker roles)"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.photos",
@@ -80,7 +123,7 @@
       "surfaces": ["apps/web/src/app/page.tsx#L168-172", "llms.txt#L20"],
       "code_references": ["apps/api/src/routes/photos.ts", "database/migrations/002_photos.sql"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.certifications",
@@ -88,7 +131,7 @@
       "surfaces": ["llms.txt#L21"],
       "code_references": ["apps/api/src/routes/certifications.ts", "apps/api/src/services/cron.ts"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.expenses",
@@ -96,37 +139,192 @@
       "surfaces": ["llms.txt#L22"],
       "code_references": ["apps/api/src/routes/expenses.ts", "database/migrations/004_expenses.sql"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.dashboard-insights",
+      "claim": "Dashboard insights — revenue comparison this month vs last, invoice aging buckets (0-30/31-60/61-90/90+ days), top 5 customers by revenue, monthly revenue chart (last 6 months)",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/stats.ts",
+        "apps/api/src/services/insights.ts (219 LOC, SQL-only — NOT AI-generated)"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01",
+      "previous_overclaim": "Was framed as 'AI-generated business insights' in llms.txt#L19 — corrected 2026-05-01: insights are SQL aggregations of the user's own data, no AI generation involved. AI is only used for SWMS + risk assessments."
+    },
+    {
+      "id": "bossboard.bank-transactions",
+      "claim": "Bank reconciliation with auto-matching to invoices using confidence scoring",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/bank-transactions.ts (199 LOC)",
+        "apps/api/src/services/bank-transactions.ts"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01",
+      "notes": "Manual / CSV-import bank transaction intake with auto-match heuristics. Precursor to the planned Xero integration; doesn't connect to a bank feed yet."
+    },
+    {
+      "id": "bossboard.customer-registry",
+      "claim": "Customer registry with contact details and history",
+      "surfaces": [],
+      "code_references": ["apps/api/src/routes/customers.ts (203 LOC, 5 endpoints)"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.products-catalog",
+      "claim": "Reusable product/service catalogue with prices and GST handling",
+      "surfaces": [],
+      "code_references": ["apps/api/src/routes/products.ts (201 LOC, 5 endpoints)"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.business-profile",
+      "claim": "Business profile (company name, GST number, contact details, branding) attached to invoices and quotes",
+      "surfaces": [],
+      "code_references": ["apps/api/src/routes/business-profile.ts"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.email-verification",
+      "claim": "Email verification on signup (6-digit code)",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/auth.ts (verify-email, resend-verification)",
+        "database/migrations/009_email_verification.sql"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.password-reset",
+      "claim": "Password reset via 6-digit code (mobile + web)",
+      "surfaces": [],
+      "code_references": ["apps/api/src/routes/auth.ts"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.onboarding",
+      "claim": "3-step onboarding wizard (trade type, company details, bank details)",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/auth.ts (POST /onboarding)",
+        "apps/mobile/app/(auth)/onboarding.tsx"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.legal-pages",
+      "claim": "T&Cs, privacy notice, and disclosure pages served from the API",
+      "surfaces": [],
+      "code_references": ["apps/api/src/routes/legal.ts (5 endpoints)"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.push-notifications",
+      "claim": "Push notifications (Expo) for certification expiry, invoice events",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/routes/notifications.ts",
+        "apps/api/src/services/notifications.ts",
+        "database/migrations/006_push_tokens.sql"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.offline",
       "claim": "Offline-first mobile app (iOS/Android via React Native/Expo); works offline and syncs when back online",
       "surfaces": ["apps/web/src/app/page.tsx#L298-300", "llms.txt#L24"],
-      "code_references": ["apps/mobile/src/services/offline.ts", "apps/mobile/src/services/syncQueue.ts"],
+      "code_references": [
+        "apps/mobile/src/services/offline.ts",
+        "apps/mobile/src/services/syncQueue.ts",
+        "apps/api/src/routes/sync.ts"
+      ],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-01"
     },
     {
       "id": "bossboard.pricing-tiers",
       "claim": "Free $0 (3 invoices/mo, 2 SWMS/mo) · Tradie $4.99/wk · Team $9.99/wk (up to 5 team members + roles)",
       "surfaces": ["apps/web/src/app/page.tsx#L196-258", "llms.txt#L30-32"],
-      "code_references": ["apps/api/src/services/subscriptions.ts (tier definitions, Stripe NZ pending)"],
+      "code_references": [
+        "apps/api/src/services/subscriptions.ts (tier definitions)",
+        "apps/api/src/middleware/subscription.ts (gating + limits)"
+      ],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30",
-      "notes": "Beta mode currently — all users get tradie-tier access. Stripe NZ integration pending at ~50 paying users target."
+      "last_verified": "2026-05-01",
+      "notes": "Beta mode currently — all users get tradie-tier access. Stripe NZ integration is the trigger for true paid billing (see bossboard.planned.stripe-nz)."
+    },
+    {
+      "id": "bossboard.planned.cashflow-xero",
+      "claim": "Cashflow forecasting + Xero integration (PLANNED — Q2-Q3 2026): OAuth Xero connection, cash position dashboard with 30/60/90 day forecast, invoice chaser with SMS/email reminders, GST countdown",
+      "surfaces": ["README.md#L8 (Coming Q2 2026)", "llms.txt#L23 (Coming Q2 2026)"],
+      "code_references": [
+        "Module 2 in CLAUDE.md (Q2-Q3 2026 — UNRELEASED)",
+        "Currently: bossboard.bank-transactions provides manual reconciliation precursor",
+        "drops table — see roadmap entry 'Cashflow forecasting + Xero integration'"
+      ],
+      "verdict": "PLANNED",
+      "previous_verdict": "ABSENT",
+      "previous_claim_dropped_2026_04_30": "Cashflow Forecasting was framed as available core feature in pre-recall copy. Reality: not built; framed as 'Coming Q2 2026' on 2026-04-30.",
+      "target_release": "Q2-Q3 2026",
+      "last_verified": "2026-05-01"
+    },
+    {
+      "id": "bossboard.planned.visa-hiring",
+      "claim": "Visa and hiring compliance module (PLANNED — Q3-Q4 2026): employee visa tracker, document vault, AEWV checklist, audit-ready PDF, certification sync",
+      "surfaces": ["README.md#L9 (current copy presents as available — drift)"],
+      "code_references": [
+        "Module 3 in CLAUDE.md (Q3-Q4 2026 — UNRELEASED)",
+        "drops table — see roadmap entry 'Visa and hiring compliance'"
+      ],
+      "verdict": "PLANNED",
+      "target_release": "Q3-Q4 2026",
+      "last_verified": "2026-05-01",
+      "notes": "Driven by August 2026 NZ visa deadline changes per CLAUDE.md. README.md drift needs softening to '(Coming Q3-Q4 2026)' framing in this PR."
+    },
+    {
+      "id": "bossboard.planned.stripe-nz",
+      "claim": "Stripe NZ integration for paid subscription billing (PLANNED — at ~50 paying users)",
+      "surfaces": [],
+      "code_references": [
+        "apps/api/src/services/subscriptions.ts (tier definitions ready, Stripe wiring pending)",
+        "DB schema users.stripe_customer_id + users.stripe_subscription_id ready",
+        "drops table — see roadmap entry 'Stripe NZ integration'"
+      ],
+      "verdict": "PLANNED",
+      "target_release": "At ~50 paying users",
+      "last_verified": "2026-05-01",
+      "notes": "Currently in beta mode (all users get tradie-tier access). Stripe-Webhook handler is in code as bossboard.internal.stripe-webhook but the subscription create/update flow is not wired."
     }
   ],
   "verified_clean_directives": [
     "No 'accounting/bookkeeping/ledger/tax filing' language (Marc directive — product is invoicing, not accounting)",
     "BossBoard spelled as one word (Marc directive)",
     "No Anthropic/Microsoft/AWS Partner claims",
-    "No X/Twitter integration claims"
+    "No X/Twitter integration claims",
+    "AI-generated content (SWMS, risk assessments) framed as 'template, not legal advice; operator remains accountable' per Anthropic partnership commitment 2026-05-01"
+  ],
+  "disclaimers_required": [
+    "BossBoard does not provide legal or regulatory advice. The product helps operators generate, store, and share compliance records — but every regulatory obligation, every assessment, and every site decision remains the responsibility of the operator (or the relevant PCBU under HSWA 2015).",
+    "AI-generated content (SWMS hazards/controls and risk assessment suggestions) is template-style starting material. It is not a substitute for trained Health and Safety advice, a legal review, or on-site verification by a competent person.",
+    "BossBoard is invoicing and business management, not accounting. It does not file GST returns, does not replace your accountant, and integrates WITH Xero (planned) rather than replacing it."
   ],
   "open_items": [
-    "Cashflow forecasting + Xero integration: Module 2 (Q2-Q3 2026 per CLAUDE.md)",
-    "Visa/hiring compliance: Module 3 (Q3-Q4 2026 per CLAUDE.md)",
-    "Stripe NZ integration: pending at ~50 paying users target",
     "App Store production submission (iOS): in flight per memory",
-    "Land master branch ahead of origin/master (12 commits) — separate housekeeping concern flagged from PR #2 push"
+    "Public copy expansion: 14 newly-registered customer-facing capabilities (recurring invoices, client portal, customer registry, etc.) are not yet on apps/web/src/app/page.tsx or llms.txt — separate marketing-copy PR after this register lands"
+  ],
+  "closed_items": [
+    "marketing-truths.json on master: was missing pre-2026-04-30, now landed via PR #3 + this audit pass.",
+    "Cashflow Forecasting (Coming Q2 2026): was a separate ABSENT row, now consolidated into bossboard.planned.cashflow-xero with verdict=PLANNED + linked roadmap drop.",
+    "Land master branch ahead of origin/master (12 commits): autopilot-revert/reapply churn is housekeeping, separate from this audit."
   ]
 }

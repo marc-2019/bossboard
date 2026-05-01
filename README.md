@@ -5,7 +5,7 @@ Mobile-first compliance and invoicing platform for New Zealand tradies and small
 ## Overview
 
 BossBoard helps plumbers, electricians, builders, and landscapers with:
-- **Compliance Documentation**: AI-powered SWMS, risk assessments, WorkSafe checklists
+- **Compliance Documentation**: AI-assisted SWMS and risk assessment templates aligned with NZ Health and Safety at Work Act 2015 — templates and starting material, not legal advice; operator remains accountable
 - **Invoicing & Revenue Tracking**: Quotes, invoices, GST, basic revenue dashboard
 - **Cashflow Forecasting (Coming Q2 2026)**: Xero integration, invoice chasing, full cashflow position
 - **Visa/Hiring Compliance (Coming Q3-Q4 2026)**: Employee visa tracking, certification management

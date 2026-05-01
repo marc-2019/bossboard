@@ -6,13 +6,13 @@
 
 BossBoard (also known as TradeMate NZ) is a mobile-first micro-SaaS platform built for New Zealand tradies and small service businesses — plumbers, electricians, builders, landscapers, and other trades. It replaces the patchwork of spreadsheets, paper forms, and multiple apps with a single affordable tool that handles compliance, invoicing, quoting, job tracking, and team management.
 
-Built by Instilligent Limited, BossBoard leverages AI to generate compliant Safe Work Method Statements (SWMS) and surface business insights. It is designed to work offline-first via React Native with local SQLite storage, syncing when connectivity is available.
+Built by Instilligent Limited, BossBoard uses AI (via Anthropic Claude) to help operators draft Safe Work Method Statements (SWMS) and risk assessments — as templates and starting material, not legal advice; the operator remains accountable for content and applicability. Business insights on the dashboard are computed from the user's own data (revenue, invoice aging, customers), not AI-generated. The app works offline-first via React Native with local SQLite storage, syncing when connectivity is available.
 
 Target market: 100,000-150,000 NZ SMEs in the trades and service sectors.
 
 ## Features
 
-- AI-powered SWMS generation compliant with the Health and Safety at Work Act 2015
+- AI-assisted SWMS template generation aligned with NZ Health and Safety at Work Act 2015 — templates and starting material, not legal advice; the operator remains accountable for content and on-site implementation
 - Professional invoicing with GST built in, payment tracking, and overdue invoice chasing
 - Quotes and estimates with one-tap conversion to invoices
 - Job logging with clock in/out, per-site and per-worker time tracking

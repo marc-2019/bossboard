@@ -130,11 +130,13 @@ export default function Home() {
           <div className="features-grid">
             <div className="feature-card">
               <div className="feature-icon">{'\u{1F6E1}'}</div>
-              <h3>Compliance Made Easy</h3>
+              <h3>Compliance Records, Made Easier</h3>
               <p>
-                Generate Safe Work Method Statements with one tap. AI-powered
-                hazard identification for your trade. Compliant with the Health
-                and Safety at Work Act 2015.
+                Draft Safe Work Method Statements in one tap, with AI-assisted
+                hazard suggestions for your trade — aligned with the NZ Health
+                and Safety at Work Act 2015. Templates and starting material,
+                not legal advice; you remain accountable for content and
+                on-site implementation.
               </p>
             </div>
             <div className="feature-card">
