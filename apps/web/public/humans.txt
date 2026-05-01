@@ -1,7 +1,7 @@
 /* https://bossboard.instilligent.com/humans.txt */
 
 /* TEAM */
-Instilligent
+Organization: Instilligent
 CEO: Marc Armstrong
 Email: marc@instilligent.com
 Website: https://instilligent.com/
