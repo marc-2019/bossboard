@@ -3,10 +3,10 @@
 /* TEAM */
 Instilligent
 CEO: Marc Armstrong
-Contact: marc@instilligent.com
-Site: https://instilligent.com/
+Email: marc@instilligent.com
+Website: https://instilligent.com/
 
 /* SITE */
 Last update: 2026-04-29
-Standards: HTML5, CSS3
-Components: Next.js, React
+Standards: HTML5/CSS3
+Components: Next.js + React
