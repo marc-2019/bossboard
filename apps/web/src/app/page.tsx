@@ -135,8 +135,9 @@ export default function Home() {
                 Draft Safe Work Method Statements in one tap, with AI-assisted
                 hazard suggestions for your trade — aligned with the NZ Health
                 and Safety at Work Act 2015. Templates and starting material,
-                not legal advice; you remain accountable for content and
-                on-site implementation.
+                not legal advice. While you stay accountable for what gets
+                signed off, BossBoard turns hours of blank-page paperwork into
+                minutes — so you can get back on the tools.
               </p>
             </div>
             <div className="feature-card">
