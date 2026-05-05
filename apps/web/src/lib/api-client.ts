@@ -110,8 +110,12 @@ export const expensesClient = {
 
 /** Job logs API (v1 read-only). Clock in/out lives in mobile. */
 export const jobLogsClient = {
-  list: () =>
-    clientFetch<{ jobLogs: import('@bossboard/shared').JobLog[] }>('/api/job-logs'),
+  list: (params?: { status?: 'active' | 'completed' }) => {
+    const qs = params?.status ? `?status=${params.status}` : '';
+    return clientFetch<{ jobLogs: import('@bossboard/shared').JobLog[] }>(
+      `/api/job-logs${qs}`,
+    );
+  },
 };
 
 /** SWMS API (v1 read-only list). Generation, signing, photos, PDF

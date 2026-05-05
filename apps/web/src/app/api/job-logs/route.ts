@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { API_URL } from '@/lib/constants';
 import { getAccessToken } from '@/lib/auth';
 
-export async function GET() {
+const ALLOWED_STATUSES = new Set(['active', 'completed']);
+
+export async function GET(req: NextRequest) {
   try {
     const token = await getAccessToken();
     if (!token) {
@@ -12,7 +14,13 @@ export async function GET() {
       );
     }
 
-    const res = await fetch(`${API_URL}/api/v1/job-logs`, {
+    const status = req.nextUrl.searchParams.get('status');
+    const upstream = new URL(`${API_URL}/api/v1/job-logs`);
+    if (status && ALLOWED_STATUSES.has(status)) {
+      upstream.searchParams.set('status', status);
+    }
+
+    const res = await fetch(upstream, {
       headers: { Authorization: `Bearer ${token}` },
     });
 

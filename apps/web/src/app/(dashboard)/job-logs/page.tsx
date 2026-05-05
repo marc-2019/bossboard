@@ -3,8 +3,16 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { jobLogsClient, ApiError } from '@/lib/api-client';
-import type { JobLog } from '@bossboard/shared';
+import type { JobLog, JobLogStatus } from '@bossboard/shared';
 import { Clock } from 'lucide-react';
+
+type StatusFilter = JobLogStatus | 'all';
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'All jobs' },
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+];
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -38,11 +46,15 @@ function formatDuration(start: string, end: string | null): string {
 export default function JobLogsPage() {
   const [logs, setLogs] = useState<JobLog[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   useEffect(() => {
     let cancelled = false;
+    setLogs(null);
+    setError(null);
+    const params = statusFilter === 'all' ? undefined : { status: statusFilter };
     jobLogsClient
-      .list()
+      .list(params)
       .then((data) => {
         if (!cancelled) setLogs(data.jobLogs);
       })
@@ -54,7 +66,7 @@ export default function JobLogsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [statusFilter]);
 
   // Sort active first, then completed by start desc.
   const sorted = (logs || []).slice().sort((a, b) => {
@@ -77,8 +89,23 @@ export default function JobLogsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">Job logs</h1>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <span>Status</span>
+          <select
+            aria-label="Filter job logs by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className="rounded border border-border-light bg-white px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {error && (
@@ -99,11 +126,24 @@ export default function JobLogsPage() {
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-3">
               <Clock size={20} className="text-gray-500" />
             </div>
-            <h2 className="text-base font-semibold text-gray-900 mb-1">No job logs yet</h2>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
-              Clock in to a job from the BossBoard mobile app to track your time on site.
-              Completed logs show up here for billing and review.
-            </p>
+            {statusFilter === 'all' ? (
+              <>
+                <h2 className="text-base font-semibold text-gray-900 mb-1">No job logs yet</h2>
+                <p className="text-sm text-gray-600 max-w-md mx-auto">
+                  Clock in to a job from the BossBoard mobile app to track your time on site.
+                  Completed logs show up here for billing and review.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-base font-semibold text-gray-900 mb-1">
+                  No {statusFilter} job logs
+                </h2>
+                <p className="text-sm text-gray-600 max-w-md mx-auto">
+                  Try a different status filter to see other job logs.
+                </p>
+              </>
+            )}
           </div>
         </Card>
       )}
