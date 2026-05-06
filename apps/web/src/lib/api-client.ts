@@ -171,3 +171,9 @@ export const subscriptionsClient = {
       '/api/subscriptions/limits',
     ),
 };
+
+/** Stats API (v1 read-only dashboard aggregation). */
+export const statsClient = {
+  dashboard: () =>
+    clientFetch<{ stats: import('@bossboard/shared').DashboardStats }>('/api/stats/dashboard'),
+};
