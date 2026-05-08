@@ -13,7 +13,6 @@ import {
   Award,
   Users,
   Settings,
-  Smartphone,
   Menu,
   X,
 } from 'lucide-react';
@@ -67,18 +66,6 @@ export function Sidebar() {
         </Link>
       ))}
 
-      <div className="mt-auto px-3 py-4">
-        <div className="rounded-lg bg-white/5 p-3 text-xs text-gray-300 leading-snug">
-          <div className="flex items-center gap-2 text-white font-semibold mb-1">
-            <Smartphone size={14} />
-            Get the mobile app
-          </div>
-          <p className="text-gray-400">
-            SWMS, invoices, quotes, jobs and teams live in the BossBoard mobile app.
-            App Store + Google Play release coming soon.
-          </p>
-        </div>
-      </div>
     </nav>
   );
 

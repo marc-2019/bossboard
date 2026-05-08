@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { invoicesClient, ApiError } from '@/lib/api-client';
 import type { Invoice } from '@bossboard/shared';
-import { FileText, ChevronRight } from 'lucide-react';
+import { FileText, ChevronRight, Plus } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
@@ -19,6 +19,11 @@ function formatDate(iso: string | Date | null) {
   if (!iso) return '—';
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   return Number.isNaN(d.getTime()) ? '—' : dateFmt.format(d);
+}
+
+// Amounts are stored in cents on the API; divide before locale-formatting.
+function formatCents(cents: number): string {
+  return nzd.format(cents / 100);
 }
 
 export default function InvoicesPage() {
@@ -50,6 +55,13 @@ export default function InvoicesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+        <Link
+          href="/invoices/new"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+        >
+          <Plus size={16} />
+          New invoice
+        </Link>
       </div>
 
       {error && (
@@ -71,11 +83,17 @@ export default function InvoicesPage() {
               <FileText size={20} className="text-gray-500" />
             </div>
             <h2 className="text-base font-semibold text-gray-900 mb-1">No invoices yet</h2>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
-              Invoices you create in the BossBoard mobile app will appear here. The web view is
-              read-only — you can review past invoices, share a link with a client, or open the
-              full record. Create new invoices from the mobile app.
+            <p className="text-sm text-gray-600 max-w-md mx-auto mb-4">
+              Create your first invoice to bill a client. You can email it as a PDF, share a
+              public link, and mark it paid once the money lands.
             </p>
+            <Link
+              href="/invoices/new"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+            >
+              <Plus size={16} />
+              Create invoice
+            </Link>
           </div>
         </Card>
       )}
@@ -100,7 +118,7 @@ export default function InvoicesPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-sm font-semibold text-gray-900">
-                      {nzd.format(inv.total)}
+                      {formatCents(inv.total)}
                     </div>
                     <div className="text-xs text-gray-500">Due {formatDate(inv.dueDate)}</div>
                   </div>

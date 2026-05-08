@@ -81,6 +81,9 @@ export default function Home() {
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
             <a href="#nz">Why NZ</a>
+            <Link href="/login" className="nav-signin">
+              Sign in
+            </Link>
             <Link href="/register" className="lp-btn lp-btn-primary">
               Get Started
             </Link>

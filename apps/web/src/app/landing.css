@@ -416,8 +416,14 @@
 }
 
 @media (max-width: 768px) {
-  .landing-page .nav-links a:not(.lp-btn) {
+  .landing-page .nav-links a:not(.lp-btn):not(.nav-signin) {
     display: none;
+  }
+  .landing-page .nav-links {
+    gap: 12px;
+  }
+  .landing-page .nav-signin {
+    color: white;
   }
   .landing-page .features-grid {
     grid-template-columns: 1fr;

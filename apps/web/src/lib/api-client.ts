@@ -61,21 +61,110 @@ export const authClient = {
     clientFetch<{ user: import('@bossboard/shared').User }>('/api/auth/me'),
 };
 
-/** Invoices API (read-only first ship — list + detail + share link).
- *  Send / email / PDF actions are intentionally out of scope for the v1
- *  web view; tradies do those flows in the BossBoard mobile app. */
-export const invoicesClient = {
-  list: () =>
-    clientFetch<{ invoices: import('@bossboard/shared').Invoice[] }>('/api/invoices'),
+/** Invoices API — full CRUD + send/email/PDF/paid actions. */
+export interface InvoiceLineItemInput {
+  /** Line description shown on invoice */
+  description: string;
+  /** Amount in cents (integer). $5.99 → 599. */
+  amount: number;
+}
 
-  get: (id: string) =>
-    clientFetch<{ invoice: import('@bossboard/shared').Invoice }>(`/api/invoices/${id}`),
+export interface CreateInvoiceInput {
+  clientName: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  jobDescription?: string;
+  lineItems: InvoiceLineItemInput[];
+  includeGst?: boolean;
+  /** ISO date string (YYYY-MM-DD) */
+  dueDate?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  notes?: string;
+}
+
+// The Express API runs invoice/quote/expense/job-log/etc responses
+// through transformForMobile() which renames every field to snake_case
+// for the React Native client. The shared TypeScript Invoice type is
+// camelCase though, so anything the web reads needs to be normalized
+// before it hits the typed view layer.
+function snakeToCamelKey(key: string): string {
+  return key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+function deepCamelize<T = unknown>(value: unknown): T {
+  if (Array.isArray(value)) {
+    return value.map((v) => deepCamelize(v)) as unknown as T;
+  }
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    (value as object).constructor === Object
+  ) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[snakeToCamelKey(k)] = deepCamelize(v);
+    }
+    return out as T;
+  }
+  return value as T;
+}
+
+type InvoiceEnvelope = { invoice: import('@bossboard/shared').Invoice };
+type InvoiceListEnvelope = { invoices: import('@bossboard/shared').Invoice[] };
+
+export const invoicesClient = {
+  list: async () =>
+    deepCamelize<InvoiceListEnvelope>(
+      await clientFetch<unknown>('/api/invoices'),
+    ),
+
+  get: async (id: string) =>
+    deepCamelize<InvoiceEnvelope>(
+      await clientFetch<unknown>(`/api/invoices/${id}`),
+    ),
+
+  create: async (data: CreateInvoiceInput) =>
+    deepCamelize<InvoiceEnvelope>(
+      await clientFetch<unknown>('/api/invoices', { method: 'POST', body: data }),
+    ),
+
+  update: async (id: string, data: Partial<CreateInvoiceInput>) =>
+    deepCamelize<InvoiceEnvelope>(
+      await clientFetch<unknown>(`/api/invoices/${id}`, { method: 'PUT', body: data }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok: true }>(`/api/invoices/${id}`, { method: 'DELETE' }),
+
+  markSent: async (id: string) =>
+    deepCamelize<InvoiceEnvelope>(
+      await clientFetch<unknown>(`/api/invoices/${id}/send`, { method: 'POST' }),
+    ),
+
+  markPaid: async (id: string) =>
+    deepCamelize<InvoiceEnvelope>(
+      await clientFetch<unknown>(`/api/invoices/${id}/paid`, { method: 'POST' }),
+    ),
+
+  email: async (id: string, data: { recipientEmail: string; customMessage?: string }) =>
+    deepCamelize<InvoiceEnvelope & { messageId?: string }>(
+      await clientFetch<unknown>(`/api/invoices/${id}/email`, {
+        method: 'POST',
+        body: data,
+      }),
+    ),
 
   share: (id: string) =>
     clientFetch<{ shareToken: string; shareUrl: string }>(
       `/api/invoices/${id}/share`,
       { method: 'POST' },
     ),
+
+  /** Returns the absolute URL for the PDF download endpoint. The browser
+   *  fetches the PDF directly via this URL so it triggers the native
+   *  download/print dialog rather than reading bytes through fetch(). */
+  pdfUrl: (id: string) => `/api/invoices/${id}/pdf`,
 };
 
 /** Quotes API (read-only first ship — list + detail + convert-to-invoice).

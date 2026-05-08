@@ -1,14 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
 import { invoicesClient, ApiError } from '@/lib/api-client';
 import type { Invoice } from '@bossboard/shared';
-import { ArrowLeft, Share2, Check } from 'lucide-react';
+import {
+  ArrowLeft,
+  Share2,
+  Check,
+  Send,
+  Mail,
+  Download,
+  CheckCircle2,
+  Trash2,
+} from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
@@ -23,8 +33,14 @@ function formatDate(iso: string | Date | null) {
   return Number.isNaN(d.getTime()) ? '—' : dateFmt.format(d);
 }
 
+// Amounts are stored in cents on the API; divide before locale-formatting.
+function formatCents(cents: number): string {
+  return nzd.format(cents / 100);
+}
+
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params?.id;
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -32,6 +48,13 @@ export default function InvoiceDetailPage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // Email-to-client inline form
+  const [emailFormOpen, setEmailFormOpen] = useState(false);
+  const [recipient, setRecipient] = useState('');
+  const [customMessage, setCustomMessage] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -39,7 +62,10 @@ export default function InvoiceDetailPage() {
     invoicesClient
       .get(id)
       .then((data) => {
-        if (!cancelled) setInvoice(data.invoice);
+        if (!cancelled) {
+          setInvoice(data.invoice);
+          setRecipient(data.invoice.clientEmail || '');
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -53,6 +79,78 @@ export default function InvoiceDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  const runAction = async (
+    name: string,
+    fn: () => Promise<{ invoice: Invoice }>,
+    successMsg: string,
+  ) => {
+    if (!id || actionBusy) return;
+    setActionBusy(name);
+    setActionMessage(null);
+    setError(null);
+    try {
+      const data = await fn();
+      setInvoice(data.invoice);
+      setActionMessage(successMsg);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : `Could not ${name}.`);
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const onMarkSent = () =>
+    runAction('mark as sent', () => invoicesClient.markSent(id!), 'Invoice marked as sent.');
+
+  const onMarkPaid = () =>
+    runAction('mark as paid', () => invoicesClient.markPaid(id!), 'Invoice marked as paid.');
+
+  const onDownloadPdf = () => {
+    if (!id) return;
+    // Open in a new tab so the browser handles the PDF natively.
+    window.open(invoicesClient.pdfUrl(id), '_blank', 'noopener,noreferrer');
+  };
+
+  const onEmail = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!id || actionBusy) return;
+    if (!recipient.trim()) {
+      setError('Recipient email is required.');
+      return;
+    }
+    setActionBusy('email');
+    setActionMessage(null);
+    setError(null);
+    try {
+      const data = await invoicesClient.email(id, {
+        recipientEmail: recipient.trim(),
+        customMessage: customMessage.trim() || undefined,
+      });
+      setInvoice(data.invoice);
+      setActionMessage(`Invoice emailed to ${recipient.trim()}.`);
+      setEmailFormOpen(false);
+      setCustomMessage('');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not email invoice.');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!id || actionBusy) return;
+    if (!window.confirm('Delete this invoice? This cannot be undone.')) return;
+    setActionBusy('delete');
+    setError(null);
+    try {
+      await invoicesClient.remove(id);
+      router.push('/invoices');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not delete invoice.');
+      setActionBusy(null);
+    }
+  };
 
   const onShare = async () => {
     if (!id || shareBusy) return;
@@ -101,6 +199,10 @@ export default function InvoiceDetailPage() {
     );
   }
 
+  const status = invoice.status;
+  const isDraft = status === 'draft';
+  const isSent = status === 'sent' || status === 'overdue';
+
   return (
     <div className="space-y-6">
       <BackLink />
@@ -116,11 +218,125 @@ export default function InvoiceDetailPage() {
               Issued {formatDate(invoice.createdAt)} · Due {formatDate(invoice.dueDate)}
             </p>
           </div>
-          <Button onClick={onShare} loading={shareBusy} variant="primary" size="md">
-            <Share2 size={16} className="mr-2" />
-            Share with client
-          </Button>
         </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {isDraft && (
+            <Button
+              onClick={onMarkSent}
+              loading={actionBusy === 'mark as sent'}
+              disabled={!!actionBusy}
+              variant="primary"
+              size="md"
+            >
+              <Send size={14} className="mr-2" />
+              Mark as sent
+            </Button>
+          )}
+          <Button
+            onClick={() => setEmailFormOpen((v) => !v)}
+            disabled={!!actionBusy}
+            variant={isDraft ? 'secondary' : 'primary'}
+            size="md"
+          >
+            <Mail size={14} className="mr-2" />
+            {emailFormOpen ? 'Cancel email' : 'Email to client'}
+          </Button>
+          <Button
+            onClick={onDownloadPdf}
+            disabled={!!actionBusy}
+            variant="ghost"
+            size="md"
+          >
+            <Download size={14} className="mr-2" />
+            Download PDF
+          </Button>
+          <Button
+            onClick={onShare}
+            loading={shareBusy}
+            disabled={!!actionBusy}
+            variant="ghost"
+            size="md"
+          >
+            <Share2 size={14} className="mr-2" />
+            Share link
+          </Button>
+          {isSent && (
+            <Button
+              onClick={onMarkPaid}
+              loading={actionBusy === 'mark as paid'}
+              disabled={!!actionBusy}
+              variant="primary"
+              size="md"
+            >
+              <CheckCircle2 size={14} className="mr-2" />
+              Mark as paid
+            </Button>
+          )}
+          {isDraft && (
+            <Button
+              onClick={onDelete}
+              loading={actionBusy === 'delete'}
+              disabled={!!actionBusy}
+              variant="danger"
+              size="md"
+            >
+              <Trash2 size={14} className="mr-2" />
+              Delete
+            </Button>
+          )}
+        </div>
+
+        {actionMessage && (
+          <div className="mt-3 p-3 rounded-lg bg-success-light text-success text-sm">
+            {actionMessage}
+          </div>
+        )}
+        {error && (
+          <div className="mt-3 p-3 rounded-lg bg-danger-light text-danger text-sm">
+            {error}
+          </div>
+        )}
+
+        {emailFormOpen && (
+          <form onSubmit={onEmail} className="mt-4 p-4 rounded-lg border border-border-light bg-gray-50 space-y-3">
+            <Input
+              label="Recipient email"
+              type="email"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="client@example.com"
+              required
+              autoFocus
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Message (optional)
+              </label>
+              <textarea
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                placeholder="Add a short note to your client. Leave blank for the default message."
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" loading={actionBusy === 'email'} variant="primary">
+                <Send size={14} className="mr-2" />
+                Send email
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEmailFormOpen(false)}
+                disabled={actionBusy === 'email'}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
 
         {shareUrl && (
           <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-border-light">
@@ -201,7 +417,7 @@ export default function InvoiceDetailPage() {
             <li key={item.id} className="px-6 py-3 flex items-start justify-between gap-4">
               <span className="text-sm text-gray-800">{item.description}</span>
               <span className="text-sm font-medium text-gray-900 shrink-0">
-                {nzd.format(item.amount)}
+                {formatCents(item.amount)}
               </span>
             </li>
           ))}
@@ -209,17 +425,17 @@ export default function InvoiceDetailPage() {
         <div className="px-6 py-4 border-t border-border-light bg-gray-50 space-y-1">
           <div className="flex justify-between text-sm text-gray-700">
             <span>Subtotal</span>
-            <span>{nzd.format(invoice.subtotal)}</span>
+            <span>{formatCents(invoice.subtotal)}</span>
           </div>
           {invoice.includeGst && (
             <div className="flex justify-between text-sm text-gray-700">
               <span>GST (15%)</span>
-              <span>{nzd.format(invoice.gstAmount)}</span>
+              <span>{formatCents(invoice.gstAmount)}</span>
             </div>
           )}
           <div className="flex justify-between text-base font-semibold text-gray-900 pt-1">
             <span>Total</span>
-            <span>{nzd.format(invoice.total)}</span>
+            <span>{formatCents(invoice.total)}</span>
           </div>
         </div>
       </Card>
