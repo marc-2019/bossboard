@@ -375,6 +375,7 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
  * Mark invoice as paid
  */
 router.post('/:id/paid', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  // TODO(payments): Handle webhook from payment gateway to auto-mark as paid (see docs/product/PAYMENT_GATEWAY_PARTNERS.md)
   try {
     const id = req.params.id as string;
     const invoice = await invoicesService.markAsPaid(id, req.user!.userId);

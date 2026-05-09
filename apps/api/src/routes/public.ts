@@ -14,6 +14,7 @@ const router = Router();
  * View a shared invoice (server-rendered HTML, no auth required)
  */
 router.get('/invoices/:token', async (req: Request, res: Response) => {
+  // TODO(payments): Implement payment gateway integration (see docs/product/PAYMENT_GATEWAY_PARTNERS.md)
   try {
     const token = req.params.token as string;
 

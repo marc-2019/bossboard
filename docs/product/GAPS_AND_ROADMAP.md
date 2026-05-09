@@ -39,14 +39,15 @@ TradeMate NZ is a mobile-first compliance and cashflow platform for NZ tradies. 
 | 11 | Invoice chaser | Feature | Planned | Week 9 | SMS reminders |
 | 12 | Visa tracking | Feature | Planned | Week 10 | Module 3 |
 | 13 | Push notifications | Feature | Planned | Week 10 | Expo Push |
+| 14 | Customer-facing invoice payment rail (Pay Now) | Feature | Planned | Week 12 | See docs/product/PAYMENT_GATEWAY_PARTNERS.md |
 
 ### P3 - Low (Nice to have)
 
 | # | Gap | Category | Status | Target | Notes |
 |---|-----|----------|--------|--------|-------|
-| 14 | Dark mode | UX | Backlog | TBD | User request |
-| 15 | Multi-language | UX | Backlog | TBD | Te Reo Maori |
-| 16 | Team features | Feature | Backlog | TBD | Multi-user |
+| 15 | Dark mode | UX | Backlog | TBD | User request |
+| 16 | Multi-language | UX | Backlog | TBD | Te Reo Maori |
+| 17 | Team features | Feature | Backlog | TBD | Multi-user |
 
 ---
 
@@ -115,6 +116,7 @@ TradeMate NZ is a mobile-first compliance and cashflow platform for NZ tradies. 
 - [ ] Play Store submission
 - [ ] Landing page
 - [ ] Documentation
+- [ ] Implement customer-facing invoice payment rail (see docs/product/PAYMENT_GATEWAY_PARTNERS.md)
 
 ### Future Phases
 
