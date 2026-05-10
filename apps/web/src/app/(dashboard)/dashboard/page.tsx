@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { jobLogsClient, ApiError } from '@/lib/api-client';
 import type { JobLog } from '@bossboard/shared';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Loader2 } from 'lucide-react';
 
 export default function DashboardPage() {
   const [jobs, setJobs] = useState<JobLog[] | null>(null);
@@ -29,6 +29,7 @@ export default function DashboardPage() {
     };
   }, []);
 
+  const loading = jobs === null && error === null;
   const isEmpty = jobs !== null && jobs.length === 0;
 
   return (
@@ -59,20 +60,29 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {loading && (
+        <Card className="mt-6">
+          <div className="py-10 px-4 flex items-center justify-center text-gray-500">
+            <Loader2 size={20} className="animate-spin mr-2" />
+            <span className="text-sm">Loading your jobs…</span>
+          </div>
+        </Card>
+      )}
+
       {isEmpty && !error && (
         <Card className="mt-6">
-          <div className="py-10 px-4 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-              <CalendarDays size={22} className="text-gray-500" />
+          <div className="py-12 px-4 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 mb-4">
+              <CalendarDays size={32} className="text-accent" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">No jobs scheduled</h2>
-            <p className="text-gray-600 max-w-md mx-auto mb-5">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">No jobs scheduled</h2>
+            <p className="text-gray-600 max-w-md mx-auto mb-6">
               You don&apos;t have any jobs on the go yet. Create your first job to start
               tracking time, expenses, and SWMS against it.
             </p>
-            <Link href="/jobs/new">
-              <Button variant="primary" size="md">
-                Create a new job
+            <Link href="/job-logs">
+              <Button variant="primary" size="lg" className="px-8">
+                Create your first job
               </Button>
             </Link>
           </div>
