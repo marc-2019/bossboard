@@ -89,15 +89,43 @@ Allow customers to pay in installments, merchant gets paid upfront.
 - Public invoice route must generate payment links/tokens dynamically per invoice
 - Payment amount should be in NZD cents (integer) to match existing invoice storage
 - Success/cancel pages should provide clear feedback and link back to BossBoard
-- Webhook endpoints must be secured and verify signatures
-- Consider adding payment method metadata to invoices for reporting
-- Ensure compliance with surcharge laws: if enabling surcharge, display clearly before payment
+- Webhook endpoints must be secured and verify signatures (Stripe: `stripe-signature` header + endpoint secret)
+- Consider adding payment method metadata to invoices for reporting (`paid_via`, `gateway_reference`)
+- Ensure compliance with NZ surcharge laws (Retail Payment System Act 2022): if enabling surcharge, display clearly before payment and cap at the actual cost of acceptance
+- Re-use of `services/stripe.ts` is **out of scope for this discovery doc** — extension is a Phase-1 implementation task, not a refactor of subscription billing
+
+## Integration Touch Points (for the implementation task that follows this discovery)
+- `apps/api/src/routes/public.ts` — the public invoice handler is where the "Pay Now" CTA renders; today it has a `TODO(payments)` marker pointing to this document
+- `apps/api/src/routes/invoices.ts` — the `POST /:id/paid` handler is where a gateway webhook will eventually land an automatic status flip; today it has a `TODO(payments)` marker
+- `apps/api/src/services/stripe.ts` — Phase 1 extension surface; **this discovery does not modify it**
+- A new migration will be required at implementation time to persist `payment_link_url`, `payment_provider`, and `gateway_payment_id` on `invoices`; explicitly out of scope for this task
 
 ## Open Questions
-1. Should we allow tradies to mark invoices as paid manually if payment occurs outside our gateway (e.g., cash)?
-2. How to handle partial payments or overpayments?
-3. Should we save payment tokens/references on the invoice for refunds/chargebacks?
-4. What currency support is needed? (Currently NZD only)
+1. Should we allow tradies to mark invoices as paid manually if payment occurs outside our gateway (e.g., cash)? (Yes — existing `mark as paid` endpoint preserved)
+2. How to handle partial payments or overpayments? Phase 1: full-amount only; revisit in Phase 2
+3. Should we save payment tokens/references on the invoice for refunds/chargebacks? Yes — column added at Phase 1 implementation
+4. What currency support is needed? Currently NZD only; international IBAN block stays as manual bank transfer
+5. Who absorbs the gateway fee — tradie or end customer? Default: tradie absorbs in Phase 1; per-tradie surcharge toggle in Phase 2
+6. How do we communicate "payment in flight" between gateway redirect and webhook landing? Phase 1: status remains `sent` until webhook confirms; no intermediate `processing` state
+
+## Risks & Mitigations
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Stripe NZ rate higher than tradie expectations | High | Medium | Phase-2 Windcave gives lower-fee alternative |
+| Webhook race against manual mark-as-paid | Medium | Low | Idempotent paid-flip; ignore webhook if already `paid` |
+| Customer abandons at Stripe-hosted page | Medium | Medium | Track abandonment via Stripe dashboard; phase-2 add inline checkout |
+| Surcharge non-compliance (Retail Payment System Act 2022) | Low | High | Display surcharge before payment; cap at cost of acceptance |
+| Akahu pay-by-bank low end-customer adoption | High | Low | Offer alongside cards, not as sole option |
+
+## Evidence & Sources
+- Stripe NZ pricing: https://stripe.com/nz/pricing (2.9% + 30¢ domestic cards as of 2026)
+- Windcave NZ pricing: https://www.windcave.com/pricing — published indicative SMB rates ~2.5% + 30¢
+- Worldline NZ (ex-Paymark): https://worldline.com/en-nz — quoted rates require sales engagement; ~2.2% + 30¢ band
+- Paystation: https://paystation.co.nz/pricing — published transparent SMB plans ~2.0% + 25¢
+- Akahu: https://akahu.nz — open-banking pay-by-bank, flat-fee model 30–50¢/transaction
+- NZ Retail Payment System Act 2022 (surcharge cap): https://www.legislation.govt.nz/act/public/2022/0021/latest/whole.html
 
 ---
-*Document generated for BossBoard payment gateway discovery. Next step: implementation task after approval.*
+*Document generated for BossBoard payment gateway discovery. Next step: implementation task after approval, scoped to the Phase 1 recommendation below.*
+
+**Recommended Phase 1: Stripe Payment Links** — chosen because the Stripe SDK and credentials are already wired into `apps/api/src/services/stripe.ts` for subscription billing, time-to-first-payable-invoice is days not weeks, and the 2.9% + 30¢ NZ rate is acceptable while we validate end-customer demand before negotiating Windcave volume pricing.
