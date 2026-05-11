@@ -28,7 +28,7 @@ import './landing.css';
 export const metadata: Metadata = {
   title: 'BossBoard | The All-in-One App for NZ Tradies',
   description:
-    "Run your trade business like a boss. Jobs, teams, compliance docs and cashflow in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.",
+    "Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.",
   keywords: [
     'tradie app',
     'NZ tradies',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'BossBoard | The All-in-One App for NZ Tradies',
     description:
-      'Jobs, teams, compliance docs and cashflow in one app. Built for Kiwi tradies. From $4.99/week.',
+      'Jobs, teams, safety paperwork and revenue insights in one app. Built for Kiwi tradies. From $4.99/week.',
     url: 'https://bossboard.instilligent.com',
     type: 'website',
   },
@@ -101,9 +101,9 @@ export default function Home() {
             One screen.
           </h1>
           <p>
-            Jobs, teams, compliance docs and cashflow in one app. BossBoard
-            helps electricians, plumbers, builders and tradies across Aotearoa
-            run their business from their pocket — you stay the boss.
+            Jobs, teams, safety paperwork and revenue insights in one app.
+            BossBoard helps electricians, plumbers, builders and tradies across
+            Aotearoa run their business from their pocket — you stay the boss.
           </p>
           <div className="hero-cta">
             <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large">
@@ -114,8 +114,8 @@ export default function Home() {
             </a>
           </div>
           <p className="hero-price">
-            Free to start. Upgrade from <strong>$4.99/week</strong> when
-            you&apos;re ready.
+            Free during beta. Paid tiers from <strong>$4.99/week</strong> when
+            we launch billing.
           </p>
         </div>
       </section>
@@ -133,11 +133,14 @@ export default function Home() {
           <div className="features-grid">
             <div className="feature-card">
               <div className="feature-icon">{'\u{1F6E1}'}</div>
-              <h3>Compliance Made Easy</h3>
+              <h3>AI-Assisted SWMS Drafts</h3>
               <p>
-                Generate Safe Work Method Statements with one tap. AI-powered
-                hazard identification for your trade. Built to Health and
-                Safety at Work Act 2015 standards — you stay the PCBU.
+                Draft Safe Work Method Statements in one tap, with AI-assisted
+                hazard suggestions for your trade — aligned to the NZ Health
+                and Safety at Work Act 2015. Templates and starting material,
+                not legal advice. While you stay accountable as the PCBU,
+                BossBoard turns hours of blank-page paperwork into minutes —
+                so you can get back on the tools.
               </p>
             </div>
             <div className="feature-card">
@@ -223,20 +226,23 @@ export default function Home() {
               <ul className="price-features">
                 <li>Unlimited invoices &amp; quotes</li>
                 <li>Unlimited SWMS</li>
-                <li>AI hazard identification</li>
+                <li>AI-assisted hazard suggestions</li>
                 <li>PDF exports</li>
                 <li>Email invoices</li>
                 <li>Expense tracking</li>
                 <li>Certification reminders</li>
                 <li>Job logging &amp; time tracking</li>
               </ul>
-              <Link
-                href="/register"
+              <a
+                href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21"
                 className="lp-btn lp-btn-primary"
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                Start Free
-              </Link>
+                Join the Beta
+              </a>
+              <p style={{ fontSize: '0.85rem', opacity: 0.75, marginTop: '0.5rem', textAlign: 'center' }}>
+                Tradie features free during beta
+              </p>
             </div>
             <div className="price-card">
               <div className="price-name">Team</div>
@@ -249,13 +255,16 @@ export default function Home() {
                 <li>Up to 5 team members</li>
                 <li>Team roles &amp; permissions</li>
               </ul>
-              <Link
-                href="/register"
+              <a
+                href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21"
                 className="lp-btn lp-btn-outline"
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                Start Free
-              </Link>
+                Join the Beta
+              </a>
+              <p style={{ fontSize: '0.85rem', opacity: 0.75, marginTop: '0.5rem', textAlign: 'center' }}>
+                Team features free during beta
+              </p>
             </div>
           </div>
         </div>

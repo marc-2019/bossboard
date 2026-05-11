@@ -1,18 +1,18 @@
 # BossBoard
 
-> Mobile-first compliance and business management app for New Zealand tradespeople. Jobs, teams, compliance and cashflow in one app.
+> Mobile-first business management app for New Zealand tradespeople, with AI-assisted compliance-doc drafting. Jobs, teams, safety paperwork and revenue insights in one app.
 
 ## About
 
 BossBoard is a mobile-first micro-SaaS platform built for New Zealand tradies and small service businesses — plumbers, electricians, builders, landscapers, and other trades. It replaces the patchwork of spreadsheets, paper forms, and multiple apps with a single affordable tool that handles compliance, invoicing, quoting, job tracking, and team management.
 
-Built by Instilligent Limited, BossBoard uses AI to draft Safe Work Method Statements to WorkSafe NZ standards — operator reviews and signs off. It also surfaces business insights. The app is designed to work offline-first via React Native with local SQLite storage, syncing when connectivity is available.
+Built by Instilligent Limited, BossBoard uses AI (via Anthropic Claude) to help operators draft Safe Work Method Statements — as templates and starting material aligned to the NZ Health and Safety at Work Act 2015, not legal advice. While the operator stays accountable as the PCBU, the heavy lifting of the first draft — hazard categories, control measures, regulation references — is done in seconds rather than hours. The app is designed to work offline-first via React Native with local SQLite storage, syncing when connectivity is available.
 
 Target market: 100,000-150,000 NZ SMEs in the trades and service sectors.
 
 ## Features
 
-- AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 — operator stays accountable as the PCBU.
+- AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 — templates and starting material, not legal advice. Operator stays accountable as the PCBU.
 - Professional invoicing with GST built in, payment tracking, and overdue invoice chasing
 - Quotes and estimates with one-tap conversion to invoices
 - Job logging with clock in/out, per-site and per-worker time tracking
