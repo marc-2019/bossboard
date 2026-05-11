@@ -156,6 +156,12 @@
       "claim_dropped": "llms.txt + apps/web/public/llms.txt: 'BossBoard (also known as TradeMate NZ)' / 'BossBoard (TradeMate NZ)' brand-bleed aliases / 'AI-powered SWMS generation compliant with...' / 'Generate WorkSafe NZ-compliant Safe Work Method Statements in seconds' / 'Professional, GST-compliant documents' / 'automated expiry alerts'",
       "verdict_at_recall": "RECALLED",
       "reason": "AI-crawler surfaces had TradeMate brand-bleed + 'compliant' promises + 'automated' alerts. Reframed to operator-accountable. Auto/bb-copy-audit-fixes-2026-05-11 Group 3."
+    },
+    {
+      "date": "2026-05-11",
+      "claim_dropped": "README.md L3: 'Mobile-first compliance and invoicing platform' (implied product certifies compliance)",
+      "verdict_at_recall": "RECALLED",
+      "reason": "Reframed as 'compliance-doc generation' — narrower factual claim (it generates docs; the operator certifies). Auto/bb-copy-audit-fixes-2026-05-11 Group 5."
     }
   ],
   "verified_clean_directives": [

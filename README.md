@@ -1,6 +1,6 @@
 # BossBoard
 
-Mobile-first compliance and invoicing platform for New Zealand tradies and small service businesses.
+Mobile-first compliance-doc generation and invoicing app for New Zealand tradies and small service businesses.
 
 ## Overview
 
