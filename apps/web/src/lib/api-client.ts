@@ -227,9 +227,8 @@ export const swmsClient = {
     clientFetch<{ documents: import('@bossboard/shared').SWMSDocument[] }>('/api/swms'),
 };
 
-/** Teams API (v1 web scope: view team + invite members + cancel invites).
- *  Remove member, change role, leave team, create team are mobile-only
- *  for now — bigger UX considerations than this v1 covers. */
+/** Teams API (web scope: view team + invite/cancel + remove/role/leave).
+ *  Create-team and ownership transfer still happen in the mobile app. */
 export const teamsClient = {
   myTeam: () =>
     clientFetch<{
@@ -252,6 +251,32 @@ export const teamsClient = {
   cancelInvite: (teamId: string, inviteId: string) =>
     clientFetch<{ ok: boolean }>(`/api/teams/${teamId}/invites/${inviteId}`, {
       method: 'DELETE',
+    }),
+
+  /** Remove a team member. Owner removes any non-owner; admin removes
+   *  workers only. `memberUserId` is the target user id, not the row id. */
+  removeMember: (teamId: string, memberUserId: string) =>
+    clientFetch<{ ok: boolean }>(
+      `/api/teams/${teamId}/members/${memberUserId}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Update a member's role. Owner only — admins cannot promote/demote.
+   *  Backend rejects assigning `owner` (ownership transfer is separate). */
+  updateMemberRole: (
+    teamId: string,
+    memberUserId: string,
+    role: Exclude<import('@bossboard/shared').TeamRole, 'owner'>,
+  ) =>
+    clientFetch<{ member: import('@bossboard/shared').TeamMember }>(
+      `/api/teams/${teamId}/members/${memberUserId}/role`,
+      { method: 'PUT', body: { role } },
+    ),
+
+  /** Leave the team. Owner cannot leave — backend returns 400. */
+  leaveTeam: (teamId: string) =>
+    clientFetch<{ ok: boolean }>(`/api/teams/${teamId}/leave`, {
+      method: 'POST',
     }),
 };
 
