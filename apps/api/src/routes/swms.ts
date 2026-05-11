@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import swmsService from '../services/swms.js';
+import auditLog from '../services/audit-log.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, checkLimit } from '../middleware/subscription.js';
 
@@ -110,6 +111,19 @@ router.post('/generate', authenticate, attachSubscription, checkLimit('swms'), a
 
     const result = await swmsService.generateSWMS(req.user!.userId, validation.data);
 
+    // Audit: log SWMS creation. Best-effort; failure must not block the user.
+    void auditLog.record({
+      entityType: 'swms',
+      entityId: result.swmsId,
+      action: 'create',
+      actorUserId: req.user!.userId,
+      metadata: {
+        tradeType: validation.data.tradeType,
+        title: result.document.title,
+        useAI: validation.data.useAI !== false,
+      },
+    });
+
     res.status(201).json({
       success: true,
       data: result,
@@ -187,6 +201,13 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
     }
 
     const { id } = req.params;
+
+    // Snapshot BEFORE state for audit diff. If the doc doesn't exist or the
+    // snapshot itself fails, fall through — updateSWMS will 404 below.
+    const before = await swmsService
+      .getSWMSById(id as string, req.user!.userId)
+      .catch(() => null);
+
     const document = await swmsService.updateSWMS(
       id as string,
       req.user!.userId,
@@ -200,6 +221,23 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
         message: 'SWMS document not found',
       });
       return;
+    }
+
+    // Audit: log SWMS update with field-level diff. Best-effort.
+    if (before) {
+      const changes = auditLog.diffEntity(
+        before as unknown as Record<string, unknown>,
+        document as unknown as Record<string, unknown>,
+      );
+      if (Object.keys(changes).length > 0) {
+        void auditLog.record({
+          entityType: 'swms',
+          entityId: id as string,
+          action: 'update',
+          actorUserId: req.user!.userId,
+          changes,
+        });
+      }
     }
 
     res.json({
@@ -219,6 +257,13 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
 router.delete('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+
+    // Snapshot title/trade BEFORE delete so the audit row carries enough
+    // context to be meaningful after the source row is gone.
+    const before = await swmsService
+      .getSWMSById(id as string, req.user!.userId)
+      .catch(() => null);
+
     const deleted = await swmsService.deleteSWMS(id as string, req.user!.userId);
 
     if (!deleted) {
@@ -229,6 +274,21 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next: Ne
       });
       return;
     }
+
+    // Audit: log SWMS deletion. Best-effort.
+    void auditLog.record({
+      entityType: 'swms',
+      entityId: id as string,
+      action: 'delete',
+      actorUserId: req.user!.userId,
+      metadata: before
+        ? {
+            title: (before as unknown as Record<string, unknown>).title,
+            tradeType: (before as unknown as Record<string, unknown>).trade_type
+              ?? (before as unknown as Record<string, unknown>).templateType,
+          }
+        : null,
+    });
 
     res.json({
       success: true,
@@ -271,6 +331,19 @@ router.post('/:id/sign', authenticate, async (req: Request, res: Response, next:
       });
       return;
     }
+
+    // Audit: log SWMS signature event. Best-effort. We record the role and
+    // timestamp but NEVER the raw signature blob — that lives only on the
+    // document row itself.
+    void auditLog.record({
+      entityType: 'swms',
+      entityId: id as string,
+      action: 'sign',
+      actorUserId: req.user!.userId,
+      metadata: {
+        role: validation.data.role,
+      },
+    });
 
     res.json({
       success: true,
