@@ -1,16 +1,49 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { jobLogsClient, ApiError } from '@/lib/api-client';
-import type { JobLog } from '@bossboard/shared';
+import { jobLogsClient, statsClient, ApiError } from '@/lib/api-client';
+import type { DashboardStats, JobLog } from '@bossboard/shared';
 import { CalendarDays, Loader2 } from 'lucide-react';
+
+/** Render value for a stat card: number, dash placeholder while loading,
+ *  or em-dash on error. Keeps the card height stable across states. */
+function statValue(
+  stats: DashboardStats | null,
+  loading: boolean,
+  pick: (s: DashboardStats) => number,
+): string {
+  if (loading) return '…';
+  if (!stats) return '—';
+  return pick(stats).toLocaleString();
+}
 
 export default function DashboardPage() {
   const [jobs, setJobs] = useState<JobLog[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const loadStats = useCallback(async (signal?: AbortSignal) => {
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const data = await statsClient.dashboard();
+      if (signal?.aborted) return;
+      setStats(data.stats);
+    } catch (err: unknown) {
+      if (signal?.aborted) return;
+      setStatsError(
+        err instanceof ApiError ? err.message : 'Stats unavailable.',
+      );
+    } finally {
+      if (!signal?.aborted) setStatsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +62,24 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Stats: load on mount and re-load when the tab regains focus so the
+  // numbers don't go stale after a tradie creates an invoice in the mobile
+  // app then flips back to the web dashboard.
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadStats(controller.signal);
+
+    const onFocus = () => {
+      void loadStats();
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      controller.abort();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadStats]);
+
   const loading = jobs === null && error === null;
   const isEmpty = jobs !== null && jobs.length === 0;
 
@@ -38,21 +89,64 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <p className="text-sm font-medium text-gray-500">SWMS This Month</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">-</p>
+          <p
+            className="text-2xl font-bold text-gray-900 mt-1"
+            aria-live="polite"
+            data-testid="stat-swms-this-month"
+          >
+            {statValue(stats, statsLoading, (s) => s.swms.thisMonth)}
+          </p>
         </Card>
         <Card>
           <p className="text-sm font-medium text-gray-500">Unpaid Invoices</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">-</p>
+          <p
+            className="text-2xl font-bold text-gray-900 mt-1"
+            aria-live="polite"
+            data-testid="stat-unpaid-invoices"
+          >
+            {statValue(stats, statsLoading, (s) => s.invoices.unpaid)}
+          </p>
         </Card>
         <Card>
           <p className="text-sm font-medium text-gray-500">Pending Quotes</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">-</p>
+          <p
+            className="text-2xl font-bold text-gray-900 mt-1"
+            aria-live="polite"
+            data-testid="stat-pending-quotes"
+          >
+            {statValue(stats, statsLoading, (s) => s.quotes.pending)}
+          </p>
         </Card>
         <Card>
           <p className="text-sm font-medium text-gray-500">Certifications</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">-</p>
+          <p
+            className="text-2xl font-bold text-gray-900 mt-1"
+            aria-live="polite"
+            data-testid="stat-certifications"
+          >
+            {statValue(stats, statsLoading, (s) => s.certifications.total)}
+          </p>
         </Card>
       </div>
+
+      {statsError && (
+        <Card className="mt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-gray-600">
+              Stats unavailable. {statsError}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                void loadStats();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {error && (
         <Card className="mt-6">
