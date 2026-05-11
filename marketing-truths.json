@@ -2,7 +2,7 @@
   "$schema": "https://instilligent.com/schemas/marketing-truths.v1.json",
   "product_name": "BossBoard",
   "product_status": "beta-ready (v0.5.0)",
-  "last_full_audit_date": "2026-05-11",
+  "last_full_audit_date": "2026-05-12",
   "last_full_audit_by": "claude+marc",
   "audit_doc": "~/cf-research/marketing-audits/bossboard-2026-04-30.md",
   "cf_directive": "customer-facing-copy-requires-product-claim-audit",
@@ -139,6 +139,12 @@
     }
   ],
   "recall_history": [
+    {
+      "date": "2026-05-12",
+      "claim_dropped": "apps/web/index.html (71KB, last touched 2026-05-01 02:38, originally committed b172d56 — 'Boss Board' x4 (2-word brand violation per feedback_brand_names.md) + 'AI-powered compliance' x2 (FTA s13(a) unsubstantiated overclaim) + 'AI-powered, WorkSafe-compliant' x1 (FTA s13(c) sponsorship-implication + Legal Services Act crossover).",
+      "verdict_at_recall": "DELETED",
+      "reason": "Per audit acb7460126e0101e2 F-3 (2026-05-12) + Marc directive 'we need to fix these now'. Orphan from pre-rebrand era — NOT in Next.js App Router structure (canonical landing is apps/web/src/app/page.tsx), NOT served at runtime (Dockerfile.nextweb runner stage only copies .next/standalone + .next/static + apps/web/public; apps/web/index.html lives in builder stage only and is discarded). Zero references in Dockerfile.api / Dockerfile.web / Dockerfile.nextweb / railway.toml / railway.web.toml / apps/api/src/. Dockerfile.web's nginx sed targets /usr/share/nginx/html/index.html (Expo build output, different artifact). Audit-register coverage gap closed. File removed via git rm — no runtime impact expected."
+    },
     {
       "date": "2026-05-11",
       "claim_dropped": "apps/web/src/app/page.tsx L241 + L260 paid-tier 'Start Free' CTAs on Tradie ($4.99/wk) + Team ($9.99/wk) cards (FTA-B2: routed identically to free-tier /register, creating impression of paid-tier trial that does not exist in beta). PLUS hero upgrade line page.tsx L117 + apps/api/src/landing.html L218 + landing/index.html L218 'Free to start. Upgrade from $4.99/week when you're ready.' (FTA s13.4/s19.3: implies upgrade is purchasable today; Stripe NZ not live).",
