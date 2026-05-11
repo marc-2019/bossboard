@@ -28,7 +28,7 @@ import './landing.css';
 export const metadata: Metadata = {
   title: 'BossBoard | The All-in-One App for NZ Tradies',
   description:
-    "Run your trade business like a boss. Jobs, teams, compliance and cashflow in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.",
+    "Run your trade business like a boss. Jobs, teams, compliance docs and cashflow in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.",
   keywords: [
     'tradie app',
     'NZ tradies',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'BossBoard | The All-in-One App for NZ Tradies',
     description:
-      'Jobs, teams, compliance and cashflow in one app. Built for Kiwi tradies. From $4.99/week.',
+      'Jobs, teams, compliance docs and cashflow in one app. Built for Kiwi tradies. From $4.99/week.',
     url: 'https://bossboard.instilligent.com',
     type: 'website',
   },
@@ -101,9 +101,9 @@ export default function Home() {
             One screen.
           </h1>
           <p>
-            Jobs, teams, compliance and cashflow in one app. BossBoard helps
-            electricians, plumbers, builders and tradies across New Zealand
-            run their business from their pocket.
+            Jobs, teams, compliance docs and cashflow in one app. BossBoard
+            helps electricians, plumbers, builders and tradies across Aotearoa
+            run their business from their pocket — you stay the boss.
           </p>
           <div className="hero-cta">
             <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large">
@@ -136,8 +136,8 @@ export default function Home() {
               <h3>Compliance Made Easy</h3>
               <p>
                 Generate Safe Work Method Statements with one tap. AI-powered
-                hazard identification for your trade. Compliant with the Health
-                and Safety at Work Act 2015.
+                hazard identification for your trade. Built to Health and
+                Safety at Work Act 2015 standards — you stay the PCBU.
               </p>
             </div>
             <div className="feature-card">
@@ -145,8 +145,8 @@ export default function Home() {
               <h3>Professional Invoicing</h3>
               <p>
                 Create and send invoices on the spot. Track payments, chase
-                overdue invoices, and know your cashflow position at a glance.
-                GST built in.
+                overdue invoices, and see your revenue at a glance. GST built
+                in.
               </p>
             </div>
             <div className="feature-card">
@@ -235,7 +235,7 @@ export default function Home() {
                 className="lp-btn lp-btn-primary"
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                Start Free Trial
+                Start Free
               </Link>
             </div>
             <div className="price-card">
@@ -254,7 +254,7 @@ export default function Home() {
                 className="lp-btn lp-btn-outline"
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                Start Free Trial
+                Start Free
               </Link>
             </div>
           </div>
@@ -275,10 +275,10 @@ export default function Home() {
             <div className="nz-item">
               <div className="icon">{'\u{1F3D7}'}</div>
               <div>
-                <h4>WorkSafe NZ Compliant</h4>
+                <h4>Built to WorkSafe NZ standards</h4>
                 <p>
-                  SWMS templates built to Health and Safety at Work Act 2015
-                  standards.
+                  SWMS templates aligned to Health and Safety at Work Act 2015
+                  — operator signs off.
                 </p>
               </div>
             </div>

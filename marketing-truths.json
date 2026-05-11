@@ -144,6 +144,12 @@
       "claim_dropped": "landing/index.html: 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'Team scheduling' + 'Job assignment & dispatch' / 'Join hundreds of Kiwi tradies' / 'cashflow position at a glance' / 'forever' price-period / 'Free plan available forever'",
       "verdict_at_recall": "RECALLED",
       "reason": "Legacy static landing — mirror of the 2026-04-30 portfolio-wide recall on page.tsx; survivors removed 2026-05-11. Auto/bb-copy-audit-fixes-2026-05-11 Group 2."
+    },
+    {
+      "date": "2026-05-11",
+      "claim_dropped": "apps/web/src/app/page.tsx: 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'know your cashflow position at a glance' / 'compliance and cashflow' / 'Start Free Trial' CTA / 'across New Zealand' (no operator-accountability)",
+      "verdict_at_recall": "RECALLED",
+      "reason": "Next.js canonical landing — operator-accountable rewording across hero meta, OG description, feature cards, NZ section, and CTA copy. 'Start Free Trial' → 'Start Free' (Stripe NZ not live; nothing to trial). Auto/bb-copy-audit-fixes-2026-05-11 Group 4."
     }
   ],
   "verified_clean_directives": [
