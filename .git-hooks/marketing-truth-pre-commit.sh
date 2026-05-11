@@ -223,8 +223,8 @@ fi
 # Gate 5: MARC-APPROVED trailer enforcement — moved to commit-msg phase.
 # `.git/COMMIT_EDITMSG` is empty at pre-commit time, so the check used to
 # require a manual `cp` of the message before each commit. The trailer
-# check now lives in marketing-truth-commit-msg.sh which git invokes with
-# the commit-message file path as $1. See: split 2026-05-11.
+# check now lives in marketing-truth-commit-msg.sh which git invokes with the
+# commit-message file path as $1. See: split 2026-05-11.
 
 # All pre-commit gates passed.
 echo "✓ marketing-truth pre-commit: ${TRUTHS_FILE##*/} updated, $(echo "$CUSTOMER_FACING_FILES" | wc -l) customer-facing file(s) gated. (trailer check at commit-msg phase)"
