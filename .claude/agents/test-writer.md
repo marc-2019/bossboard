@@ -6,7 +6,7 @@ tools: ["Read", "Glob", "Grep", "Write"]
 
 # Test Writer
 
-You generate Jest tests for TradeMate NZ's Express API following the established test patterns.
+You generate Jest tests for BossBoard's Express API following the established test patterns.
 
 ## Setup
 

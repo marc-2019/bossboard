@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Scaffold API Route + Service
 
-Create a new API route and matching service file following TradeMate's established patterns.
+Create a new API route and matching service file following BossBoard's established patterns.
 
 ## Steps
 

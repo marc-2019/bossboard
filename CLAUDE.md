@@ -1,14 +1,25 @@
-# TradeMate NZ - Mobile-First Compliance & Cashflow Platform
+# BossBoard - Mobile-First Compliance & Cashflow Platform
 
 ## Project Brain
 
-**Version**: 0.5.0 | **Status**: Beta-Ready | **Updated**: February 12, 2026
+**Version**: 0.5.0 | **Status**: Beta-Ready | **Updated**: 2026-05-12
+
+> **Brand history**: This product was previously named "TradeMate NZ". Marc consolidated
+> the product line into a single brand on 2026-05-11 (CF op `da31d539`); see
+> recall PR #3 + Marc-direct 2026-05-12. The on-disk repo path
+> `/home/marc/projects/trademate-nz` is the pre-rename legacy path; the GitHub
+> repo rename `marc-2019/trademate-nz` → `marc-2019/bossboard` is a coordinated
+> Marc-action pending. The Stripe metadata field `trademate_user_id` is a
+> contract surface — do NOT rename without a coordinated Stripe-metadata
+> migration. The third-party domain `trademate.co.nz` is owned by an
+> unrelated company (Trademate NZ Ltd, WooCommerce sunscreen retailer) — do
+> NOT link customers to it.
 
 ---
 
 ## What Is This Project?
 
-TradeMate NZ is a **mobile-first micro-SaaS platform** for New Zealand tradies and small service businesses (plumbers, electricians, builders, landscapers). Built by Instilligent Limited, leveraging RegTech expertise from Modular Compliance.
+BossBoard is a **mobile-first micro-SaaS platform** for New Zealand tradies and small service businesses (plumbers, electricians, builders, landscapers). Built by Instilligent Limited, leveraging RegTech expertise from Modular Compliance.
 
 ### Core Identity
 - **Target Market**: 100-150k NZ SMEs (tradies, service businesses)
@@ -18,8 +29,8 @@ TradeMate NZ is a **mobile-first micro-SaaS platform** for New Zealand tradies a
 
 ### Business Model
 - **Free tier**: 3 invoices/mo, 2 SWMS/mo, basic dashboard ($0)
-- **Tradie tier**: Unlimited everything, single user ($4.99 NZD/week ≈ $19.99/mo)
-- **Team tier**: Everything + up to 5 team members ($9.99 NZD/week ≈ $39.99/mo)
+- **Tradie tier**: Unlimited everything, single user ($4.99 NZD/week ~ $19.99/mo)
+- **Team tier**: Everything + up to 5 team members ($9.99 NZD/week ~ $39.99/mo)
 - Currently in **beta mode** - all features free for all users
 
 ### Product Modules
@@ -27,7 +38,7 @@ TradeMate NZ is a **mobile-first micro-SaaS platform** for New Zealand tradies a
 2. **Cashflow Forecasting Module** (Q2-Q3 2026) - Xero integration
 3. **Hiring/Visa Compliance Module** (Q3-Q4 2026)
 
-### Competitor Analysis & Our Gaps We Fill
+### Competitor Analysis & Gaps We Fill
 
 | Competitor | Price | Their Weakness | Our Advantage |
 |------------|-------|----------------|---------------|
@@ -54,84 +65,88 @@ TradeMate NZ is a **mobile-first micro-SaaS platform** for New Zealand tradies a
 
 ### Services & Ports
 
+> Container names retain the `trademate-*` prefix from before the brand
+> consolidation; renaming containers is deferred to avoid breaking local
+> compose state and CI references. Treat the prefix as a historical artifact.
+
 | Service | Port | Purpose |
 |---------|------|---------|
-| trademate-api | 29000 | Express API server |
-| trademate-postgres | 29432 | PostgreSQL database |
-| trademate-redis | 29379 | Redis cache |
+| trademate-api (BossBoard API) | 29000 | Express API server |
+| trademate-postgres (BossBoard DB) | 29432 | PostgreSQL database |
+| trademate-redis (BossBoard cache) | 29379 | Redis cache |
 
 ### Project Structure
 
 ```
-TradeMate-NZ/
-├── apps/
-│   ├── api/                    # Node.js/Express backend
-│   │   ├── src/
-│   │   │   ├── routes/         # API routes
-│   │   │   │   ├── auth.ts           # Register, login, refresh, logout
-│   │   │   │   ├── compliance.ts     # SWMS generation
-│   │   │   │   ├── certifications.ts # Certification CRUD
-│   │   │   │   ├── invoices.ts       # Invoice CRUD + send/paid/pdf/email
-│   │   │   │   ├── quotes.ts         # Quote CRUD + convert to invoice
-│   │   │   │   ├── expenses.ts       # Expense CRUD
-│   │   │   │   ├── job-logs.ts       # Job log CRUD + clock in/out
-│   │   │   │   ├── photos.ts         # Universal photo attachments
-│   │   │   │   ├── teams.ts          # Team CRUD + invites + members
-│   │   │   │   ├── subscriptions.ts  # Tier info, usage, limits
-│   │   │   │   ├── stats.ts          # Dashboard stats + insights
-│   │   │   │   └── public.ts         # Public invoice sharing (no auth)
-│   │   │   ├── services/       # Business logic
-│   │   │   │   ├── claude.ts         # AI document generation
-│   │   │   │   ├── pdf.ts            # PDF generation (invoices + quotes)
-│   │   │   │   ├── email.ts          # Email service (Nodemailer)
-│   │   │   │   ├── invoices.ts       # Invoice business logic
-│   │   │   │   ├── quotes.ts         # Quote business logic
-│   │   │   │   ├── expenses.ts       # Expense business logic
-│   │   │   │   ├── job-logs.ts       # Job log business logic
-│   │   │   │   ├── photos.ts         # Photo upload/management
-│   │   │   │   ├── teams.ts          # Team management + invites
-│   │   │   │   ├── subscriptions.ts  # Tier definitions + limits
-│   │   │   │   ├── notifications.ts  # Push notifications (Expo)
-│   │   │   │   ├── stats.ts          # Dashboard aggregation
-│   │   │   │   └── cron.ts           # Cert expiry checking
-│   │   │   ├── middleware/
-│   │   │   │   ├── auth.ts           # JWT authentication
-│   │   │   │   └── subscription.ts   # Tier/feature/limit gating
-│   │   │   ├── templates/      # SWMS templates
-│   │   │   └── index.ts        # Entry point
-│   │   └── package.json
-│   │
-│   └── mobile/                 # React Native (Expo)
-│       ├── app/                # expo-router pages
-│       │   ├── (auth)/         # Auth screens (login, register, verify, onboarding)
-│       │   ├── (tabs)/         # Tab navigation (Home, Work, People, Money)
-│       │   ├── invoices/       # Invoice create/detail screens
-│       │   ├── quotes/         # Quote create/detail screens
-│       │   ├── expenses/       # Expense list/create screens
-│       │   ├── jobs/           # Job log screens
-│       │   ├── settings.tsx    # Settings screen
-│       │   ├── subscription.tsx # Subscription management
-│       │   └── team.tsx        # Team management
-│       ├── src/
-│       │   ├── contexts/       # AuthContext (user state, subscription tier)
-│       │   ├── components/     # Reusable components (PhotoPicker, etc.)
-│       │   ├── services/       # API client (all endpoint groups)
-│       │   └── hooks/          # Custom React hooks
-│       └── package.json
-│
-├── packages/
-│   └── shared/                 # Shared types & utilities
-│
-├── docs/                       # Documentation
-│   ├── product/                # Product positioning, roadmap, gaps
-│   ├── testing/                # Test plans
-│   └── technical/              # CortexForge integration, architecture
-│
-├── database/                   # Migration SQL files (001-010)
-├── docker-compose.yml
-├── CLAUDE.md                   # This file - project brain
-├── README.md
-└── PORTS.md
+/home/marc/projects/trademate-nz/   (legacy on-disk path; package.json name = "bossboard")
+|-- apps/
+|   |-- api/                    # Node.js/Express backend
+|   |   |-- src/
+|   |   |   |-- routes/         # API routes
+|   |   |   |   |-- auth.ts           # Register, login, refresh, logout
+|   |   |   |   |-- compliance.ts     # SWMS generation
+|   |   |   |   |-- certifications.ts # Certification CRUD
+|   |   |   |   |-- invoices.ts       # Invoice CRUD + send/paid/pdf/email
+|   |   |   |   |-- quotes.ts         # Quote CRUD + convert to invoice
+|   |   |   |   |-- expenses.ts       # Expense CRUD
+|   |   |   |   |-- job-logs.ts       # Job log CRUD + clock in/out
+|   |   |   |   |-- photos.ts         # Universal photo attachments
+|   |   |   |   |-- teams.ts          # Team CRUD + invites + members
+|   |   |   |   |-- subscriptions.ts  # Tier info, usage, limits
+|   |   |   |   |-- stats.ts          # Dashboard stats + insights
+|   |   |   |   `-- public.ts         # Public invoice sharing (no auth)
+|   |   |   |-- services/       # Business logic
+|   |   |   |   |-- claude.ts         # AI document generation
+|   |   |   |   |-- pdf.ts            # PDF generation (invoices + quotes)
+|   |   |   |   |-- email.ts          # Email service (Nodemailer)
+|   |   |   |   |-- invoices.ts       # Invoice business logic
+|   |   |   |   |-- quotes.ts         # Quote business logic
+|   |   |   |   |-- expenses.ts       # Expense business logic
+|   |   |   |   |-- job-logs.ts       # Job log business logic
+|   |   |   |   |-- photos.ts         # Photo upload/management
+|   |   |   |   |-- teams.ts          # Team management + invites
+|   |   |   |   |-- subscriptions.ts  # Tier definitions + limits
+|   |   |   |   |-- notifications.ts  # Push notifications (Expo)
+|   |   |   |   |-- stats.ts          # Dashboard aggregation
+|   |   |   |   `-- cron.ts           # Cert expiry checking
+|   |   |   |-- middleware/
+|   |   |   |   |-- auth.ts           # JWT authentication
+|   |   |   |   `-- subscription.ts   # Tier/feature/limit gating
+|   |   |   |-- templates/      # SWMS templates
+|   |   |   `-- index.ts        # Entry point
+|   |   `-- package.json
+|   |
+|   `-- mobile/                 # React Native (Expo)
+|       |-- app/                # expo-router pages
+|       |   |-- (auth)/         # Auth screens (login, register, verify, onboarding)
+|       |   |-- (tabs)/         # Tab navigation (Home, Work, People, Money)
+|       |   |-- invoices/       # Invoice create/detail screens
+|       |   |-- quotes/         # Quote create/detail screens
+|       |   |-- expenses/       # Expense list/create screens
+|       |   |-- jobs/           # Job log screens
+|       |   |-- settings.tsx    # Settings screen
+|       |   |-- subscription.tsx # Subscription management
+|       |   `-- team.tsx        # Team management
+|       |-- src/
+|       |   |-- contexts/       # AuthContext (user state, subscription tier)
+|       |   |-- components/     # Reusable components (PhotoPicker, etc.)
+|       |   |-- services/       # API client (all endpoint groups)
+|       |   `-- hooks/          # Custom React hooks
+|       `-- package.json
+|
+|-- packages/
+|   `-- shared/                 # Shared types & utilities
+|
+|-- docs/                       # Documentation
+|   |-- product/                # Product positioning, roadmap, gaps
+|   |-- testing/                # Test plans
+|   `-- technical/              # CortexForge integration, architecture
+|
+|-- database/                   # Migration SQL files (001-010)
+|-- docker-compose.yml
+|-- CLAUDE.md                   # This file - project brain
+|-- README.md
+`-- PORTS.md
 ```
 
 ---
@@ -203,7 +218,7 @@ Track employee visa status and compliance requirements. Urgent due to August 202
 
 ```bash
 # Clone and setup
-cd D:\TradeMate-NZ
+cd /home/marc/projects/trademate-nz
 
 # Start infrastructure
 docker-compose up -d
@@ -259,6 +274,7 @@ Copy `.env.example` to `.env` and fill in your credentials.
 | `services/teams.ts` | Team management + invites |
 | `services/notifications.ts` | Push notifications (Expo Push API) |
 | `services/cron.ts` | Cert expiry daily check |
+| `services/stripe.ts` | Stripe billing — uses `trademate_user_id` metadata field (contract: do not rename without coordinated migration) |
 
 ### Mobile (apps/mobile/)
 | File | Purpose |
@@ -534,7 +550,7 @@ router.post('/', authenticate, attachSubscription, requireFeature('photos'), han
 # Check Docker containers
 docker ps
 
-# View logs
+# View logs (container retains legacy `trademate-api` name)
 docker-compose logs trademate-api
 
 # Restart
@@ -543,7 +559,7 @@ docker-compose restart trademate-api
 
 ### Database Connection Issues
 ```bash
-# Check PostgreSQL
+# Check PostgreSQL (container retains legacy `trademate-postgres` name)
 docker exec trademate-postgres pg_isready -U trademate
 
 # Reset database
@@ -596,8 +612,8 @@ This project is managed by CortexForge and benefits from:
 | Field | Value |
 |-------|-------|
 | **CortexForge ID** | `495` |
-| **Project Slug** | `trademate-nz` |
-| **Local Path** | `D:\TradeMate-NZ` |
+| **Project Slug** | `trademate-nz` (legacy slug; canonical for the BossBoard product) |
+| **Local Path** | `/home/marc/projects/trademate-nz` |
 | **Primary Language** | TypeScript |
 | **Framework** | React Native + Express |
 
