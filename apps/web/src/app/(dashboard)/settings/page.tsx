@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { authClient, subscriptionsClient, ApiError } from '@/lib/api-client';
-import type { User, SubscriptionInfo, TierUsage, TierLimits } from '@bossboard/shared';
-import { Smartphone } from 'lucide-react';
+import type {
+  User,
+  SubscriptionInfo,
+  TierUsage,
+  TierLimits,
+  TradeType,
+} from '@bossboard/shared';
+import { Smartphone, Pencil } from 'lucide-react';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -30,9 +38,30 @@ const tierBlurb: Record<string, string> = {
   team: 'Everything in Tradie, plus up to 5 team members.',
 };
 
+const tradeTypeOptions: { value: TradeType; label: string }[] = [
+  { value: 'electrician', label: 'Electrician' },
+  { value: 'plumber', label: 'Plumber' },
+  { value: 'builder', label: 'Builder' },
+  { value: 'landscaper', label: 'Landscaper' },
+  { value: 'painter', label: 'Painter' },
+  { value: 'other', label: 'Other' },
+];
+
+const tradeTypeLabel: Record<TradeType, string> = {
+  electrician: 'Electrician',
+  plumber: 'Plumber',
+  builder: 'Builder',
+  landscaper: 'Landscaper',
+  painter: 'Painter',
+  other: 'Other',
+};
+
 function formatLimit(n: number | null) {
   return n === null ? 'Unlimited' : String(n);
 }
+
+// NZ-friendly phone: digits, spaces, dashes, parens, leading +. Min 6 digits when present.
+const PHONE_PATTERN = /^[+()0-9\s-]{6,}$/;
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -73,26 +102,7 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <Card>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Profile
-        </h2>
-        {user ? (
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <Field label="Name" value={user.name || '—'} />
-            <Field label="Email" value={user.email} />
-            <Field label="Phone" value={user.phone || '—'} />
-            <Field label="Trade type" value={user.tradeType ? user.tradeType : '—'} />
-            <Field label="Business name" value={user.businessName || '—'} />
-            <Field label="Verified" value={user.isVerified ? 'Yes' : 'No'} />
-          </dl>
-        ) : (
-          <p className="text-sm text-gray-500 py-4">Loading profile…</p>
-        )}
-        <p className="text-xs text-gray-500 mt-4">
-          Editing your profile is currently done in the BossBoard mobile app.
-        </p>
-      </Card>
+      <ProfileCard user={user} onUserUpdated={setUser} />
 
       <Card>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -161,6 +171,214 @@ export default function SettingsPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+interface ProfileCardProps {
+  user: User | null;
+  onUserUpdated: (user: User) => void;
+}
+
+function ProfileCard({ user, onUserUpdated }: ProfileCardProps) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [tradeType, setTradeType] = useState<TradeType | ''>('');
+  const [businessName, setBusinessName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    phone?: string;
+  }>({});
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  const startEdit = () => {
+    if (!user) return;
+    setName(user.name ?? '');
+    setPhone(user.phone ?? '');
+    setTradeType(user.tradeType ?? '');
+    setBusinessName(user.businessName ?? '');
+    setSaveError(null);
+    setFieldErrors({});
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setSaveError(null);
+    setFieldErrors({});
+  };
+
+  const validate = (): boolean => {
+    const errs: { name?: string; phone?: string } = {};
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      errs.name = 'Name is required.';
+    }
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone && !PHONE_PATTERN.test(trimmedPhone)) {
+      errs.phone = 'Enter a valid phone number (digits, spaces, dashes or +).';
+    }
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaveError(null);
+    if (!validate()) return;
+
+    const payload: {
+      name?: string;
+      phone?: string;
+      tradeType?: TradeType;
+      businessName?: string;
+    } = {
+      name: name.trim(),
+      // Send empty string to clear optional fields; backend treats undefined as no-change
+      phone: phone.trim(),
+      businessName: businessName.trim(),
+    };
+    if (tradeType) {
+      payload.tradeType = tradeType;
+    }
+
+    setSubmitting(true);
+    try {
+      const data = await authClient.updateMe(payload);
+      onUserUpdated((data as { user: User }).user);
+      setEditing(false);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 3000);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setSaveError(err.message);
+      } else {
+        setSaveError('Could not save profile. Try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          Profile
+        </h2>
+        {user && !editing && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={startEdit}
+            aria-label="Edit profile"
+          >
+            <Pencil size={14} className="mr-1.5" />
+            Edit
+          </Button>
+        )}
+      </div>
+
+      {!user ? (
+        <p className="text-sm text-gray-500 py-4">Loading profile…</p>
+      ) : editing ? (
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              error={fieldErrors.name}
+              required
+              autoComplete="name"
+            />
+            <Input
+              label="Phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              error={fieldErrors.phone}
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="021 123 4567"
+            />
+            <div className="space-y-1">
+              <label
+                htmlFor="trade-type"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Trade type
+              </label>
+              <select
+                id="trade-type"
+                value={tradeType}
+                onChange={(e) => setTradeType(e.target.value as TradeType | '')}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
+              >
+                <option value="">Not set</option>
+                {tradeTypeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label="Business name"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              autoComplete="organization"
+            />
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Email and verification status are managed separately for security — contact support
+            to change your email address.
+          </p>
+
+          {saveError && (
+            <div className="rounded-lg border border-danger/30 bg-danger/5 p-3">
+              <p className="text-sm text-danger">{saveError}</p>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" variant="primary" loading={submitting} disabled={submitting}>
+              Save changes
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={cancelEdit}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <Field label="Name" value={user.name || '—'} />
+            <Field label="Email" value={user.email} />
+            <Field label="Phone" value={user.phone || '—'} />
+            <Field
+              label="Trade type"
+              value={user.tradeType ? tradeTypeLabel[user.tradeType] : '—'}
+            />
+            <Field label="Business name" value={user.businessName || '—'} />
+            <Field label="Verified" value={user.isVerified ? 'Yes' : 'No'} />
+          </dl>
+          {savedFlash && (
+            <p className="text-xs text-emerald-700 mt-4" role="status">
+              Profile saved.
+            </p>
+          )}
+        </>
+      )}
+    </Card>
   );
 }
 

@@ -59,6 +59,17 @@ export const authClient = {
 
   me: () =>
     clientFetch<{ user: import('@bossboard/shared').User }>('/api/auth/me'),
+
+  updateMe: (data: {
+    name?: string;
+    phone?: string;
+    tradeType?: import('@bossboard/shared').TradeType;
+    businessName?: string;
+  }) =>
+    clientFetch<{ user: import('@bossboard/shared').User }>('/api/auth/me', {
+      method: 'PUT',
+      body: data,
+    }),
 };
 
 /** Invoices API — full CRUD + send/email/PDF/paid actions. */
@@ -242,6 +253,16 @@ export const teamsClient = {
     clientFetch<{ ok: boolean }>(`/api/teams/${teamId}/invites/${inviteId}`, {
       method: 'DELETE',
     }),
+};
+
+/** Stats API — dashboard counts surfaced on /dashboard.
+ *  Read-only summary; underlying entities (invoices, quotes, etc.)
+ *  have their own dedicated endpoints for detail views. */
+export const statsClient = {
+  dashboard: () =>
+    clientFetch<{ stats: import('@bossboard/shared').DashboardStats }>(
+      '/api/stats/dashboard',
+    ),
 };
 
 /** Subscriptions API (read-only).
