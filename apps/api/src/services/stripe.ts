@@ -20,6 +20,11 @@ import { updateSubscriptionTier } from './subscriptions.js';
 import db from './database.js';
 import { sendPaymentFailedEmail, isEmailConfigured } from './email.js';
 import notifications from './notifications.js';
+import {
+  markAsPaidFromWebhookBySession,
+  attachStripePaymentLink,
+  getInvoiceByIdRaw,
+} from './invoices.js';
 
 // ---------------------------------------------------------------------------
 // Stripe client
@@ -181,6 +186,145 @@ export async function createPortalSession(
 }
 
 // ---------------------------------------------------------------------------
+// Invoice payment links (Phase 1 — public invoice "Pay Now" button)
+// ---------------------------------------------------------------------------
+
+export interface InvoicePaymentLinkInput {
+  invoiceId: string;
+  userId: string;
+  /** Customer-facing description shown on the Stripe payment page. */
+  description: string;
+  /** Total amount in NZD cents (integer). */
+  amountCents: number;
+  /** URL Stripe redirects to after a successful payment. */
+  successUrl: string;
+  /** URL Stripe redirects to if the customer cancels. */
+  cancelUrl: string;
+  /** Optional client email — pre-fills the Stripe form. */
+  customerEmail?: string;
+}
+
+export interface InvoicePaymentLinkResult {
+  sessionId: string;
+  url: string;
+}
+
+/**
+ * Create a one-time Stripe Checkout Session to collect payment for a single
+ * invoice. Unlike the subscription flow above (mode='subscription'), this
+ * uses mode='payment' and constructs an inline price_data item — no
+ * pre-configured Price object required. The resulting session URL is the
+ * Payment Link we hand the client via the public invoice page.
+ *
+ * Phase 1 keeps it simple: full-amount NZD only, no surcharge, no partial
+ * payments. The discovery doc (PAYMENT_GATEWAY_PARTNERS.md §Phased Rollout)
+ * defers those concerns to Phase 2.
+ */
+export async function createInvoicePaymentLink(
+  input: InvoicePaymentLinkInput
+): Promise<InvoicePaymentLinkResult> {
+  if (input.amountCents <= 0) {
+    throw new Error('Invoice payment link requires a positive amount');
+  }
+
+  const stripe = getStripe();
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price_data: {
+          currency: 'nzd',
+          product_data: {
+            name: input.description,
+          },
+          unit_amount: input.amountCents,
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+    customer_email: input.customerEmail,
+    // Metadata is the bridge between Stripe-land and our DB. The webhook
+    // handler reads invoice_id back off session.metadata to find the row to
+    // flip to 'paid'. trademate_user_id is captured for audit context.
+    metadata: {
+      bossboard_invoice_id: input.invoiceId,
+      trademate_user_id: input.userId,
+      kind: 'invoice_payment',
+    },
+    payment_intent_data: {
+      metadata: {
+        bossboard_invoice_id: input.invoiceId,
+        trademate_user_id: input.userId,
+        kind: 'invoice_payment',
+      },
+    },
+  });
+
+  if (!session.url) {
+    throw new Error('Stripe did not return a payment link URL');
+  }
+
+  // Persist the session ID + URL on the invoice so subsequent renders of
+  // the public invoice page reuse the same link.
+  await attachStripePaymentLink({
+    invoiceId: input.invoiceId,
+    userId: input.userId,
+    stripeCheckoutSessionId: session.id,
+    paymentLinkUrl: session.url,
+  });
+
+  return { sessionId: session.id, url: session.url };
+}
+
+/**
+ * Get-or-create: returns an existing reusable Payment Link if one is already
+ * attached to the invoice (Stripe Checkout Sessions remain valid for ~24h),
+ * otherwise creates a fresh one.
+ *
+ * Returns null when Stripe is not configured (STRIPE_SECRET_KEY unset) — the
+ * public invoice page renders the bank-transfer-only fallback in that case.
+ */
+export async function getOrCreateInvoicePaymentLink(
+  invoiceId: string,
+  userId: string,
+  options: { successUrl: string; cancelUrl: string }
+): Promise<InvoicePaymentLinkResult | null> {
+  if (!config.stripe.secretKey) {
+    return null;
+  }
+
+  const invoice = await getInvoiceByIdRaw(invoiceId, userId);
+  if (!invoice) return null;
+
+  // Already paid → don't generate a link (would just confuse the client).
+  if (invoice.status === 'paid') return null;
+
+  // Reuse an existing link if we've attached one previously.
+  if (invoice.stripeCheckoutSessionId && invoice.paymentLinkUrl) {
+    return {
+      sessionId: invoice.stripeCheckoutSessionId,
+      url: invoice.paymentLinkUrl,
+    };
+  }
+
+  const description = `Invoice ${invoice.invoiceNumber} — ${invoice.clientName}`;
+
+  return createInvoicePaymentLink({
+    invoiceId: invoice.id,
+    userId,
+    description,
+    amountCents: invoice.total,
+    successUrl: options.successUrl,
+    cancelUrl: options.cancelUrl,
+    customerEmail: invoice.clientEmail ?? undefined,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Webhook processing
 // ---------------------------------------------------------------------------
 
@@ -235,7 +379,23 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 
   switch (event.type) {
     case 'checkout.session.completed': {
-      await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+      const session = event.data.object as Stripe.Checkout.Session;
+      // Two flavours hit this event type: subscription checkouts (existing
+      // billing flow) and one-time invoice payments (Phase 1). Disambiguate
+      // via session.mode + metadata.kind so each routes to the right handler.
+      if (session.mode === 'payment' || session.metadata?.kind === 'invoice_payment') {
+        await handleInvoicePaymentCompleted(session);
+      } else {
+        await handleCheckoutCompleted(session);
+      }
+      break;
+    }
+
+    case 'payment_intent.succeeded': {
+      // Belt-and-braces for one-time invoice payments. checkout.session.completed
+      // is the primary signal; payment_intent.succeeded covers the rare case
+      // where the session event is delayed/lost but the intent still completed.
+      await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
       break;
     }
 
@@ -409,10 +569,110 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Invoice payment webhook handlers (Phase 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Handle a completed Checkout Session for a one-time invoice payment.
+ *
+ * The session metadata carries bossboard_invoice_id (set by
+ * createInvoicePaymentLink). We look up the invoice by stripe_checkout_session_id
+ * — that's the column the get-or-create path persisted when handing the link
+ * to the client — and flip it to paid via the idempotent service helper.
+ *
+ * A missing match is logged but not treated as an error: Stripe also fires
+ * checkout.session.completed for subscription checkouts, which this branch
+ * shouldn't be touching (the switch above already routed those elsewhere),
+ * AND legacy/foreign sessions could plausibly fire too.
+ */
+async function handleInvoicePaymentCompleted(
+  session: Stripe.Checkout.Session
+): Promise<void> {
+  const invoiceId = session.metadata?.bossboard_invoice_id;
+  if (!invoiceId) {
+    console.warn(
+      `[Stripe] Invoice payment webhook missing bossboard_invoice_id metadata (session ${session.id}) — skipping`
+    );
+    return;
+  }
+
+  // Resolve the payment_intent ID. Stripe returns it as string when not
+  // expanded, or as an expanded PaymentIntent object when expansion is on.
+  const paymentIntentId =
+    typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id ?? null;
+
+  const reference = paymentIntentId ?? session.id;
+
+  const invoice = await markAsPaidFromWebhookBySession({
+    stripeCheckoutSessionId: session.id,
+    stripePaymentIntentId: paymentIntentId,
+    paymentReference: reference,
+  });
+
+  if (!invoice) {
+    console.warn(
+      `[Stripe] Invoice payment webhook fired for session ${session.id} (invoice metadata ${invoiceId}) but no matching invoice row — skipping`
+    );
+    return;
+  }
+
+  console.log(
+    `[Stripe] Invoice ${invoice.invoiceNumber} (${invoice.id}) marked paid via session ${session.id} (intent ${paymentIntentId ?? 'n/a'})`
+  );
+}
+
+/**
+ * Backstop handler for payment_intent.succeeded on one-time invoice payments.
+ * Only acts when the payment_intent metadata carries our kind/invoice_id —
+ * otherwise this is a subscription invoice payment and the subscription
+ * handlers above cover it.
+ */
+async function handlePaymentIntentSucceeded(
+  intent: Stripe.PaymentIntent
+): Promise<void> {
+  const kind = intent.metadata?.kind;
+  const invoiceId = intent.metadata?.bossboard_invoice_id;
+  if (kind !== 'invoice_payment' || !invoiceId) {
+    // Not one of our invoice payments — let the subscription handlers handle
+    // their own lifecycle events.
+    return;
+  }
+
+  const result = await db.query<Record<string, unknown>>(
+    `UPDATE invoices
+        SET status = 'paid',
+            paid_at = COALESCE(paid_at, NOW()),
+            payment_provider = COALESCE(payment_provider, 'stripe'),
+            payment_reference = COALESCE(payment_reference, $1),
+            stripe_payment_intent_id = COALESCE(stripe_payment_intent_id, $1),
+            updated_at = NOW()
+      WHERE id = $2
+        AND status IN ('draft', 'sent', 'overdue')
+      RETURNING id, invoice_number`,
+    [intent.id, invoiceId]
+  );
+
+  if ((result.rowCount ?? 0) === 0) {
+    console.log(
+      `[Stripe] payment_intent.succeeded backstop: invoice ${invoiceId} already paid or not found — no-op`
+    );
+    return;
+  }
+
+  console.log(
+    `[Stripe] Invoice ${invoiceId} marked paid via payment_intent.succeeded backstop (intent ${intent.id})`
+  );
+}
+
 export default {
   ensureStripeCustomer,
   createCheckoutSession,
   createPortalSession,
+  createInvoicePaymentLink,
+  getOrCreateInvoicePaymentLink,
   constructWebhookEvent,
   handleWebhookEvent,
 };

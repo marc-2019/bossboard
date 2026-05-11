@@ -322,6 +322,12 @@ export async function generateQuotePDF(quote: Quote): Promise<Buffer> {
     irdNumber: quote.irdNumber,
     gstNumber: quote.gstNumber,
     shareToken: null,
+    // Payment gateway fields — not used in PDF render, but required by Invoice type.
+    paymentProvider: null,
+    paymentReference: null,
+    paymentLinkUrl: null,
+    stripeCheckoutSessionId: null,
+    stripePaymentIntentId: null,
     createdAt: quote.createdAt,
     updatedAt: quote.updatedAt,
   };

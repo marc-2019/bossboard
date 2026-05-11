@@ -227,6 +227,12 @@ function transformInvoice(row: Record<string, unknown>): Invoice {
     irdNumber: row.ird_number as string | null,
     gstNumber: row.gst_number as string | null,
     shareToken: row.share_token as string | null,
+    // Payment gateway fields (Phase 1 — Stripe Payment Links)
+    paymentProvider: (row.payment_provider as Invoice['paymentProvider']) ?? null,
+    paymentReference: (row.payment_reference as string | null) ?? null,
+    paymentLinkUrl: (row.payment_link_url as string | null) ?? null,
+    stripeCheckoutSessionId: (row.stripe_checkout_session_id as string | null) ?? null,
+    stripePaymentIntentId: (row.stripe_payment_intent_id as string | null) ?? null,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
   };
@@ -567,6 +573,113 @@ export async function generateShareToken(invoiceId: string, userId: string): Pro
   );
 
   return token;
+}
+
+/**
+ * Mark invoice as paid from a payment-gateway webhook.
+ *
+ * Differs from markAsPaid:
+ *  - Webhook is system-initiated → no user_id scope (any invoice may match).
+ *  - Looked up by stripe_checkout_session_id rather than (id, user_id).
+ *  - Idempotent: an already-paid invoice returns the row without re-flipping
+ *    paid_at, so Stripe's retries don't churn the timestamp.
+ *  - Captures the gateway reference + payment_intent_id for reconciliation.
+ *
+ * Returns the (possibly already-paid) invoice if found, or null if the
+ * session_id doesn't match any invoice. Callers should treat null as a 200
+ * acknowledgement to the webhook — Stripe sometimes fires for sessions we
+ * never created (e.g. subscription checkouts hit this handler too).
+ */
+export async function markAsPaidFromWebhookBySession(params: {
+  stripeCheckoutSessionId: string;
+  stripePaymentIntentId: string | null;
+  paymentReference: string;
+}): Promise<Invoice | null> {
+  const lookup = await db.query<Record<string, unknown>>(
+    'SELECT * FROM invoices WHERE stripe_checkout_session_id = $1',
+    [params.stripeCheckoutSessionId]
+  );
+
+  if (lookup.rows.length === 0) {
+    return null;
+  }
+
+  const existing = transformInvoice(lookup.rows[0]);
+
+  // Idempotency: don't churn paid_at or audit metadata on Stripe retries.
+  if (existing.status === 'paid') {
+    return existing;
+  }
+
+  const result = await db.query<Record<string, unknown>>(
+    `UPDATE invoices
+        SET status = 'paid',
+            paid_at = NOW(),
+            payment_provider = 'stripe',
+            payment_reference = $2,
+            stripe_payment_intent_id = COALESCE($3, stripe_payment_intent_id),
+            updated_at = NOW()
+      WHERE stripe_checkout_session_id = $1
+        AND status IN ('draft', 'sent', 'overdue')
+      RETURNING *`,
+    [
+      params.stripeCheckoutSessionId,
+      params.paymentReference,
+      params.stripePaymentIntentId,
+    ]
+  );
+
+  if (result.rows.length === 0) {
+    // Race: somebody else flipped it between SELECT and UPDATE. Re-fetch.
+    return getInvoiceByStripeSessionId(params.stripeCheckoutSessionId);
+  }
+
+  return transformInvoice(result.rows[0]);
+}
+
+/**
+ * Fetch an invoice by its Stripe Checkout Session ID (system-scoped, no user_id).
+ * Used by the webhook handler when matching incoming events back to invoices.
+ */
+export async function getInvoiceByStripeSessionId(
+  sessionId: string
+): Promise<Invoice | null> {
+  const result = await db.query<Record<string, unknown>>(
+    'SELECT * FROM invoices WHERE stripe_checkout_session_id = $1',
+    [sessionId]
+  );
+  if (result.rows.length === 0) return null;
+  return transformInvoice(result.rows[0]);
+}
+
+/**
+ * Attach a Stripe Checkout Session (Payment Link) to an invoice.
+ * Persists the session_id + hosted URL so subsequent renders of the public
+ * invoice page reuse the same link instead of churning new sessions.
+ */
+export async function attachStripePaymentLink(params: {
+  invoiceId: string;
+  userId: string;
+  stripeCheckoutSessionId: string;
+  paymentLinkUrl: string;
+}): Promise<Invoice | null> {
+  const result = await db.query<Record<string, unknown>>(
+    `UPDATE invoices
+        SET stripe_checkout_session_id = $1,
+            payment_link_url = $2,
+            payment_provider = 'stripe',
+            updated_at = NOW()
+      WHERE id = $3 AND user_id = $4
+      RETURNING *`,
+    [
+      params.stripeCheckoutSessionId,
+      params.paymentLinkUrl,
+      params.invoiceId,
+      params.userId,
+    ]
+  );
+  if (result.rows.length === 0) return null;
+  return transformInvoice(result.rows[0]);
 }
 
 /**

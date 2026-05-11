@@ -6,6 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config/index.js';
 import invoicesService from '../services/invoices.js';
+import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
 
 const router = Router();
 
@@ -13,8 +14,10 @@ const router = Router();
  * GET /api/v1/public/invoices/:token
  * View a shared invoice (server-rendered HTML, no auth required)
  */
+// Phase 1 — Stripe Payment Links: "Pay Now" button rendered via
+// getOrCreateInvoicePaymentLink. Webhook handler in services/stripe.ts +
+// routes/stripe-webhook.ts. See docs/product/PAYMENT_GATEWAY_PARTNERS.md.
 router.get('/invoices/:token', async (req: Request, res: Response) => {
-  // TODO(payments): Implement payment gateway integration (see docs/product/PAYMENT_GATEWAY_PARTNERS.md)
   try {
     const token = req.params.token as string;
 
@@ -30,8 +33,32 @@ router.get('/invoices/:token', async (req: Request, res: Response) => {
       return;
     }
 
+    // Generate (or fetch existing) Payment Link for unpaid invoices. We pass
+    // the public invoice page itself as both success_url and cancel_url —
+    // the page reads invoice.status when re-rendered, so paid state appears
+    // automatically once the webhook lands.
+    let paymentLinkUrl: string | null = null;
+    if (invoice.status !== 'paid' && invoice.id && invoice.user_id) {
+      try {
+        const baseUrl = process.env.API_BASE_URL || `http://localhost:${config.port}`;
+        const link = await getOrCreateInvoicePaymentLink(
+          invoice.id as string,
+          invoice.user_id as string,
+          {
+            successUrl: `${baseUrl}/api/v1/public/invoices/${token}?payment=success`,
+            cancelUrl: `${baseUrl}/api/v1/public/invoices/${token}?payment=cancelled`,
+          }
+        );
+        paymentLinkUrl = link?.url ?? null;
+      } catch (err) {
+        // Payment Link generation must not break the public invoice page.
+        // If Stripe is misconfigured, fall back to bank-transfer-only view.
+        console.error('[Public Invoice] Payment Link generation failed:', err);
+      }
+    }
+
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(renderInvoicePage(invoice));
+    res.send(renderInvoicePage(invoice, paymentLinkUrl));
   } catch (error) {
     console.error('Public invoice error:', error);
     res.status(500).send(renderErrorPage('Error', 'Something went wrong loading this invoice.'));
@@ -90,7 +117,10 @@ function renderErrorPage(title: string, message: string): string {
 </html>`;
 }
 
-function renderInvoicePage(inv: Record<string, unknown>): string {
+function renderInvoicePage(
+  inv: Record<string, unknown>,
+  paymentLinkUrl: string | null = null
+): string {
   const lineItems = (inv.line_items as Array<{ description: string; amount: number }>) || [];
   const statusClass = inv.status === 'paid' ? 'status-paid' : inv.status === 'overdue' ? 'status-overdue' : 'status-sent';
   const statusLabel = String(inv.status || 'draft').toUpperCase();
@@ -135,6 +165,18 @@ function renderInvoicePage(inv: Record<string, unknown>): string {
       <p><strong>IBAN:</strong> ${escapeHtml(inv.intl_iban)}</p>
       ${inv.intl_swift_bic ? `<p><strong>SWIFT/BIC:</strong> ${escapeHtml(inv.intl_swift_bic)}</p>` : ''}
       ${inv.intl_bank_name ? `<p><strong>Bank:</strong> ${escapeHtml(inv.intl_bank_name)}</p>` : ''}
+    </div>`;
+  }
+
+  // Pay Now CTA (Phase 1 — Stripe Payment Links). Rendered only for unpaid
+  // invoices when getOrCreateInvoicePaymentLink returned a usable URL. Falls
+  // back silently to bank-transfer-only display when Stripe is unconfigured.
+  let payNowHtml = '';
+  if (inv.status !== 'paid' && paymentLinkUrl) {
+    payNowHtml = `
+    <div class="pay-now-section">
+      <a class="pay-now-button" href="${escapeHtml(paymentLinkUrl)}">Pay ${formatCurrency(inv.total)} online</a>
+      <p class="pay-now-note">Secure payment by card via Stripe. The tradie will be notified automatically once payment clears.</p>
     </div>`;
   }
 
@@ -199,6 +241,8 @@ function renderInvoicePage(inv: Record<string, unknown>): string {
         ${inv.due_date ? `<p><strong>Due Date:</strong> ${formatDate(inv.due_date)}</p>` : ''}
         ${inv.paid_at ? `<p class="paid-date"><strong>Paid:</strong> ${formatDate(inv.paid_at)}</p>` : ''}
       </div>
+
+      ${payNowHtml}
 
       ${paymentHtml}
 
@@ -297,6 +341,28 @@ function getBaseStyles(): string {
     .total-row td { font-size: 18px; border-top: 2px solid #111827; padding-top: 12px; }
 
     .paid-date { color: #10B981; }
+
+    .pay-now-section {
+      margin: 24px 0;
+      text-align: center;
+    }
+    .pay-now-button {
+      display: inline-block;
+      background: #2563EB;
+      color: #fff;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .pay-now-button:hover { background: #1D4ED8; }
+    .pay-now-note {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #6B7280;
+    }
+
     .footer {
       margin-top: 32px;
       padding-top: 16px;

@@ -12,6 +12,7 @@ import { getBusinessProfile } from '../services/business-profile.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, checkLimit, requireFeature } from '../middleware/subscription.js';
 import { config } from '../config/index.js';
+import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
 
 // App error type for error handling
 interface AppError extends Error {
@@ -375,7 +376,9 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
  * Mark invoice as paid
  */
 router.post('/:id/paid', authenticate, async (req: Request, res: Response, next: NextFunction) => {
-  // TODO(payments): Handle webhook from payment gateway to auto-mark as paid (see docs/product/PAYMENT_GATEWAY_PARTNERS.md)
+  // NOTE(payments): Stripe webhook lands the auto-paid status flip via
+  //   routes/stripe-webhook.ts + services/stripe.ts handleInvoicePaymentCompleted.
+  //   This manual endpoint is retained for cash / out-of-band reconciliation cases.
   try {
     const id = req.params.id as string;
     const invoice = await invoicesService.markAsPaid(id, req.user!.userId);
@@ -425,6 +428,67 @@ router.post('/:id/share', authenticate, async (req: Request, res: Response, next
       success: true,
       data: { shareUrl, token },
       message: 'Share link generated',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/v1/invoices/:id/payment-link
+ * Generate (or fetch the existing) Stripe Payment Link for an invoice.
+ *
+ * Used by the tradie to share a "Pay Now" URL with their client out-of-band
+ * (e.g. by SMS). The public invoice page also uses the same link automatically
+ * via getOrCreateInvoicePaymentLink — this endpoint just lets the tradie grab
+ * the URL programmatically.
+ */
+router.post('/:id/payment-link', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+
+    // Build success/cancel URLs from the API base URL + share token of this
+    // invoice. Stripe will redirect the client back to the public invoice
+    // page; the page reads invoice.status and shows the paid state once the
+    // webhook has landed.
+    const baseUrl = process.env.API_BASE_URL || `http://localhost:${config.port}`;
+
+    // Reuse the share-token generation flow so the redirect lands on the
+    // public invoice page even if no token has been generated yet.
+    const shareToken = await invoicesService.generateShareToken(id, req.user!.userId);
+    if (!shareToken) {
+      res.status(404).json({
+        success: false,
+        error: 'NOT_FOUND',
+        message: 'Invoice not found',
+      });
+      return;
+    }
+
+    const successUrl = `${baseUrl}/api/v1/public/invoices/${shareToken}?payment=success`;
+    const cancelUrl = `${baseUrl}/api/v1/public/invoices/${shareToken}?payment=cancelled`;
+
+    const link = await getOrCreateInvoicePaymentLink(id, req.user!.userId, {
+      successUrl,
+      cancelUrl,
+    });
+
+    if (!link) {
+      res.status(503).json({
+        success: false,
+        error: 'PAYMENT_GATEWAY_UNAVAILABLE',
+        message: 'Stripe is not configured on this server. Set STRIPE_SECRET_KEY to enable Payment Links.',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        paymentUrl: link.url,
+        sessionId: link.sessionId,
+      },
+      message: 'Payment link ready',
     });
   } catch (error) {
     next(error);

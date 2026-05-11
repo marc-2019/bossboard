@@ -265,6 +265,12 @@ export interface Invoice {
   irdNumber: string | null;
   gstNumber: string | null;
   shareToken: string | null;
+  // Payment gateway fields (Phase 1 — Stripe Payment Links)
+  paymentProvider: PaymentProvider | null;
+  paymentReference: string | null;
+  paymentLinkUrl: string | null;
+  stripeCheckoutSessionId: string | null;
+  stripePaymentIntentId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -276,6 +282,8 @@ export interface InvoiceLineItem {
 }
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
+
+export type PaymentProvider = 'stripe' | 'windcave' | 'akahu' | 'manual';
 
 export interface InvoiceCreateInput {
   clientName: string;
