@@ -1,13 +1,13 @@
 # BossBoard
 
-BossBoard (TradeMate NZ) is a mobile-first business management and compliance platform designed specifically for New Zealand tradespeople (electricians, plumbers, builders, etc.).
+BossBoard is a mobile-first business management and compliance platform designed specifically for New Zealand tradespeople (electricians, plumbers, builders, etc.).
 
 ## About
 BossBoard streamlines the "paperwork" of running a trade business. It provides AI-powered compliance documents, GST-ready invoicing, job tracking, and team management in a single offline-first application.
 
 ## Key Features
-- **AI SWMS**: Generate WorkSafe NZ-compliant Safe Work Method Statements in seconds.
-- **Invoicing & Quotes**: Professional, GST-compliant documents sent from the job site.
+- **AI SWMS**: Draft Safe Work Method Statements to WorkSafe NZ standards in seconds — operator reviews and signs off.
+- **Invoicing & Quotes**: Professional documents with 15% GST built in.
 - **Job Tracking**: Real-time logging of hours, site photos (GPS-tagged), and expenses.
 - **Team Management**: Coordinate crew, assign jobs, and manage roles.
 - **Offline Sync**: Works without signal; syncs automatically when back online.

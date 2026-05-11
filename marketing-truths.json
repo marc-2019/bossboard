@@ -150,6 +150,12 @@
       "claim_dropped": "apps/web/src/app/page.tsx: 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'know your cashflow position at a glance' / 'compliance and cashflow' / 'Start Free Trial' CTA / 'across New Zealand' (no operator-accountability)",
       "verdict_at_recall": "RECALLED",
       "reason": "Next.js canonical landing — operator-accountable rewording across hero meta, OG description, feature cards, NZ section, and CTA copy. 'Start Free Trial' → 'Start Free' (Stripe NZ not live; nothing to trial). Auto/bb-copy-audit-fixes-2026-05-11 Group 4."
+    },
+    {
+      "date": "2026-05-11",
+      "claim_dropped": "llms.txt + apps/web/public/llms.txt: 'BossBoard (also known as TradeMate NZ)' / 'BossBoard (TradeMate NZ)' brand-bleed aliases / 'AI-powered SWMS generation compliant with...' / 'Generate WorkSafe NZ-compliant Safe Work Method Statements in seconds' / 'Professional, GST-compliant documents' / 'automated expiry alerts'",
+      "verdict_at_recall": "RECALLED",
+      "reason": "AI-crawler surfaces had TradeMate brand-bleed + 'compliant' promises + 'automated' alerts. Reframed to operator-accountable. Auto/bb-copy-audit-fixes-2026-05-11 Group 3."
     }
   ],
   "verified_clean_directives": [

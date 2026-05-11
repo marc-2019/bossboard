@@ -4,7 +4,7 @@
 
 ## About
 
-BossBoard (also known as TradeMate NZ) is a mobile-first micro-SaaS platform built for New Zealand tradies and small service businesses — plumbers, electricians, builders, landscapers, and other trades. It replaces the patchwork of spreadsheets, paper forms, and multiple apps with a single affordable tool that handles compliance, invoicing, quoting, job tracking, and team management.
+BossBoard is a mobile-first micro-SaaS platform built for New Zealand tradies and small service businesses — plumbers, electricians, builders, landscapers, and other trades. It replaces the patchwork of spreadsheets, paper forms, and multiple apps with a single affordable tool that handles compliance, invoicing, quoting, job tracking, and team management.
 
 Built by Instilligent Limited, BossBoard leverages AI to generate compliant Safe Work Method Statements (SWMS) and surface business insights. It is designed to work offline-first via React Native with local SQLite storage, syncing when connectivity is available.
 
@@ -12,13 +12,13 @@ Target market: 100,000-150,000 NZ SMEs in the trades and service sectors.
 
 ## Features
 
-- AI-powered SWMS generation compliant with the Health and Safety at Work Act 2015
+- AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 — operator stays accountable as the PCBU.
 - Professional invoicing with GST built in, payment tracking, and overdue invoice chasing
 - Quotes and estimates with one-tap conversion to invoices
 - Job logging with clock in/out, per-site and per-worker time tracking
 - Team management with invites, role assignment, and job allocation
 - Photo documentation with GPS tagging, attached to jobs, invoices, and SWMS
-- Certification and licence tracking with automated expiry alerts
+- Certification and licence tracking with expiry reminders at 30/14/7/1 days
 - Expense tracking
 - Dashboard with revenue insights and basic cashflow overview (Xero integration + full cashflow forecasting coming Q2 2026)
 - Offline-first mobile app (iOS and Android via React Native / Expo)
