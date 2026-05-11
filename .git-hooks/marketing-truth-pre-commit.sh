@@ -216,31 +216,12 @@ EOF
   fi
 fi
 
-# Gate 5: MARC-APPROVED trailer must be present in the commit message.
-# Skip this check during merge / rebase / cherry-pick (commit message
-# isn't user-authored in the normal flow).
-COMMIT_MSG_FILE="${1:-.git/COMMIT_EDITMSG}"
-if [[ -z "${GIT_REFLOG_ACTION:-}" ]] || [[ "${GIT_REFLOG_ACTION:-}" == "commit"* ]]; then
-  if [[ -f "$COMMIT_MSG_FILE" ]]; then
-    if ! grep -qE '^MARC-APPROVED:' "$COMMIT_MSG_FILE"; then
-      cat >&2 <<EOF
+# Gate 5: MARC-APPROVED trailer enforcement — moved to commit-msg phase.
+# `.git/COMMIT_EDITMSG` is empty at pre-commit time, so the check used to
+# require a manual `cp` of the message before each commit. The trailer
+# check now lives in marketing-truth-commit-msg.sh which git invokes with
+# the commit-message file path as $1. See: split 2026-05-11.
 
-🛑  marketing-truth hook: customer-facing change requires
-    'MARC-APPROVED:' trailer in commit message.
-
-    Add a line like:
-      MARC-APPROVED: 2026-04-30 portfolio-wide marketing-truth recall
-
-    Customer-facing files in this commit:
-$(echo "$CUSTOMER_FACING_FILES" | sed 's/^/      - /')
-
-    Bypass: WAIVE_MARKETING_AUDIT="<reason>" git commit ...
-EOF
-      exit 1
-    fi
-  fi
-fi
-
-# All gates passed.
-echo "✓ marketing-truth hook: ${TRUTHS_FILE##*/} updated, MARC-APPROVED trailer present, $(echo "$CUSTOMER_FACING_FILES" | wc -l) customer-facing file(s) gated."
+# All pre-commit gates passed.
+echo "✓ marketing-truth pre-commit: ${TRUTHS_FILE##*/} updated, $(echo "$CUSTOMER_FACING_FILES" | wc -l) customer-facing file(s) gated. (trailer check at commit-msg phase)"
 exit 0

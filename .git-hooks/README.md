@@ -8,14 +8,18 @@ Introduced: 2026-04-30 — Stage 3 of the marketing-truth recall.
 
 ## What it does
 
-When you stage customer-facing files (HTML, `llms.txt`, `robots.txt`, `sitemap.xml`, JSON-LD blocks, `modules.json`, `manifest.json`, README files, landing-page TSX/CSHTML, etc.), the hook requires:
+When you stage customer-facing files (HTML, `llms.txt`, `robots.txt`, `sitemap.xml`, JSON-LD blocks, `modules.json`, `manifest.json`, README files, landing-page TSX/CSHTML, etc.), the gate requires:
 
-1. `marketing-truths.json` exists at the repo root.
-2. `marketing-truths.json` is updated in the same commit.
-3. The commit message contains a `MARC-APPROVED:` trailer.
-4. (Soft) Pattern linter sweep for high-risk product claims emits warnings — does not yet hard-block.
+1. `marketing-truths.json` exists at the repo root. *(pre-commit)*
+2. `marketing-truths.json` is updated in the same commit. *(pre-commit)*
+3. (Soft) Pattern linter sweep for high-risk product claims emits warnings — does not yet hard-block. *(pre-commit)*
+4. The commit message contains a `MARC-APPROVED:` trailer. *(commit-msg)*
 
 If any gate fails, the commit is rejected with clear remediation instructions.
+
+### Phase split (2026-05-11)
+
+The trailer check (#4) lives in `marketing-truth-commit-msg.sh` because `.git/COMMIT_EDITMSG` is only populated at the commit-msg phase — running the trailer check during pre-commit would always see an empty file, which previously forced a manual `cp` of the message before every commit. Git invokes commit-msg hooks with the message file path as `$1`, so the split is the right phase for that check.
 
 ## Bypass (for emergency or non-customer-facing edits)
 
