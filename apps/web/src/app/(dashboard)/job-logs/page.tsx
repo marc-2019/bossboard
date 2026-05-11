@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { jobLogsClient, ApiError } from '@/lib/api-client';
@@ -53,7 +53,12 @@ function formatDuration(start: string, end: string | null): string {
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }
 
-export default function JobLogsPage() {
+// Next.js 15: useSearchParams() must be wrapped in <Suspense> when used
+// inside an App Router page that is statically prerendered. The inner
+// component reads the search params; the default export wraps it in
+// <Suspense> so the prerender can bail out to client-side rendering for
+// the search-params-dependent portion only.
+function JobLogsPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -236,5 +241,24 @@ export default function JobLogsPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function JobLogsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div>
+          <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+            <h1 className="text-2xl font-bold text-gray-900">Job logs</h1>
+          </div>
+          <Card>
+            <p className="text-sm text-gray-500 py-8 text-center">Loading job logs…</p>
+          </Card>
+        </div>
+      }
+    >
+      <JobLogsPageContent />
+    </Suspense>
   );
 }
