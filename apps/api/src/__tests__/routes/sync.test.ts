@@ -130,10 +130,11 @@ describe('POST /api/v1/sync/batch', () => {
     });
 
     it('accepts exactly 50 operations', async () => {
-      mockDbQuery.mockResolvedValue({ rows: [] });
+      // UPSERT returns the persisted row id; delete is a separate path.
+      mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
 
       const operations = Array.from({ length: 50 }, (_, i) =>
-        makeOp({ id: i + 1, entity_id: `entity-${i}` })
+        makeOp({ id: i + 1, entity_id: `entity-${i}`, payload: { client_name: 'X' } })
       );
 
       const response = await request(app)
@@ -150,16 +151,72 @@ describe('POST /api/v1/sync/batch', () => {
   // -------------------------------------------------------------------------
 
   describe('entity type routing', () => {
-    const nonSwmsTypes = ['invoices', 'quotes', 'expenses', 'job-logs', 'certifications'] as const;
+    // Per-entity-type valid payload (matches Zod schema + DB column types).
+    // Mobile generates UUIDs offline; payloads may be sparse — schemas tolerate
+    // partials and the route fills NOT NULL columns with placeholders.
+    const nonSwmsCases = [
+      {
+        entityType: 'invoices' as const,
+        payload: {
+          invoice_number: 'INV-001',
+          client_name: 'Acme Co',
+          line_items: [{ desc: 'Labour', amount: 10000 }],
+          subtotal: 10000,
+          gst_amount: 1500,
+          total: 11500,
+          status: 'draft' as const,
+        },
+      },
+      {
+        entityType: 'quotes' as const,
+        payload: {
+          quote_number: 'QTE-001',
+          client_name: 'Acme Co',
+          line_items: [{ desc: 'Estimate', amount: 5000 }],
+          subtotal: 5000,
+          gst_amount: 750,
+          total: 5750,
+        },
+      },
+      {
+        entityType: 'expenses' as const,
+        payload: {
+          date: '2026-05-01',
+          amount: 2500,
+          category: 'fuel',
+          description: 'Petrol',
+          vendor: 'BP',
+        },
+      },
+      {
+        entityType: 'job-logs' as const,
+        payload: {
+          description: 'Repair leak',
+          site_address: '12 Main St',
+          start_time: '2026-05-01T08:00:00Z',
+          status: 'active' as const,
+        },
+      },
+      {
+        entityType: 'certifications' as const,
+        payload: {
+          type: 'electrical',
+          name: 'EWRB License',
+          cert_number: 'EWRB-12345',
+          issuing_body: 'EWRB',
+        },
+      },
+    ];
 
-    nonSwmsTypes.forEach((entityType) => {
-      it(`processes a ${entityType} create operation successfully`, async () => {
-        mockDbQuery.mockResolvedValue({ rows: [] });
+    nonSwmsCases.forEach(({ entityType, payload }) => {
+      it(`processes a ${entityType} create operation via UPSERT`, async () => {
+        // UPSERT INSERT returning the row id (entity_id mirrors what mobile sent)
+        mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
 
         const response = await request(app)
           .post('/api/v1/sync/batch')
           .send({
-            operations: [makeOp({ entity_type: entityType })],
+            operations: [makeOp({ entity_type: entityType, payload })],
             client_timestamp: new Date().toISOString(),
           });
 
@@ -167,6 +224,54 @@ describe('POST /api/v1/sync/batch', () => {
         const { results } = response.body;
         expect(results).toHaveLength(1);
         expect(results[0].success).toBe(true);
+        expect(results[0].entity_id).toBe('entity-uuid-1');
+
+        // The UPSERT path must have run an INSERT ... ON CONFLICT statement
+        expect(mockDbQuery).toHaveBeenCalled();
+        const upsertCall = mockDbQuery.mock.calls.find(
+          (call: unknown[]) =>
+            typeof call[0] === 'string' &&
+            (call[0] as string).includes('ON CONFLICT') &&
+            (call[0] as string).includes('INSERT')
+        );
+        expect(upsertCall).toBeDefined();
+        // Parameterized query — params must be passed as array
+        expect(Array.isArray(upsertCall![1])).toBe(true);
+      });
+
+      it(`processes a ${entityType} update operation via UPSERT (same path as create)`, async () => {
+        mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
+
+        const response = await request(app)
+          .post('/api/v1/sync/batch')
+          .send({
+            operations: [makeOp({ entity_type: entityType, action: 'update', payload })],
+          });
+
+        expect(response.status).toBe(200);
+        expect(response.body.results[0].success).toBe(true);
+        // ON CONFLICT path is exercised
+        const upsertCall = mockDbQuery.mock.calls.find(
+          (call: unknown[]) =>
+            typeof call[0] === 'string' && (call[0] as string).includes('ON CONFLICT')
+        );
+        expect(upsertCall).toBeDefined();
+      });
+
+      it(`fails ${entityType} create when UPSERT returns no rows (tenant conflict)`, async () => {
+        // Empty rows signals the WHERE user_id = EXCLUDED.user_id clause
+        // suppressed the UPDATE — i.e. the row exists under a different tenant.
+        mockDbQuery.mockResolvedValue({ rows: [] });
+
+        const response = await request(app)
+          .post('/api/v1/sync/batch')
+          .send({
+            operations: [makeOp({ entity_type: entityType, payload })],
+          });
+
+        expect(response.status).toBe(200);
+        expect(response.body.results[0].success).toBe(false);
+        expect(response.body.results[0].error).toMatch(/Conflict/i);
       });
 
       it(`processes a ${entityType} delete operation successfully`, async () => {
@@ -180,7 +285,45 @@ describe('POST /api/v1/sync/batch', () => {
 
         expect(response.status).toBe(200);
         expect(response.body.results[0].success).toBe(true);
+        // Delete uses a DELETE statement, not ON CONFLICT
+        const deleteCall = mockDbQuery.mock.calls.find(
+          (call: unknown[]) =>
+            typeof call[0] === 'string' && (call[0] as string).includes('DELETE FROM')
+        );
+        expect(deleteCall).toBeDefined();
       });
+    });
+
+    // Validation: invoices/quotes/expenses all have typed int fields that fail
+    // validation when given a non-numeric value. Job-logs validates customer_id
+    // as a uuid; certifications validates issue_date as a string.
+    it.each([
+      ['invoices', { subtotal: 'not-a-number' }],
+      ['quotes', { total: { foo: 'bar' } }],
+      ['expenses', { amount: 'nope' }],
+      ['job-logs', { customer_id: 'not-a-uuid' }],
+      ['certifications', { issue_date: 12345 }],
+    ])('rejects %s with bad payload (validation error)', async (entityType, badPayload) => {
+      // Mock DB to return success — proves the failure came from validation,
+      // not from the DB.
+      mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
+
+      const response = await request(app)
+        .post('/api/v1/sync/batch')
+        .send({
+          operations: [makeOp({ entity_type: entityType, payload: badPayload })],
+        });
+
+      expect(response.status).toBe(200);
+      const result = response.body.results[0];
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/Validation failed/);
+      // DB should NOT have been called for the failing op (no UPSERT)
+      const upsertCall = mockDbQuery.mock.calls.find(
+        (call: unknown[]) =>
+          typeof call[0] === 'string' && (call[0] as string).includes('ON CONFLICT')
+      );
+      expect(upsertCall).toBeUndefined();
     });
 
     it('processes a swms create operation successfully (uses transaction)', async () => {
@@ -242,13 +385,13 @@ describe('POST /api/v1/sync/batch', () => {
     });
 
     it('counts unknown-type operations as failed in summary', async () => {
-      mockDbQuery.mockResolvedValue({ rows: [] });
+      mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
 
       const response = await request(app)
         .post('/api/v1/sync/batch')
         .send({
           operations: [
-            makeOp({ id: 1, entity_type: 'invoices' }),
+            makeOp({ id: 1, entity_type: 'invoices', payload: { client_name: 'X' } }),
             makeOp({ id: 2, entity_type: 'unknown-thing' }),
           ],
         });
@@ -345,15 +488,16 @@ describe('POST /api/v1/sync/batch', () => {
     });
 
     it('all operations succeed — summary counts reflect it', async () => {
-      mockDbQuery.mockResolvedValue({ rows: [] });
+      // UPSERTs return the persisted row id.
+      mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
 
       const response = await request(app)
         .post('/api/v1/sync/batch')
         .send({
           operations: [
-            makeOp({ id: 1, entity_type: 'invoices' }),
-            makeOp({ id: 2, entity_type: 'quotes' }),
-            makeOp({ id: 3, entity_type: 'expenses' }),
+            makeOp({ id: 1, entity_type: 'invoices', payload: { client_name: 'A' } }),
+            makeOp({ id: 2, entity_type: 'quotes', payload: { client_name: 'B' } }),
+            makeOp({ id: 3, entity_type: 'expenses', payload: { amount: 100 } }),
           ],
         });
 
@@ -388,11 +532,11 @@ describe('POST /api/v1/sync/batch', () => {
 
   describe('response shape', () => {
     it('includes server_timestamp in response', async () => {
-      mockDbQuery.mockResolvedValue({ rows: [] });
+      mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
 
       const response = await request(app)
         .post('/api/v1/sync/batch')
-        .send({ operations: [makeOp()] });
+        .send({ operations: [makeOp({ payload: { client_name: 'X' } })] });
 
       expect(response.status).toBe(200);
       expect(response.body.server_timestamp).toBeDefined();
@@ -400,13 +544,13 @@ describe('POST /api/v1/sync/batch', () => {
     });
 
     it('result entries carry the original operation id', async () => {
-      mockDbQuery.mockResolvedValue({ rows: [] });
+      mockDbQuery.mockResolvedValue({ rows: [{ id: 'entity-uuid-1' }] });
 
       const response = await request(app)
         .post('/api/v1/sync/batch')
         .send({
           operations: [
-            makeOp({ id: 101, entity_type: 'invoices' }),
+            makeOp({ id: 101, entity_type: 'invoices', payload: { client_name: 'X' } }),
             makeOp({ id: 202, entity_type: 'unknown-type' }),
           ],
         });
