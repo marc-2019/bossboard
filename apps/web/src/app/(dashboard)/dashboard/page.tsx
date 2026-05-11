@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { jobLogsClient, statsClient, ApiError } from '@/lib/api-client';
 import type { DashboardStats, JobLog } from '@bossboard/shared';
-import { CalendarDays, Loader2 } from 'lucide-react';
+import { CalendarDays, ClipboardList, FileText, HardHat, Loader2 } from 'lucide-react';
 
 /** Render value for a stat card: number, dash placeholder while loading,
  *  or em-dash on error. Keeps the card height stable across states. */
@@ -167,18 +167,57 @@ export default function DashboardPage() {
         <Card className="mt-6">
           <div className="py-12 px-4 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 mb-4">
-              <CalendarDays size={32} className="text-accent" />
+              <HardHat size={32} className="text-accent" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">No jobs scheduled</h2>
-            <p className="text-gray-600 max-w-md mx-auto mb-6">
-              You don&apos;t have any jobs on the go yet. Create your first job to start
-              tracking time, expenses, and SWMS against it.
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              Kia ora — let&apos;s get you set up
+            </h2>
+            <p className="text-gray-600 max-w-md mx-auto mb-8">
+              Pick a tile to start running your trade business from the dashboard.
+              You can always do more from the BossBoard mobile app.
             </p>
-            <Link href="/job-logs">
-              <Button variant="primary" size="lg" className="px-8">
-                Create your first job
-              </Button>
-            </Link>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
+              <Link
+                href="/job-logs"
+                className="group block rounded-lg border border-border-light bg-white p-4 hover:border-primary-300 hover:shadow-sm transition"
+              >
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-primary-50 mb-3">
+                  <HardHat size={20} className="text-primary-600" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">Log a job</h3>
+                <p className="text-xs text-gray-600">
+                  Track time on site, per-worker hours, and a full audit trail for billing.
+                </p>
+              </Link>
+              <Link
+                href="/swms"
+                className="group block rounded-lg border border-border-light bg-white p-4 hover:border-primary-300 hover:shadow-sm transition"
+              >
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-primary-50 mb-3">
+                  <ClipboardList size={20} className="text-primary-600" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">Draft a SWMS</h3>
+                <p className="text-xs text-gray-600">
+                  AI-assisted Safe Work Method Statement starting material — you stay the PCBU.
+                </p>
+              </Link>
+              <Link
+                href="/invoices/new"
+                className="group block rounded-lg border border-border-light bg-white p-4 hover:border-primary-300 hover:shadow-sm transition"
+              >
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-primary-50 mb-3">
+                  <FileText size={20} className="text-primary-600" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">Send an invoice</h3>
+                <p className="text-xs text-gray-600">
+                  Create a professional invoice with 15% GST built in and send it from your phone or the web.
+                </p>
+              </Link>
+            </div>
+            <p className="text-xs text-gray-500 mt-6">
+              <CalendarDays size={12} className="inline align-text-bottom mr-1" />
+              No jobs on the go yet — your active jobs and stats will appear here as you start logging time.
+            </p>
           </div>
         </Card>
       )}

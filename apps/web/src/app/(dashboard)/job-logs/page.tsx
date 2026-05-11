@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { jobLogsClient, ApiError } from '@/lib/api-client';
 import type { JobLog, JobLogStatus } from '@bossboard/shared';
@@ -13,6 +14,15 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'active', label: 'Active' },
   { value: 'completed', label: 'Completed' },
 ];
+
+const VALID_FILTERS: ReadonlySet<StatusFilter> = new Set(['all', 'active', 'completed']);
+
+function parseStatusFilter(raw: string | null): StatusFilter {
+  if (raw && VALID_FILTERS.has(raw as StatusFilter)) {
+    return raw as StatusFilter;
+  }
+  return 'all';
+}
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -44,9 +54,27 @@ function formatDuration(start: string, end: string | null): string {
 }
 
 export default function JobLogsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const statusFilter = parseStatusFilter(searchParams.get('status'));
+
   const [logs, setLogs] = useState<JobLog[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  const updateStatusFilter = useCallback(
+    (next: StatusFilter) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === 'all') {
+        params.delete('status');
+      } else {
+        params.set('status', next);
+      }
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [pathname, router, searchParams],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +124,7 @@ export default function JobLogsPage() {
           <select
             aria-label="Filter job logs by status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            onChange={(e) => updateStatusFilter(e.target.value as StatusFilter)}
             className="rounded border border-border-light bg-white px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {STATUS_OPTIONS.map((opt) => (
