@@ -3,7 +3,7 @@
 BossBoard is a mobile-first business management and compliance platform designed specifically for New Zealand tradespeople (electricians, plumbers, builders, etc.).
 
 ## About
-BossBoard streamlines the "paperwork" of running a trade business. It provides AI-assisted compliance documents (operator reviews and signs off), GST-ready invoicing, job tracking, and team management in a single offline-first application.
+BossBoard streamlines the "paperwork" of running a trade business. It provides AI-powered compliance documents, GST-ready invoicing, job tracking, and team management in a single offline-first application.
 
 ## Key Features
 - **AI SWMS**: Draft Safe Work Method Statements to WorkSafe NZ standards in seconds — operator reviews and signs off.

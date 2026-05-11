@@ -6,7 +6,7 @@
 
 BossBoard is a mobile-first micro-SaaS platform built for New Zealand tradies and small service businesses — plumbers, electricians, builders, landscapers, and other trades. It replaces the patchwork of spreadsheets, paper forms, and multiple apps with a single affordable tool that handles compliance, invoicing, quoting, job tracking, and team management.
 
-Built by Instilligent Limited, BossBoard uses AI to draft Safe Work Method Statements to WorkSafe NZ standards — operator reviews and signs off. It also surfaces business insights. The app is designed to work offline-first via React Native with local SQLite storage, syncing when connectivity is available.
+Built by Instilligent Limited, BossBoard leverages AI to generate compliant Safe Work Method Statements (SWMS) and surface business insights. It is designed to work offline-first via React Native with local SQLite storage, syncing when connectivity is available.
 
 Target market: 100,000-150,000 NZ SMEs in the trades and service sectors.
 
@@ -27,7 +27,7 @@ Target market: 100,000-150,000 NZ SMEs in the trades and service sectors.
 
 All prices in NZD. No contracts, cancel anytime.
 
-- **Free**: $0 to get started — 3 invoices/month, 2 SWMS/month, basic dashboard
+- **Free**: $0 forever — 3 invoices/month, 2 SWMS/month, basic dashboard
 - **Tradie**: $4.99/week (~$19.99/month) — unlimited everything, single user
 - **Team**: $9.99/week (~$39.99/month) — everything plus up to 5 team members
 

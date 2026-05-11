@@ -162,12 +162,6 @@
       "claim_dropped": "README.md L3: 'Mobile-first compliance and invoicing platform' (implied product certifies compliance)",
       "verdict_at_recall": "RECALLED",
       "reason": "Reframed as 'compliance-doc generation' — narrower factual claim (it generates docs; the operator certifies). Auto/bb-copy-audit-fixes-2026-05-11 Group 5."
-    },
-    {
-      "date": "2026-05-11",
-      "claim_dropped": "llms.txt: 'leverages AI to generate compliant Safe Work Method Statements' / 'Free $0 forever' / apps/web/public/llms.txt: 'AI-powered compliance documents'",
-      "verdict_at_recall": "RECALLED",
-      "reason": "Straggler scrub after Group 3 — residual 'compliant SWMS' promise (Rule B: compliance-promise), 'forever' free-tier qualifier (Rule G: free-forever recall per Marc-note in page.tsx:20-22), and 'AI-powered' framing without operator-accountable disclaimer (Rule F: disclaimer pattern miss). Auto/bb-copy-audit-fixes-2026-05-11 Group 6."
     }
   ],
   "verified_clean_directives": [
