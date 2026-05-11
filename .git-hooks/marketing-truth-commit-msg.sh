@@ -47,6 +47,10 @@ CUSTOMER_FACING_PATTERNS=(
   '/pages/.*\.cshtml$'
   '/Views/Home/.*\.cshtml$'
   '/Views/Shared/_Layout\.cshtml$'
+  # Next.js App Router — root page/layout + any nested route page.tsx
+  '/app/page\.tsx$'
+  '/app/layout\.tsx$'
+  '/app/.*/page\.tsx$'
 )
 
 # Files that should NOT trigger the hook even if they match above patterns.

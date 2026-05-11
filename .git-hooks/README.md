@@ -8,7 +8,7 @@ Introduced: 2026-04-30 — Stage 3 of the marketing-truth recall.
 
 ## What it does
 
-When you stage customer-facing files (HTML, `llms.txt`, `robots.txt`, `sitemap.xml`, JSON-LD blocks, `modules.json`, `manifest.json`, README files, landing-page TSX/CSHTML, etc.), the gate requires:
+When you stage customer-facing files (HTML, `llms.txt`, `robots.txt`, `sitemap.xml`, JSON-LD blocks, `modules.json`, `manifest.json`, README files, landing-page TSX/CSHTML, Next.js App Router pages — `app/page.tsx`, `app/layout.tsx`, any nested `app/**/page.tsx` — etc.), the gate requires:
 
 1. `marketing-truths.json` exists at the repo root. *(pre-commit)*
 2. `marketing-truths.json` is updated in the same commit. *(pre-commit)*
