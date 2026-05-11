@@ -138,6 +138,14 @@
       "notes": "Beta mode currently — all users get tradie-tier access. Stripe NZ integration pending at ~50 paying users target."
     }
   ],
+  "recall_history": [
+    {
+      "date": "2026-05-11",
+      "claim_dropped": "landing/index.html: 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'Team scheduling' + 'Job assignment & dispatch' / 'Join hundreds of Kiwi tradies' / 'cashflow position at a glance' / 'forever' price-period / 'Free plan available forever'",
+      "verdict_at_recall": "RECALLED",
+      "reason": "Legacy static landing — mirror of the 2026-04-30 portfolio-wide recall on page.tsx; survivors removed 2026-05-11. Auto/bb-copy-audit-fixes-2026-05-11 Group 2."
+    }
+  ],
   "verified_clean_directives": [
     "No 'accounting/bookkeeping/ledger/tax filing' language (Marc directive — product is invoicing, not accounting)",
     "BossBoard spelled as one word (Marc directive)",
