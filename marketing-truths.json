@@ -2,20 +2,38 @@
   "$schema": "https://instilligent.com/schemas/marketing-truths.v1.json",
   "product_name": "BossBoard",
   "product_status": "beta-ready (v0.5.0)",
-  "last_full_audit_date": "2026-04-30",
+  "last_full_audit_date": "2026-05-11",
   "last_full_audit_by": "claude+marc",
   "audit_doc": "~/cf-research/marketing-audits/bossboard-2026-04-30.md",
   "cf_directive": "customer-facing-copy-requires-product-claim-audit",
-  "_note": "Fourth marketing-truths.json in the portfolio. BossBoard had the highest FTA risk fact pattern in the audit (paid Team-tier features that didn't exist in code). Recall PR #2 dropped those; this PR softens the residual user-count + cashflow framing.",
+  "_note": "Fourth marketing-truths.json in the portfolio. BossBoard had the highest FTA risk fact pattern in the audit (paid Team-tier features that didn't exist in code). Recall PR #2 dropped those; recall PR #3 (2026-05-11) softened residual compliance promises (Compliant → Built to standards), removed remaining Team-tier scheduling/dispatch survivors in legacy landing.html, scrubbed brand-bleed (TradeMate aliases) from llms.txt, and reframed cashflow as revenue.",
   "product_claims": [
     {
       "id": "bossboard.user-count",
       "claim": "Join early Kiwi tradies in beta who are ditching the paperwork.",
-      "surfaces": ["apps/web/src/app/page.tsx#L321"],
+      "surfaces": ["apps/web/src/app/page.tsx#L321", "apps/api/src/landing.html (legacy)", "landing/index.html (legacy)"],
       "evidence_references": ["CLAUDE.md states <50-user beta target"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30",
-      "previous_overclaim": "Was 'Join hundreds of Kiwi tradies who've ditched the paperwork'. Recalled 2026-04-30 — beta target is <50 users."
+      "last_verified": "2026-05-11",
+      "previous_overclaim": "Was 'Join hundreds of Kiwi tradies who've ditched the paperwork'. Recalled 2026-04-30 from page.tsx; legacy landing.html + landing/index.html survivors recalled 2026-05-11."
+    },
+    {
+      "id": "bossboard.compliance-framing",
+      "claim": "Built to Health and Safety at Work Act 2015 standards — you stay the PCBU.",
+      "surfaces": ["apps/api/src/landing.html", "landing/index.html", "apps/web/src/app/page.tsx", "apps/web/public/llms.txt", "llms.txt"],
+      "evidence_references": ["reference_copy_library_bossboard.md: operator stays accountable, never 'compliant with'", "feedback_brand_names.md"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-11",
+      "previous_overclaim": "Was 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'GST-compliant documents'. Recalled 2026-05-11 — product helps the operator who remains the PCBU; product does not certify or guarantee compliance."
+    },
+    {
+      "id": "bossboard.brand-name",
+      "claim": "BossBoard (single product name)",
+      "surfaces": ["llms.txt", "apps/web/public/llms.txt"],
+      "evidence_references": ["feedback_brand_names.md"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-11",
+      "previous_overclaim": "Old llms.txt files described product as 'BossBoard (also known as TradeMate NZ)' / 'BossBoard (TradeMate NZ)'. Aliases scrubbed 2026-05-11."
     },
     {
       "id": "bossboard.cashflow-forecasting",
@@ -23,7 +41,8 @@
       "surfaces": ["README.md#L10", "llms.txt#L23"],
       "code_references": ["Module 2 in CLAUDE.md (Q2-Q3 2026 — UNRELEASED)"],
       "verdict": "ABSENT",
-      "decision": "Framed as Coming Q2 2026 (truthful future-tense)",
+      "decision": "soften",
+      "decision_notes": "Framed as Coming Q2 2026 (truthful future-tense)",
       "last_verified": "2026-04-30",
       "previous_overclaim": "Was framed as available core feature. Reality: Xero integration is Q2-Q3 2026, dashboard shows revenue history only."
     },
@@ -31,24 +50,26 @@
       "id": "bossboard.team-tier-features.recalled",
       "claim_dropped_2026_04_30": "Team scheduling + Job assignment & dispatch (in Team-tier pricing card)",
       "verdict": "ABSENT",
-      "evidence_references": ["https://github.com/marc-2019/trademate-nz/pull/2 (Team-tier recall)"],
-      "reason": "No scheduling routes, no assignment routes, no dispatch logic. Not in CLAUDE.md What's Built or What's Next (Unreleased). Highest FTA s9/s13 fact pattern in 2026-04-30 audit."
+      "evidence_references": ["https://github.com/marc-2019/trademate-nz/pull/2 (Team-tier recall)", "Legacy landing.html + landing/index.html survivors removed 2026-05-11"],
+      "reason": "No scheduling routes, no assignment routes, no dispatch logic. Not in CLAUDE.md What's Built or What's Next (Unreleased). Highest FTA s9/s13 fact pattern in 2026-04-30 audit. Two legacy landings still listed these features post-PR#2; removed 2026-05-11."
     },
     {
       "id": "bossboard.swms",
-      "claim": "AI-powered SWMS generation compliant with Health and Safety at Work Act 2015",
-      "surfaces": ["apps/web/src/app/page.tsx#L135-137", "llms.txt#L15"],
+      "claim": "AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 — operator stays accountable as the PCBU.",
+      "surfaces": ["apps/web/src/app/page.tsx", "llms.txt", "apps/web/public/llms.txt"],
       "code_references": ["apps/api/src/services/swms.ts", "apps/api/src/services/claude.ts"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-11",
+      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with...' — implied product certifies output. Reframed 2026-05-11 as AI-assisted + operator-accountable."
     },
     {
       "id": "bossboard.invoicing",
-      "claim": "Professional invoicing with GST built in (15%)",
-      "surfaces": ["apps/web/src/app/page.tsx#L142-146", "llms.txt#L16"],
+      "claim": "Professional invoicing with 15% GST built in. See your revenue at a glance.",
+      "surfaces": ["apps/web/src/app/page.tsx", "apps/api/src/landing.html", "landing/index.html", "llms.txt", "apps/web/public/llms.txt"],
       "code_references": ["apps/api/src/routes/invoices.ts", "database/migrations/001_enhanced_invoicing.sql"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-11",
+      "previous_overclaim": "Was 'GST-compliant documents' / 'know your cashflow position at a glance'. Reframed 2026-05-11: GST built in (factual feature), revenue (factual readout) not cashflow position (forecasting belongs to Module 2)."
     },
     {
       "id": "bossboard.quotes",
@@ -84,11 +105,12 @@
     },
     {
       "id": "bossboard.certifications",
-      "claim": "Certification and licence tracking with automated expiry alerts (push notifications at 30/14/7/1 day intervals)",
-      "surfaces": ["llms.txt#L21"],
+      "claim": "Certification and licence tracking with expiry reminders at 30/14/7/1 days",
+      "surfaces": ["llms.txt", "apps/web/public/llms.txt"],
       "code_references": ["apps/api/src/routes/certifications.ts", "apps/api/src/services/cron.ts"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30"
+      "last_verified": "2026-05-11",
+      "previous_overclaim": "Was 'automated expiry alerts'. Reframed 2026-05-11 — 'automated' avoided in compliance context (operator decides what to do with the reminder)."
     },
     {
       "id": "bossboard.expenses",
