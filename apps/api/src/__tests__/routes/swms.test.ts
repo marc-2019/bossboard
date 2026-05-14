@@ -29,6 +29,21 @@ jest.mock('../../services/swms.js', () => ({
   },
 }));
 
+// Mock audit-log service so we can assert what the routes record without
+// hitting the database.
+const mockAuditRecord = jest.fn();
+const mockAuditDiff = jest.fn();
+const mockAuditList = jest.fn();
+
+jest.mock('../../services/audit-log.js', () => ({
+  __esModule: true,
+  default: {
+    record: mockAuditRecord,
+    diffEntity: mockAuditDiff,
+    listForEntity: mockAuditList,
+  },
+}));
+
 // Mock auth middleware - using plain JS callback to avoid ts-jest transformation issues
 jest.mock('../../middleware/auth.js', () => ({
   authenticate: function(req: any, _res: any, next: any) {
@@ -298,6 +313,66 @@ describe('SWMS Routes', () => {
         success: false,
         error: 'NOT_FOUND',
       });
+    });
+
+    it('should write an audit log entry with actor, entity id, and diff on successful update', async () => {
+      const before = { id: 'swms-123', title: 'Old Title', status: 'draft' };
+      const after = { id: 'swms-123', title: 'Updated Title', status: 'signed' };
+      const diff = {
+        title: { old: 'Old Title', new: 'Updated Title' },
+        status: { old: 'draft', new: 'signed' },
+      };
+
+      mockGetSWMSById.mockResolvedValue(before);
+      mockUpdateSWMS.mockResolvedValue(after);
+      mockAuditDiff.mockReturnValue(diff);
+
+      const response = await request(app)
+        .put('/api/v1/swms/swms-123')
+        .set('Authorization', 'Bearer mock-token')
+        .send({ title: 'Updated Title', status: 'signed' });
+
+      expect(response.status).toBe(200);
+      expect(mockAuditDiff).toHaveBeenCalledWith(before, after);
+      expect(mockAuditRecord).toHaveBeenCalledWith({
+        entityType: 'swms',
+        entityId: 'swms-123',
+        action: 'update',
+        actorUserId: 'test-user-id',
+        changes: diff,
+      });
+    });
+
+    it('should not write an audit log entry when the diff is empty', async () => {
+      const before = { id: 'swms-123', title: 'Same', status: 'draft' };
+      const after = { id: 'swms-123', title: 'Same', status: 'draft' };
+
+      mockGetSWMSById.mockResolvedValue(before);
+      mockUpdateSWMS.mockResolvedValue(after);
+      mockAuditDiff.mockReturnValue({});
+
+      await request(app)
+        .put('/api/v1/swms/swms-123')
+        .set('Authorization', 'Bearer mock-token')
+        .send({ title: 'Same' })
+        .expect(200);
+
+      expect(mockAuditDiff).toHaveBeenCalledWith(before, after);
+      expect(mockAuditRecord).not.toHaveBeenCalled();
+    });
+
+    it('should not write an audit log entry when the pre-update snapshot is unavailable', async () => {
+      mockGetSWMSById.mockResolvedValue(null);
+      mockUpdateSWMS.mockResolvedValue({ id: 'swms-123', title: 'Updated' });
+
+      await request(app)
+        .put('/api/v1/swms/swms-123')
+        .set('Authorization', 'Bearer mock-token')
+        .send({ title: 'Updated' })
+        .expect(200);
+
+      expect(mockAuditDiff).not.toHaveBeenCalled();
+      expect(mockAuditRecord).not.toHaveBeenCalled();
     });
   });
 
