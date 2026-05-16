@@ -73,4 +73,22 @@
       }
     }
   };
+
+  document.addEventListener("click", function (e) {
+    var el = e.target && e.target.closest ? e.target.closest("[data-cf-event]") : null;
+    if (!el) return;
+    var name = el.getAttribute("data-cf-event");
+    if (!name) return;
+    var params = {};
+    for (var i = 0; i < el.attributes.length; i++) {
+      var a = el.attributes[i];
+      if (a.name.indexOf("data-cf-") === 0 && a.name !== "data-cf-event") {
+        params[a.name.substring(8).replace(/-/g, "_")] = a.value;
+      }
+    }
+    if (el.tagName === "A" && el.href) params.link_url = el.href;
+    var txt = (el.textContent || "").trim();
+    if (txt) params.link_text = txt.slice(0, 80);
+    try { window.gtag && window.gtag("event", name, params); } catch (_) {}
+  });
 })();

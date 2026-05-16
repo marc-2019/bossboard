@@ -106,10 +106,10 @@ export default function Home() {
             Aotearoa run their business from their pocket — you stay the boss.
           </p>
           <div className="hero-cta">
-            <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large">
+            <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large" data-cf-event="cta_click" data-cf-cta="start_free" data-cf-location="hero">
               Start Free
             </Link>
-            <a href="#features" className="lp-btn lp-btn-outline lp-btn-large">
+            <a href="#features" className="lp-btn lp-btn-outline lp-btn-large" data-cf-event="cta_click" data-cf-cta="see_features" data-cf-location="hero">
               See Features
             </a>
           </div>
@@ -237,6 +237,9 @@ export default function Home() {
                 href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21"
                 className="lp-btn lp-btn-primary"
                 style={{ width: '100%', justifyContent: 'center' }}
+                data-cf-event="cta_click"
+                data-cf-cta="join_beta"
+                data-cf-tier="tradie"
               >
                 Join the Beta
               </a>
@@ -259,6 +262,9 @@ export default function Home() {
                 href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21"
                 className="lp-btn lp-btn-outline"
                 style={{ width: '100%', justifyContent: 'center' }}
+                data-cf-event="cta_click"
+                data-cf-cta="join_beta"
+                data-cf-tier="team"
               >
                 Join the Beta
               </a>
@@ -329,7 +335,7 @@ export default function Home() {
         <div className="lp-container">
           <h2>Ready to run your business like a boss?</h2>
           <p>Join early Kiwi tradies in beta who are ditching the paperwork.</p>
-          <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large">
+          <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large" data-cf-event="cta_click" data-cf-cta="start_free" data-cf-location="footer">
             Start Free Today
           </Link>
           <p
