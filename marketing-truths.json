@@ -136,6 +136,16 @@
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-04-30",
       "notes": "Beta mode currently — all users get tradie-tier access. Stripe NZ integration pending at ~50 paying users target."
+    },
+    {
+      "id": "bossboard.privacy-consent-banner",
+      "claim": "Privacy preferences notice + Google Analytics service description shown to visitors via Klaro consent banner.",
+      "surfaces": ["apps/web/src/app/layout.tsx (div#klaro mount + Klaro Script tag)"],
+      "code_references": ["apps/web/public/klaro/analytics.js (window.klaroConfig.translations.en + services[0].description)"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-17",
+      "owner": "marc",
+      "notes": "GA4 + Klaro v0.7.21 + Consent Mode v2 scaffold (2026-05-17). Banner copy: 'Privacy preferences. We use cookies to understand how this app is used. Choose your preferences below.' Service: 'Google Analytics — Anonymous analytics so we can understand how users navigate BossBoard.' Factual privacy notice; not a product claim. No compliance-promise / partnership / certification implication."
     }
   ],
   "recall_history": [
