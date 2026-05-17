@@ -15,7 +15,7 @@ import {
   RefreshControl,
   Linking,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
@@ -108,7 +108,7 @@ const TIER_COLORS: Record<string, { bg: string; text: string; border: string }> 
 
 export default function SubscriptionScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -142,6 +142,19 @@ export default function SubscriptionScreen() {
       setLoading(false);
     })();
   }, [loadUsage]);
+
+  // Refresh user + usage every time this screen regains focus.
+  // Critical for the post-Stripe-checkout return flow: user pays in the
+  // device's default browser then comes back to the app — without this
+  // they'd still see subscription_tier='free' until they manually pull-to-
+  // refresh or restart the app. AuthContext.refreshUser pulls the latest
+  // tier from /auth/me which the Stripe webhook updates.
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+      loadUsage();
+    }, [refreshUser, loadUsage])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

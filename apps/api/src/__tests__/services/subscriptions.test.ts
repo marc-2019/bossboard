@@ -90,8 +90,34 @@ describe('Subscription Service', () => {
   });
 
   describe('isBetaMode', () => {
-    it('should return true (currently in beta)', () => {
+    const ORIGINAL_BETA = process.env.BETA_MODE;
+
+    afterEach(() => {
+      if (ORIGINAL_BETA === undefined) {
+        delete process.env.BETA_MODE;
+      } else {
+        process.env.BETA_MODE = ORIGINAL_BETA;
+      }
+    });
+
+    it('defaults to true when BETA_MODE env var is unset', () => {
+      delete process.env.BETA_MODE;
       expect(isBetaMode()).toBe(true);
+    });
+
+    it("returns true when BETA_MODE='true'", () => {
+      process.env.BETA_MODE = 'true';
+      expect(isBetaMode()).toBe(true);
+    });
+
+    it("returns true for any non-'false' value (safety: typo-resistant default)", () => {
+      process.env.BETA_MODE = 'yes';
+      expect(isBetaMode()).toBe(true);
+    });
+
+    it("returns false ONLY when BETA_MODE='false' exactly", () => {
+      process.env.BETA_MODE = 'false';
+      expect(isBetaMode()).toBe(false);
     });
   });
 

@@ -58,7 +58,12 @@ const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
 // Beta override: everyone gets tradie-level access for free.
 // Env-driven so prod can toggle without a code change. Defaults to true (beta on)
 // for safety — explicit BETA_MODE=false is required to enable real paid checkout.
-const BETA_MODE = process.env.BETA_MODE !== 'false';
+// Evaluated at CALL time, not import time, so tests can pin the env per case
+// without needing jest.resetModules() (the prior module-level const made
+// `isBetaMode()` nondeterministic across test runs with mixed env state).
+function isBetaModeFromEnv(): boolean {
+  return process.env.BETA_MODE !== 'false';
+}
 
 // =============================================================================
 // TIER INFO
@@ -69,7 +74,7 @@ const BETA_MODE = process.env.BETA_MODE !== 'false';
  * During beta, all users get tradie-level access
  */
 export function getTierLimits(tier: SubscriptionTier): TierLimits {
-  if (BETA_MODE) {
+  if (isBetaModeFromEnv()) {
     return { ...TIER_LIMITS.tradie, tier };
   }
   return TIER_LIMITS[tier];
@@ -83,10 +88,11 @@ export function getAllTiers(): TierLimits[] {
 }
 
 /**
- * Check if beta mode is active
+ * Check if beta mode is active.
+ * Reads `BETA_MODE` env var at call time — see `isBetaModeFromEnv` note above.
  */
 export function isBetaMode(): boolean {
-  return BETA_MODE;
+  return isBetaModeFromEnv();
 }
 
 // =============================================================================
