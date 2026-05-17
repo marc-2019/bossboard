@@ -55,8 +55,10 @@ const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   },
 };
 
-// Beta override: everyone gets tradie-level access for free
-const BETA_MODE = true;
+// Beta override: everyone gets tradie-level access for free.
+// Env-driven so prod can toggle without a code change. Defaults to true (beta on)
+// for safety — explicit BETA_MODE=false is required to enable real paid checkout.
+const BETA_MODE = process.env.BETA_MODE !== 'false';
 
 // =============================================================================
 // TIER INFO

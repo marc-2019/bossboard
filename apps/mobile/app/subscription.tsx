@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -148,13 +149,45 @@ export default function SubscriptionScreen() {
     setRefreshing(false);
   }, [loadUsage]);
 
-  function handleUpgrade(tier: string) {
+  async function handleUpgrade(tier: string) {
     if (tier === currentTier) return;
-    Alert.alert(
-      'Coming Soon',
-      'Subscription upgrades will be available soon. During our launch period, all features are completely free!',
-      [{ text: 'OK' }]
-    );
+    if (tier !== 'tradie' && tier !== 'team') return; // free tier has no checkout
+
+    try {
+      const res = await subscriptionsApi.createCheckoutSession({ tier });
+      const data = res.data?.data;
+
+      // Beta mode: backend returned betaMode flag — show launch-pricing message
+      if (data?.betaMode) {
+        Alert.alert(
+          'Launch Pricing',
+          data.message ?? 'All features are free during our launch period.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Real checkout: open Stripe Checkout URL in the device's default browser.
+      // After payment Stripe redirects to the API's successUrl; the user returns
+      // to the app manually and the subscription_tier refreshes on next auth-check.
+      if (!data?.url) {
+        Alert.alert('Checkout error', 'No checkout URL returned. Please try again or contact support.');
+        return;
+      }
+
+      const supported = await Linking.canOpenURL(data.url);
+      if (!supported) {
+        Alert.alert(
+          'Could not open browser',
+          'Please copy this URL into your browser to complete checkout:\n\n' + data.url
+        );
+        return;
+      }
+      await Linking.openURL(data.url);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
+      Alert.alert('Upgrade failed', msg);
+    }
   }
 
   // ---------------------------------------------------------------------------

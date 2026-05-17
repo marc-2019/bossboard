@@ -81,6 +81,22 @@ if (!config.isDevelopment) {
       throw new Error(`${key} environment variable is required in production`);
     }
   }
+  // STRIPE_RETURN_URL is required in prod ONLY when paid checkout is enabled
+  // (BETA_MODE=false). The dev fallback http://localhost:19006 would silently
+  // break post-payment redirect on a live server.
+  if (process.env.BETA_MODE === 'false') {
+    if (!process.env.STRIPE_RETURN_URL || process.env.STRIPE_RETURN_URL.startsWith('http://localhost')) {
+      throw new Error(
+        'STRIPE_RETURN_URL must be set to a non-localhost URL in production when BETA_MODE=false'
+      );
+    }
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is required in production when BETA_MODE=false');
+    }
+    if (!process.env.STRIPE_PRICE_ID_TRADIE) {
+      throw new Error('STRIPE_PRICE_ID_TRADIE is required in production when BETA_MODE=false');
+    }
+  }
   // Warn about missing but non-fatal vars
   if (!process.env.CORS_ORIGINS) {
     console.warn('WARNING: CORS_ORIGINS not set in production — defaulting to deny-all');
