@@ -475,10 +475,21 @@ export interface ValidationResult {
   regulatoryNotes: string[];
 }
 
+/**
+ * Get current AI configuration (for usage tracking)
+ */
+export function getAIConfig() {
+  return {
+    model: USE_LOCAL_LLM ? LM_STUDIO_MODEL : ANTHROPIC_MODEL,
+    provider: (USE_LOCAL_LLM ? 'local' : 'anthropic') as 'local' | 'anthropic',
+  };
+}
+
 export default {
   generateHazardSuggestions,
   generateControlMeasures,
   generateRiskAssessment,
   completeSWMSSection,
   validateSWMS,
+  getAIConfig,
 };

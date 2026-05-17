@@ -99,11 +99,13 @@ router.get('/usage', async (req: Request, res: Response, next: NextFunction) => 
         limits: {
           invoicesPerMonth: limits.invoicesPerMonth,
           swmsPerMonth: limits.swmsPerMonth,
+          aiCallsPerMonth: limits.aiCallsPerMonth,
           teamMembers: limits.teamMembers,
         },
         remaining: {
           invoices: limits.invoicesPerMonth === null ? null : Math.max(0, limits.invoicesPerMonth - usage.invoicesThisMonth),
           swms: limits.swmsPerMonth === null ? null : Math.max(0, limits.swmsPerMonth - usage.swmsThisMonth),
+          aiCalls: limits.aiCallsPerMonth === null ? null : Math.max(0, limits.aiCallsPerMonth - usage.aiCallsThisMonth),
           teamMembers: limits.teamMembers === null ? null : Math.max(0, limits.teamMembers - usage.teamMemberCount),
         },
       },

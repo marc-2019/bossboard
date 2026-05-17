@@ -37,13 +37,13 @@ interface UsageData {
   invoiceLimit: number | null;
   swmsThisMonth: number;
   swmsLimit: number | null;
+  aiCallsThisMonth: number;
+  aiCallLimit: number | null;
   teamMembers: number;
   teamMemberLimit: number | null;
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// ... (TIERS constant)
 
 const TIERS: TierInfo[] = [
   {
@@ -54,10 +54,11 @@ const TIERS: TierInfo[] = [
     features: [
       '3 invoices / month',
       '2 SWMS / month',
+      '5 AI calls / month',
       'Basic dashboard',
       'Certification tracker',
     ],
-    limits: { invoices: 3, swms: 2, teamMembers: 0 },
+    limits: { invoices: 3, swms: 2, aiCalls: 5, teamMembers: 0 },
   },
   {
     name: 'Tradie',
@@ -67,6 +68,7 @@ const TIERS: TierInfo[] = [
     features: [
       'Unlimited invoices',
       'Unlimited SWMS',
+      '50 AI calls / month',
       'PDF export',
       'Email invoices',
       'Quotes & estimates',
@@ -74,7 +76,7 @@ const TIERS: TierInfo[] = [
       'Job logs',
       'Photo attachments',
     ],
-    limits: { invoices: 'Unlimited', swms: 'Unlimited', teamMembers: 0 },
+    limits: { invoices: 'Unlimited', swms: 'Unlimited', aiCalls: 50, teamMembers: 0 },
   },
   {
     name: 'Team',
@@ -83,12 +85,13 @@ const TIERS: TierInfo[] = [
     priceMonthly: '$39.99',
     features: [
       'Everything in Tradie',
+      '200 AI calls / month',
       'Up to 5 team members',
       'Team dashboard',
       'Role-based access',
       'All features included',
     ],
-    limits: { invoices: 'Unlimited', swms: 'Unlimited', teamMembers: 5 },
+    limits: { invoices: 'Unlimited', swms: 'Unlimited', aiCalls: 200, teamMembers: 5 },
   },
 ];
 
@@ -115,7 +118,17 @@ export default function SubscriptionScreen() {
     try {
       const res = await subscriptionsApi.getUsage();
       if (res.data?.success) {
-        setUsage(res.data.data.usage);
+        const { usage, limits } = res.data.data;
+        setUsage({
+          invoicesThisMonth: usage.invoicesThisMonth,
+          invoiceLimit: limits.invoicesPerMonth,
+          swmsThisMonth: usage.swmsThisMonth,
+          swmsLimit: limits.swmsPerMonth,
+          aiCallsThisMonth: usage.aiCallsThisMonth,
+          aiCallLimit: limits.aiCallsPerMonth,
+          teamMembers: usage.teamMemberCount,
+          teamMemberLimit: limits.teamMembers,
+        });
       }
     } catch {
       // Silently fail - usage is supplementary
@@ -243,23 +256,21 @@ export default function SubscriptionScreen() {
         </View>
 
         {/* Usage Stats */}
-        {usage && currentTier === 'free' && (
+        {usage && (
           <View style={styles.usageSection}>
             <Text style={styles.usageSectionTitle}>This Month's Usage</Text>
             <UsageBar label="Invoices" used={usage.invoicesThisMonth} limit={usage.invoiceLimit} />
             <UsageBar label="SWMS" used={usage.swmsThisMonth} limit={usage.swmsLimit} />
-          </View>
-        )}
-
-        {usage && currentTier !== 'free' && (
-          <View style={styles.usageSection}>
-            <Text style={styles.usageSectionTitle}>Usage</Text>
-            <View style={styles.unlimitedRow}>
-              <Ionicons name="checkmark-circle" size={18} color="#059669" />
-              <Text style={styles.unlimitedText}>Unlimited invoices & SWMS</Text>
-            </View>
-            {usage.teamMemberLimit && (
+            <UsageBar label="AI Assistant" used={usage.aiCallsThisMonth} limit={usage.aiCallLimit} />
+            {usage.teamMemberLimit && usage.teamMemberLimit > 0 && (
               <UsageBar label="Team Members" used={usage.teamMembers} limit={usage.teamMemberLimit} />
+            )}
+            
+            {currentTier !== 'free' && !usage.invoiceLimit && !usage.swmsLimit && (
+              <View style={styles.unlimitedRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                <Text style={styles.unlimitedText}>Unlimited invoices & SWMS</Text>
+              </View>
             )}
           </View>
         )}
