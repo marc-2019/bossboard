@@ -1,8 +1,8 @@
-﻿# TradeMate NZ - Data Residency Consent Implementation Notes
+﻿# BossBoard - Data Residency Consent Implementation Notes
 
 ## Registration/Onboarding Flow
 
-TradeMate NZ is a trading/commerce platform for NZ businesses. Data residency consent should be added to:
+BossBoard is a business management platform for NZ tradies and small service businesses. Data residency consent should be added to:
 
 1. **Buyer/Seller Registration**
    - Account creation flow
