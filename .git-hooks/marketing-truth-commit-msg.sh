@@ -16,8 +16,11 @@
 #
 # Source of truth: ~/cf-research/marketing-truth-hook/commit-msg-hook.sh
 # Vendored copy lives at .git-hooks/marketing-truth-commit-msg.sh in each
-# repo, called from .git/hooks/commit-msg.
+# repo, called from .git/hooks/commit-msg or .husky/commit-msg.
 #
+# Introduced 2026-05-11 (split out from pre-commit Gate 5).
+# Hardened 2026-05-11 (task 2e459fda) — husky-aware installer +
+# chain-not-clobber existing commitlint/conventional-commits hooks.
 # CF directive: customer-facing-copy-requires-product-claim-audit
 # (cf_standing_directives, severity=critical, active).
 
