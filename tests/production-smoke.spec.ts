@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Narrow production smoke — asserts the TradeMate / BossBoard production API
+ * Narrow production smoke — asserts the BossBoard production API
  * returns JSON and not an HTML 502. This is intentionally a thin canary for
  * the 2026-04-13 class of outage (Railway edge / proxy returning an HTML
  * error page while the upstream Express app was down or misconfigured), and
@@ -21,7 +21,7 @@ import { test, expect } from '@playwright/test';
 
 const API_URL = process.env.PROD_API_URL || 'https://api.instilligent.com';
 
-test.describe('TradeMate production API — JSON contract', () => {
+test.describe('BossBoard production API — JSON contract', () => {
   test('GET /health returns 200 JSON, not an HTML 502', async ({ request }) => {
     const res = await request.get(`${API_URL}/health`);
 

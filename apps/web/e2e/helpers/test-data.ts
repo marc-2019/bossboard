@@ -1,9 +1,10 @@
 /**
- * E2E test-data lifecycle helper for BossBoard / TradeMate web.
+ * E2E test-data lifecycle helper for BossBoard web.
  *
  * Implements cf_standing_directives.e2e-test-data-lifecycle (severity:
- * critical, applies_to: trademate-nz). Every entity created during an
- * E2E test must be cleaned up.
+ * critical, applies_to: trademate-nz [legacy CF project_id slug — canonical
+ * for BossBoard, do not rename without DB-coupled migration]). Every entity
+ * created during an E2E test must be cleaned up.
  *
  * Pattern:
  *   const data = testDataName('nav-smoke');
