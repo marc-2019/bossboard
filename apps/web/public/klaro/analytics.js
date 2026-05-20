@@ -1,15 +1,17 @@
-/* GA4 + Klaro consent + Consent Mode v2 (BossBoard web)
- * Replace GTM_ID below with the real container ID from GA4 admin once provisioned.
+/* GA4 (gtag.js direct) + Klaro consent + Consent Mode v2 (BossBoard web).
+ * Rewritten 2026-05-20 from GTM-PLACEHOLDER to direct gtag.js per Marc-decision
+ * (Option A: simpler than GTM container, no GTM admin work needed).
  * Vendor files: /klaro/klaro-no-css.js + /klaro/klaro.min.css (Klaro v0.7.21).
  */
 (function () {
-  var GTM_ID = "GTM-PLACEHOLDER";
+  var GA4_ID = "G-83NPHN0QP5";
   var SITE_LABEL = "BossBoard";
 
   window.dataLayer = window.dataLayer || [];
   function gtag() { window.dataLayer.push(arguments); }
   window.gtag = gtag;
 
+  // Consent Mode v2 — deny analytics until Klaro user-consent updates.
   gtag("consent", "default", {
     ad_storage: "denied",
     analytics_storage: "denied",
@@ -20,16 +22,20 @@
     wait_for_update: 500
   });
 
-  (function (w, d, s, l, i) {
-    w[l] = w[l] || [];
-    w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-    var f = d.getElementsByTagName(s)[0],
-        j = d.createElement(s),
-        dl = l !== "dataLayer" ? "&l=" + l : "";
+  // Load gtag.js asynchronously. Pageview deferred until consent grants
+  // analytics_storage; on Klaro onAccept we fire an explicit page_view event.
+  (function (w, d, s, i) {
+    var f = d.getElementsByTagName(s)[0];
+    var j = d.createElement(s);
     j.async = true;
-    j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+    j.src = "https://www.googletagmanager.com/gtag/js?id=" + i;
     f.parentNode.insertBefore(j, f);
-  })(window, document, "script", "dataLayer", GTM_ID);
+  })(window, document, "script", GA4_ID);
+
+  gtag("js", new Date());
+  gtag("config", GA4_ID, {
+    send_page_view: false  // gated by Klaro consent; explicit page_view in onAccept
+  });
 
   window.klaroConfig = {
     version: 1,
@@ -52,7 +58,7 @@
         purposes: ["analytics"],
         cookies: [/^_ga/, /^_gid/, /^_gat/],
         onAccept:
-          "gtag('consent','update',{analytics_storage:'granted',ad_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});",
+          "gtag('consent','update',{analytics_storage:'granted',ad_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});gtag('event','page_view');",
         onDecline:
           "gtag('consent','update',{analytics_storage:'denied'});"
       }
