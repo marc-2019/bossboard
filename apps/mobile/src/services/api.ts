@@ -819,6 +819,21 @@ export const subscriptionsApi = {
 
   getLimits: () =>
     api.get('/api/v1/subscriptions/limits'),
+
+  // POST /api/v1/subscriptions/checkout — Stripe Checkout session for paid tier upgrade.
+  // Response shape:
+  //   - Beta on:  { success: true, data: { betaMode: true, message: string } }
+  //   - Beta off: { success: true, data: { sessionId: string, url: string } }
+  // Caller should open `data.url` in a browser/WebView; webhook updates the tier on success.
+  createCheckoutSession: (payload: {
+    tier: 'tradie' | 'team';
+    successUrl?: string;
+    cancelUrl?: string;
+  }) => api.post('/api/v1/subscriptions/checkout', payload),
+
+  // POST /api/v1/subscriptions/portal — Stripe Billing Portal session (manage existing sub).
+  createBillingPortalSession: (payload?: { returnUrl?: string }) =>
+    api.post('/api/v1/subscriptions/portal', payload ?? {}),
 };
 
 export default api;

@@ -18,6 +18,7 @@ const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     tier: 'free',
     invoicesPerMonth: 3,
     swmsPerMonth: 2,
+    aiCallsPerMonth: 5,
     teamMembers: null, // No team access
     pdfExport: false,
     emailInvoice: false,
@@ -30,6 +31,7 @@ const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     tier: 'tradie',
     invoicesPerMonth: null, // unlimited
     swmsPerMonth: null, // unlimited
+    aiCallsPerMonth: 50,
     teamMembers: null, // No team access (single user)
     pdfExport: true,
     emailInvoice: true,
@@ -42,6 +44,7 @@ const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     tier: 'team',
     invoicesPerMonth: null, // unlimited
     swmsPerMonth: null, // unlimited
+    aiCallsPerMonth: 200,
     teamMembers: 5,
     pdfExport: true,
     emailInvoice: true,
@@ -52,8 +55,15 @@ const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   },
 };
 
-// Beta override: everyone gets tradie-level access for free
-const BETA_MODE = true;
+// Beta override: everyone gets tradie-level access for free.
+// Env-driven so prod can toggle without a code change. Defaults to true (beta on)
+// for safety — explicit BETA_MODE=false is required to enable real paid checkout.
+// Evaluated at CALL time, not import time, so tests can pin the env per case
+// without needing jest.resetModules() (the prior module-level const made
+// `isBetaMode()` nondeterministic across test runs with mixed env state).
+function isBetaModeFromEnv(): boolean {
+  return process.env.BETA_MODE !== 'false';
+}
 
 // =============================================================================
 // TIER INFO
@@ -64,7 +74,7 @@ const BETA_MODE = true;
  * During beta, all users get tradie-level access
  */
 export function getTierLimits(tier: SubscriptionTier): TierLimits {
-  if (BETA_MODE) {
+  if (isBetaModeFromEnv()) {
     return { ...TIER_LIMITS.tradie, tier };
   }
   return TIER_LIMITS[tier];
@@ -78,10 +88,11 @@ export function getAllTiers(): TierLimits[] {
 }
 
 /**
- * Check if beta mode is active
+ * Check if beta mode is active.
+ * Reads `BETA_MODE` env var at call time — see `isBetaModeFromEnv` note above.
  */
 export function isBetaMode(): boolean {
-  return BETA_MODE;
+  return isBetaModeFromEnv();
 }
 
 // =============================================================================
@@ -209,6 +220,15 @@ export async function getTierUsage(userId: string): Promise<TierUsage> {
     [userId]
   );
 
+  // Count AI calls this month
+  const aiResult = await db.query<{ count: string }>(
+    `SELECT COUNT(*) as count FROM ai_usage_log
+     WHERE user_id = $1
+     AND created_at >= date_trunc('month', CURRENT_DATE)
+     AND created_at < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'`,
+    [userId]
+  );
+
   // Count team members (if user owns a team)
   const teamResult = await db.query<{ count: string }>(
     `SELECT COUNT(*) as count FROM team_members
@@ -221,6 +241,7 @@ export async function getTierUsage(userId: string): Promise<TierUsage> {
   return {
     invoicesThisMonth: parseInt(invoiceResult.rows[0].count, 10),
     swmsThisMonth: parseInt(swmsResult.rows[0].count, 10),
+    aiCallsThisMonth: parseInt(aiResult.rows[0].count, 10),
     teamMemberCount: parseInt(teamResult.rows[0].count, 10),
   };
 }
@@ -288,6 +309,35 @@ export async function canCreateSwms(userId: string, tier: SubscriptionTier): Pro
 }
 
 /**
+ * Check if user can use AI (within tier limit)
+ */
+export async function canUseAICall(userId: string, tier: SubscriptionTier): Promise<{ allowed: boolean; reason?: string }> {
+  const limits = getTierLimits(tier);
+
+  if (limits.aiCallsPerMonth === null) {
+    return { allowed: true };
+  }
+
+  const result = await db.query<{ count: string }>(
+    `SELECT COUNT(*) as count FROM ai_usage_log
+     WHERE user_id = $1
+     AND created_at >= date_trunc('month', CURRENT_DATE)
+     AND created_at < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'`,
+    [userId]
+  );
+
+  const count = parseInt(result.rows[0].count, 10);
+  if (count >= limits.aiCallsPerMonth) {
+    return {
+      allowed: false,
+      reason: `You've used your ${limits.aiCallsPerMonth} monthly AI calls. Upgrade your plan to get more AI assistance.`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
  * Check if user can add a team member
  */
 export async function canAddTeamMember(userId: string, tier: SubscriptionTier): Promise<{ allowed: boolean; reason?: string }> {
@@ -332,6 +382,27 @@ export async function canAddTeamMember(userId: string, tier: SubscriptionTier): 
 }
 
 /**
+ * Record an AI call in the usage log
+ */
+export async function recordAICall(
+  userId: string,
+  action: string,
+  model: string,
+  provider: 'anthropic' | 'local'
+): Promise<void> {
+  try {
+    await db.query(
+      `INSERT INTO ai_usage_log (user_id, action, model, provider)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, action, model, provider]
+    );
+  } catch (error) {
+    // Best effort: don't break the application if logging fails
+    console.error('[subscriptions] Failed to record AI call usage:', error);
+  }
+}
+
+/**
  * Check if a feature is available for a tier
  */
 export function isFeatureAvailable(tier: SubscriptionTier, feature: keyof Omit<TierLimits, 'tier' | 'invoicesPerMonth' | 'swmsPerMonth' | 'teamMembers'>): boolean {
@@ -348,6 +419,8 @@ export default {
   getTierUsage,
   canCreateInvoice,
   canCreateSwms,
+  canUseAICall,
+  recordAICall,
   canAddTeamMember,
   isFeatureAvailable,
 };

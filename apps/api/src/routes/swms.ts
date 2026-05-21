@@ -96,9 +96,21 @@ router.get('/templates/:tradeType', (req: Request, res: Response, next: NextFunc
  * POST /api/v1/swms/generate
  * Generate a new SWMS document
  */
-router.post('/generate', authenticate, attachSubscription, checkLimit('swms'), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const validation = generateSchema.safeParse(req.body);
+router.post(
+  '/generate',
+  authenticate,
+  attachSubscription,
+  checkLimit('swms'),
+  // Add AI call limit check if useAI is enabled (default is true)
+  async (req, res, next) => {
+    if (req.body.useAI !== false) {
+      return checkLimit('aiCall')(req, res, next);
+    }
+    next();
+  },
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validation = generateSchema.safeParse(req.body);
     if (!validation.success) {
       res.status(400).json({
         success: false,

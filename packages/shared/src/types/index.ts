@@ -929,6 +929,7 @@ export interface TierLimits {
   tier: SubscriptionTier;
   invoicesPerMonth: number | null;
   swmsPerMonth: number | null;
+  aiCallsPerMonth: number | null;
   teamMembers: number | null;
   pdfExport: boolean;
   emailInvoice: boolean;
@@ -941,5 +942,6 @@ export interface TierLimits {
 export interface TierUsage {
   invoicesThisMonth: number;
   swmsThisMonth: number;
+  aiCallsThisMonth: number;
   teamMemberCount: number;
 }

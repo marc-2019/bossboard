@@ -2,7 +2,7 @@
  * Certifications Service Tests
  *
  * Validates business logic for trade license and certification management,
- * including expiry tracking — a core compliance differentiator for TradeMate NZ.
+ * including expiry tracking — a core compliance differentiator for BossBoard.
  *
  * Coverage targets:
  *   - createCertification: inserts row and returns mobile-friendly shape

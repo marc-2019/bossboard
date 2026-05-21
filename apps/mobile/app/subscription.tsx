@@ -13,8 +13,9 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Linking,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
@@ -37,13 +38,13 @@ interface UsageData {
   invoiceLimit: number | null;
   swmsThisMonth: number;
   swmsLimit: number | null;
+  aiCallsThisMonth: number;
+  aiCallLimit: number | null;
   teamMembers: number;
   teamMemberLimit: number | null;
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// ... (TIERS constant)
 
 const TIERS: TierInfo[] = [
   {
@@ -54,10 +55,11 @@ const TIERS: TierInfo[] = [
     features: [
       '3 invoices / month',
       '2 SWMS / month',
+      '5 AI calls / month',
       'Basic dashboard',
       'Certification tracker',
     ],
-    limits: { invoices: 3, swms: 2, teamMembers: 0 },
+    limits: { invoices: 3, swms: 2, aiCalls: 5, teamMembers: 0 },
   },
   {
     name: 'Tradie',
@@ -67,6 +69,7 @@ const TIERS: TierInfo[] = [
     features: [
       'Unlimited invoices',
       'Unlimited SWMS',
+      '50 AI calls / month',
       'PDF export',
       'Email invoices',
       'Quotes & estimates',
@@ -74,7 +77,7 @@ const TIERS: TierInfo[] = [
       'Job logs',
       'Photo attachments',
     ],
-    limits: { invoices: 'Unlimited', swms: 'Unlimited', teamMembers: 0 },
+    limits: { invoices: 'Unlimited', swms: 'Unlimited', aiCalls: 50, teamMembers: 0 },
   },
   {
     name: 'Team',
@@ -83,12 +86,13 @@ const TIERS: TierInfo[] = [
     priceMonthly: '$39.99',
     features: [
       'Everything in Tradie',
+      '200 AI calls / month',
       'Up to 5 team members',
       'Team dashboard',
       'Role-based access',
       'All features included',
     ],
-    limits: { invoices: 'Unlimited', swms: 'Unlimited', teamMembers: 5 },
+    limits: { invoices: 'Unlimited', swms: 'Unlimited', aiCalls: 200, teamMembers: 5 },
   },
 ];
 
@@ -104,7 +108,7 @@ const TIER_COLORS: Record<string, { bg: string; text: string; border: string }> 
 
 export default function SubscriptionScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -115,7 +119,17 @@ export default function SubscriptionScreen() {
     try {
       const res = await subscriptionsApi.getUsage();
       if (res.data?.success) {
-        setUsage(res.data.data.usage);
+        const { usage, limits } = res.data.data;
+        setUsage({
+          invoicesThisMonth: usage.invoicesThisMonth,
+          invoiceLimit: limits.invoicesPerMonth,
+          swmsThisMonth: usage.swmsThisMonth,
+          swmsLimit: limits.swmsPerMonth,
+          aiCallsThisMonth: usage.aiCallsThisMonth,
+          aiCallLimit: limits.aiCallsPerMonth,
+          teamMembers: usage.teamMemberCount,
+          teamMemberLimit: limits.teamMembers,
+        });
       }
     } catch {
       // Silently fail - usage is supplementary
@@ -129,19 +143,64 @@ export default function SubscriptionScreen() {
     })();
   }, [loadUsage]);
 
+  // Refresh user + usage every time this screen regains focus.
+  // Critical for the post-Stripe-checkout return flow: user pays in the
+  // device's default browser then comes back to the app — without this
+  // they'd still see subscription_tier='free' until they manually pull-to-
+  // refresh or restart the app. AuthContext.refreshUser pulls the latest
+  // tier from /auth/me which the Stripe webhook updates.
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+      loadUsage();
+    }, [refreshUser, loadUsage])
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadUsage();
     setRefreshing(false);
   }, [loadUsage]);
 
-  function handleUpgrade(tier: string) {
+  async function handleUpgrade(tier: string) {
     if (tier === currentTier) return;
-    Alert.alert(
-      'Coming Soon',
-      'Subscription upgrades will be available soon. During our launch period, all features are completely free!',
-      [{ text: 'OK' }]
-    );
+    if (tier !== 'tradie' && tier !== 'team') return; // free tier has no checkout
+
+    try {
+      const res = await subscriptionsApi.createCheckoutSession({ tier });
+      const data = res.data?.data;
+
+      // Beta mode: backend returned betaMode flag — show launch-pricing message
+      if (data?.betaMode) {
+        Alert.alert(
+          'Launch Pricing',
+          data.message ?? 'All features are free during our launch period.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Real checkout: open Stripe Checkout URL in the device's default browser.
+      // After payment Stripe redirects to the API's successUrl; the user returns
+      // to the app manually and the subscription_tier refreshes on next auth-check.
+      if (!data?.url) {
+        Alert.alert('Checkout error', 'No checkout URL returned. Please try again or contact support.');
+        return;
+      }
+
+      const supported = await Linking.canOpenURL(data.url);
+      if (!supported) {
+        Alert.alert(
+          'Could not open browser',
+          'Please copy this URL into your browser to complete checkout:\n\n' + data.url
+        );
+        return;
+      }
+      await Linking.openURL(data.url);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
+      Alert.alert('Upgrade failed', msg);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -243,23 +302,21 @@ export default function SubscriptionScreen() {
         </View>
 
         {/* Usage Stats */}
-        {usage && currentTier === 'free' && (
+        {usage && (
           <View style={styles.usageSection}>
             <Text style={styles.usageSectionTitle}>This Month's Usage</Text>
             <UsageBar label="Invoices" used={usage.invoicesThisMonth} limit={usage.invoiceLimit} />
             <UsageBar label="SWMS" used={usage.swmsThisMonth} limit={usage.swmsLimit} />
-          </View>
-        )}
-
-        {usage && currentTier !== 'free' && (
-          <View style={styles.usageSection}>
-            <Text style={styles.usageSectionTitle}>Usage</Text>
-            <View style={styles.unlimitedRow}>
-              <Ionicons name="checkmark-circle" size={18} color="#059669" />
-              <Text style={styles.unlimitedText}>Unlimited invoices & SWMS</Text>
-            </View>
-            {usage.teamMemberLimit && (
+            <UsageBar label="AI Assistant" used={usage.aiCallsThisMonth} limit={usage.aiCallLimit} />
+            {usage.teamMemberLimit && usage.teamMemberLimit > 0 && (
               <UsageBar label="Team Members" used={usage.teamMembers} limit={usage.teamMemberLimit} />
+            )}
+            
+            {currentTier !== 'free' && !usage.invoiceLimit && !usage.swmsLimit && (
+              <View style={styles.unlimitedRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                <Text style={styles.unlimitedText}>Unlimited invoices & SWMS</Text>
+              </View>
             )}
           </View>
         )}

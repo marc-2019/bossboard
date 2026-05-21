@@ -10,6 +10,7 @@ import { SubscriptionTier } from '../types/index.js';
 import {
   canCreateInvoice,
   canCreateSwms,
+  canUseAICall,
   canAddTeamMember,
   isFeatureAvailable,
   getUserSubscription,
@@ -145,9 +146,10 @@ export function requireFeature(feature: 'pdfExport' | 'emailInvoice' | 'quotes' 
  * Usage: checkLimit('invoice') - checks invoice creation limit
  *        checkLimit('swms') - checks SWMS creation limit
  *        checkLimit('teamMember') - checks team member limit
+ *        checkLimit('aiCall') - checks AI call limit
  * Must be used after attachSubscription middleware
  */
-export function checkLimit(resource: 'invoice' | 'swms' | 'teamMember') {
+export function checkLimit(resource: 'invoice' | 'swms' | 'teamMember' | 'aiCall') {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const tier = (req as any).subscriptionTier as SubscriptionTier | undefined;
     const userId = req.user?.userId;
@@ -171,6 +173,9 @@ export function checkLimit(resource: 'invoice' | 'swms' | 'teamMember') {
         case 'swms':
           result = await canCreateSwms(userId, tier);
           break;
+        case 'aiCall':
+          result = await canUseAICall(userId, tier);
+          break;
         case 'teamMember':
           result = await canAddTeamMember(userId, tier);
           break;
@@ -179,7 +184,8 @@ export function checkLimit(resource: 'invoice' | 'swms' | 'teamMember') {
       }
 
       if (!result.allowed) {
-        res.status(403).json({
+        // Return 402 Payment Required for limit reached
+        res.status(402).json({
           success: false,
           error: 'LIMIT_REACHED',
           message: result.reason || 'You have reached the limit for this resource on your current plan.',

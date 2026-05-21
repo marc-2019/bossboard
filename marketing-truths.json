@@ -1,8 +1,8 @@
 {
   "$schema": "https://instilligent.com/schemas/marketing-truths.v1.json",
   "product_name": "BossBoard",
-  "product_status": "beta-ready (v0.5.0)",
-  "last_full_audit_date": "2026-05-12",
+  "product_status": "beta-ready (v0.5.0); Phase 1 paid-checkout code wired (BETA_MODE env-gated, default beta-on)",
+  "last_full_audit_date": "2026-05-19",
   "last_full_audit_by": "claude+marc",
   "audit_doc": "~/cf-research/marketing-audits/bossboard-2026-04-30.md",
   "cf_directive": "customer-facing-copy-requires-product-claim-audit",
@@ -11,11 +11,11 @@
     {
       "id": "bossboard.user-count",
       "claim": "Join early Kiwi tradies in beta who are ditching the paperwork.",
-      "surfaces": ["apps/web/src/app/page.tsx#L321", "apps/api/src/landing.html (legacy)", "landing/index.html (legacy)"],
-      "evidence_references": ["CLAUDE.md states <50-user beta target"],
+      "surfaces": ["apps/web/src/app/page.tsx#L337", "apps/api/src/landing.html (legacy)", "landing/index.html (legacy)"],
+      "evidence_references": ["CLAUDE.md states <50-user beta target (Success Metrics — Beta Phase)"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-05-11",
-      "previous_overclaim": "Was 'Join hundreds of Kiwi tradies who've ditched the paperwork'. Recalled 2026-04-30 from page.tsx; legacy landing.html + landing/index.html survivors recalled 2026-05-11."
+      "last_verified": "2026-05-19",
+      "previous_overclaim": "Was 'Join hundreds of Kiwi tradies who've ditched the paperwork'. Recalled 2026-04-30 from page.tsx; legacy landing.html + landing/index.html survivors recalled 2026-05-11. Line ref refreshed 2026-05-19 — page.tsx is now 397 lines; hero copy at L337 (was L321)."
     },
     {
       "id": "bossboard.compliance-framing",
@@ -29,11 +29,11 @@
     {
       "id": "bossboard.brand-name",
       "claim": "BossBoard (single product name)",
-      "surfaces": ["llms.txt", "apps/web/public/llms.txt"],
-      "evidence_references": ["feedback_brand_names.md"],
+      "surfaces": ["llms.txt", "apps/web/public/llms.txt", "apps/web/src/app/page.tsx", "apps/api/src/landing.html", "landing/index.html", "README.md"],
+      "evidence_references": ["feedback_brand_names.md", "commit ee90386 rename Category-A mechanical sweep", "commit 57e052a internal-docs scrub"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-05-11",
-      "previous_overclaim": "Old llms.txt files described product as 'BossBoard (also known as TradeMate NZ)' / 'BossBoard (TradeMate NZ)'. Aliases scrubbed 2026-05-11."
+      "last_verified": "2026-05-19",
+      "previous_overclaim": "Old llms.txt files described product as 'BossBoard (also known as TradeMate NZ)' / 'BossBoard (TradeMate NZ)'. Aliases scrubbed 2026-05-11. 2026-05-19 verification: grep across customer-facing files (llms.txt, both landings, page.tsx rendered text, README.md) returns no TradeMate aliases in rendered copy. Code comment at page.tsx:16 references historical Railway service name (internal, not customer-facing). Container/path names + Stripe metadata field `trademate_user_id` retained as documented contract surfaces (CLAUDE.md). Two customer-facing legal docs (PRIVACY_NOTICE.md + DATA_RESIDENCY_IMPLEMENTATION_NOTES.md) still carry TradeMate strings — out of scope here, tracked separately."
     },
     {
       "id": "bossboard.cashflow-forecasting",
@@ -42,25 +42,26 @@
       "code_references": ["Module 2 in CLAUDE.md (Q2-Q3 2026 — UNRELEASED)"],
       "verdict": "ABSENT",
       "decision": "soften",
-      "decision_notes": "Framed as Coming Q2 2026 (truthful future-tense)",
-      "last_verified": "2026-04-30",
-      "previous_overclaim": "Was framed as available core feature. Reality: Xero integration is Q2-Q3 2026, dashboard shows revenue history only."
+      "decision_notes": "Framed as Coming Q2 2026 (truthful future-tense). Three sub-features all still absent: (a) no Xero OAuth code path — grep 'xero' across apps/api/src/services + routes returns 0 hits; (b) no invoice-chasing workflow — `overdue` is a status enum value in apps/api/src/services/invoices.ts but no automated reminder/chase service exists (only certification reminders in apps/api/src/services/notifications.ts:140); (c) no forecasting endpoint — apps/api/src/routes/stats.ts surfaces revenue history only. page.tsx:151 hero copy says 'chase overdue invoices' (operator-action framing, not 'we chase for you') — acceptable but borderline; consider tightening if drift continues.",
+      "last_verified": "2026-05-19",
+      "previous_overclaim": "Was framed as available core feature. Reality: Xero integration is Q2-Q3 2026, dashboard shows revenue history only. 2026-05-19 update: today's Phase 1 paid-checkout commit (ba90ce4) wires subscription billing via Stripe but does NOT touch Xero/cashflow/chasing scope — claim remains ABSENT."
     },
     {
       "id": "bossboard.team-tier-features.recalled",
       "claim_dropped_2026_04_30": "Team scheduling + Job assignment & dispatch (in Team-tier pricing card)",
       "verdict": "ABSENT",
+      "last_verified": "2026-05-19",
       "evidence_references": ["https://github.com/marc-2019/trademate-nz/pull/2 (Team-tier recall)", "Legacy landing.html + landing/index.html survivors removed 2026-05-11"],
-      "reason": "No scheduling routes, no assignment routes, no dispatch logic. Not in CLAUDE.md What's Built or What's Next (Unreleased). Highest FTA s9/s13 fact pattern in 2026-04-30 audit. Two legacy landings still listed these features post-PR#2; removed 2026-05-11."
+      "reason": "No scheduling routes, no assignment routes, no dispatch logic. Not in CLAUDE.md What's Built or What's Next (Unreleased). Highest FTA s9/s13 fact pattern in 2026-04-30 audit. Two legacy landings still listed these features post-PR#2; removed 2026-05-11. 2026-05-19 re-verification: grep '(schedul|dispatch|assign.*job)' across apps/api/src/routes/ + services/ confirms no scheduling or job-assignment endpoints. Team-tier pricing card (page.tsx:250-274) lists only 'Up to 5 team members' + 'Team roles & permissions' (matches apps/api/src/services/teams.ts owner/admin/worker roles). Note: page.tsx:169 + both legacy landings #L248 use the phrase 'Manage your crew, assign jobs, track who's where' in the team-management feature card — this is colloquial English for delegating work (no scheduling/dispatch route backs it), distinct from the recalled paid-tier feature. Borderline; flagged but acceptable. Re-tighten if any actual scheduling endpoint ships."
     },
     {
       "id": "bossboard.swms",
       "claim": "AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 — operator stays accountable as the PCBU.",
-      "surfaces": ["apps/web/src/app/page.tsx", "llms.txt", "apps/web/public/llms.txt"],
-      "code_references": ["apps/api/src/services/swms.ts", "apps/api/src/services/claude.ts"],
+      "surfaces": ["apps/web/src/app/page.tsx#L136-142", "apps/web/src/app/page.tsx#L295-296", "llms.txt", "apps/web/public/llms.txt"],
+      "code_references": ["apps/api/src/services/swms.ts (558 LOC)", "apps/api/src/services/claude.ts"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-05-11",
-      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with...' — implied product certifies output. Reframed 2026-05-11 as AI-assisted + operator-accountable."
+      "last_verified": "2026-05-19",
+      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with...' — implied product certifies output. Reframed 2026-05-11 as AI-assisted + operator-accountable. 2026-05-19 re-verification: page.tsx:136-142 carries 'AI-Assisted SWMS Drafts ... hazard suggestions ... aligned to ... not legal advice. While you stay accountable as the PCBU'; page.tsx:295-296 carries 'SWMS templates aligned to Health and Safety at Work Act 2015 — operator signs off.' Voice-A disclaimer pattern intact."
     },
     {
       "id": "bossboard.invoicing",
@@ -131,11 +132,21 @@
     {
       "id": "bossboard.pricing-tiers",
       "claim": "Free $0 (3 invoices/mo, 2 SWMS/mo) · Tradie $4.99/wk · Team $9.99/wk (up to 5 team members + roles)",
-      "surfaces": ["apps/web/src/app/page.tsx#L196-258", "llms.txt#L30-32"],
-      "code_references": ["apps/api/src/services/subscriptions.ts (tier definitions, Stripe NZ pending)"],
+      "surfaces": ["apps/web/src/app/page.tsx#L196-274", "llms.txt#L30-32"],
+      "code_references": ["apps/api/src/services/subscriptions.ts (tier definitions + isBetaMode env-driven, post-commit 1b33d93)", "apps/api/src/services/stripe.ts (Stripe Checkout wired — createCheckoutSession at L120)", "apps/api/src/routes/subscriptions.ts#L158 (POST /checkout)", "apps/mobile/app/subscription.tsx#L165 (handleUpgrade → real Stripe Checkout URL via Linking.openURL)"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-04-30",
-      "notes": "Beta mode currently — all users get tradie-tier access. Stripe NZ integration pending at ~50 paying users target."
+      "last_verified": "2026-05-19",
+      "notes": "Beta mode currently default-on (BETA_MODE env var defaults to true; explicit BETA_MODE=false enables paid checkout). All users get tradie-tier access in beta. Phase 1 paid-checkout shipped 2026-05-19 (commits ba90ce4 + 1b33d93): Stripe Checkout backend wired, mobile Upgrade button now opens real Stripe URL, prod boot guards refuse to start with BETA_MODE=false absent STRIPE_RETURN_URL/STRIPE_SECRET_KEY/STRIPE_PRICE_ID_TRADIE. Production has NOT flipped to BETA_MODE=false yet — copy still factually reflects current beta posture ('Join the Beta' CTA + 'Tradie features free during beta'). When production flips, page.tsx CTAs + this note must be re-audited (claim text remains accurate as a price-list)."
+    },
+    {
+      "id": "bossboard.privacy-consent-banner",
+      "claim": "Privacy preferences notice + Google Analytics service description shown to visitors via Klaro consent banner.",
+      "surfaces": ["apps/web/src/app/layout.tsx (div#klaro mount + Klaro Script tag)"],
+      "code_references": ["apps/web/public/klaro/analytics.js (window.klaroConfig.translations.en + services[0].description)"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-05-17",
+      "owner": "marc",
+      "notes": "GA4 + Klaro v0.7.21 + Consent Mode v2 scaffold (2026-05-17). Banner copy: 'Privacy preferences. We use cookies to understand how this app is used. Choose your preferences below.' Service: 'Google Analytics — Anonymous analytics so we can understand how users navigate BossBoard.' Factual privacy notice; not a product claim. No compliance-promise / partnership / certification implication."
     }
   ],
   "recall_history": [

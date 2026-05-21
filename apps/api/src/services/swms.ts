@@ -6,6 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from './database.js';
 import claudeService from './claude.js';
+import { recordAICall } from './subscriptions.js';
 import {
   SWMSDocument,
   SWMSGenerateInput,
@@ -125,6 +126,16 @@ export async function generateSWMS(
     try {
       console.log(`[SWMS] Generating AI suggestions for ${input.tradeType} job...`);
 
+      const aiConfig = claudeService.getAIConfig();
+
+      // Record hazard suggestion call
+      await recordAICall(
+        userId,
+        'generate_hazard_suggestions',
+        aiConfig.model,
+        aiConfig.provider
+      );
+
       // Get AI hazard suggestions
       const hazardStrings = await claudeService.generateHazardSuggestions(
         input.tradeType,
@@ -160,6 +171,14 @@ export async function generateSWMS(
       // Get AI control suggestions for hazards
       if (suggestedHazards.length > 0) {
         try {
+          // Record control measure call
+          await recordAICall(
+            userId,
+            'generate_control_measures',
+            aiConfig.model,
+            aiConfig.provider
+          );
+
           const controlMap = await claudeService.generateControlMeasures(
             hazardStrings,
             input.tradeType

@@ -6,8 +6,8 @@
 # Setup: ~/.config/bossboard/restic.env supplies RESTIC_PASSWORD + RESTIC_REPOSITORY.
 # Schedule: systemd user timer bossboard-backup.timer (daily 03:15 NZST).
 #
-# Repo path note: this repo is named `trademate-nz` historically but the product
-# is BossBoard (TradeMate NZ is the mobile-app brand for the same backend).
+# Repo path note: the on-disk dir was historically `trademate-nz` (renamed to
+# /home/marc/projects/bossboard 2026-05-18). The product is BossBoard.
 # Backup config + scripts use the BossBoard name to match the brand.
 
 set -euo pipefail
