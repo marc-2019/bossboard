@@ -60,7 +60,10 @@
         onAccept:
           "gtag('consent','update',{analytics_storage:'granted',ad_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});gtag('event','page_view');",
         onDecline:
-          "gtag('consent','update',{analytics_storage:'denied'});"
+          // 2026-05-21: revoke ALL 4 categories on decline (was only revoking
+          // analytics_storage — asymmetric with onAccept which granted 4).
+          // GDPR/CPRA require declining to revoke all granted consent.
+          "gtag('consent','update',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});"
       }
     ],
     translations: {
