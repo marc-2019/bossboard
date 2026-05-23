@@ -1,0 +1,91 @@
+# F-PUSH-01 — Mobile flow: receive a cert-expiry push notification
+#
+# Verifies the end-to-end happy path of the cron-driven cert-expiry sweep
+# from the user's perspective:
+#   1. App is already authenticated + push token registered (precondition;
+#      run 44-push-token-register.yaml first, or assume a freshly-launched
+#      app with a logged-in session restored from cache).
+#   2. A backend-side trigger creates an expiring certification and runs
+#      `POST /api/v1/notifications/check-expiry`. The backend invocation is
+#      OUT OF SCOPE for this Maestro flow — see the API demo at
+#      apps/web/e2e/demos/api/push.api.spec.ts F-PUSH-01 AC#4 for that
+#      side. This flow assumes the push has been queued and OS will
+#      deliver it within ~5 seconds.
+#   3. Maestro waits for the notification, then either:
+#        - opens the system notification shade (Android) and asserts the
+#          title text "Certification Expiring Soon" is visible, OR
+#        - taps the notification (where Maestro supports it) which deep-
+#          links into the mobile app's certifications tab.
+#   4. Screenshot the notification (or the deep-linked screen) for review.
+#
+# Why this is structured as a single best-effort flow:
+#   - System notifications are OS-controlled. Maestro's `openNotifications`
+#     command (Android) works reliably; iOS support is more limited because
+#     control center / notification center scraping varies by simulator
+#     version.
+#   - The brief flagged "screenshot system notification if Maestro can
+#     capture" as best-effort. If the assertion fails because the OS hasn't
+#     surfaced the notification within the wait budget, that's a triage
+#     signal (Expo push not delivered, cron didn't fire, token mismatch)
+#     rather than a product bug.
+#
+# Expected notification copy (mirrors apps/api/src/services/notifications.ts
+# `getExpiryTitle(7)` / `getExpiryBody(name, certType, 7)`):
+#   Title: "⚠️ Certification Expiring Soon"
+#   Body:  "Your Electrical Worker License (EWRB) expires in 1 week.
+#           Time to start the renewal process."
+#
+# NO EXECUTION: simulator not running. YAML is syntax-verified only.
+
+appId: com.instilligent.bossboard
+tags:
+  - push
+  - F-PUSH-01
+---
+- launchApp:
+    clearState: false  # preserve the logged-in session from flow 44
+- assertVisible: "BossBoard"
+- takeScreenshot: 45-01-app-foreground-pre-push
+# Wait up to 10s for the push to arrive. The backend-side trigger is the
+# responsibility of the demo harness (curl POST /check-expiry); the time
+# from API send → device receive is typically <5s on Expo's free tier.
+- extendedWaitUntil:
+    visible:
+      text: "Certification Expiring Soon"
+    timeout: 10000
+    optional: true
+# If the notification surfaced as a banner in-app, screenshot it directly.
+- runFlow:
+    when:
+      visible:
+        text: "Certification Expiring Soon"
+    commands:
+      - takeScreenshot: 45-02-in-app-banner
+      - assertVisible:
+          text: "1 week"
+# Otherwise pull down the notification shade (Android only — iOS Maestro
+# support for this is brittle).
+- runFlow:
+    when:
+      notVisible:
+        text: "Certification Expiring Soon"
+    commands:
+      - openNotifications:
+      - extendedWaitUntil:
+          visible:
+            text: "Certification Expiring Soon"
+          timeout: 5000
+          optional: true
+      - takeScreenshot: 45-03-system-notification-shade
+      - assertVisible:
+          text: "Certification Expiring Soon"
+      - assertVisible:
+          text: "1 week"
+      # Tap the notification to deep-link into the cert tab. This
+      # exercises the `data.type === 'cert_expiry'` payload the API
+      # service sets (see notifications.ts line 167).
+      - tapOn:
+          text: "Certification Expiring Soon"
+      - assertVisible:
+          text: "Certifications"
+      - takeScreenshot: 45-04-deep-link-cert-tab
