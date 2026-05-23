@@ -1,0 +1,20 @@
+# F-INV-10: Bank reconciliation (mobile-only — no Web UI per drift app §4)
+#
+# Demo flow: Money tab → Bank → Upload → pick a CSV → auto-match runs →
+# match results screen. Mobile screens are under `apps/mobile/app/bank/`.
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Bank"
+- assertVisible: "Bank"
+- tapOn:
+    text: "Upload"
+- takeScreenshot: 22-inv-bank-upload-screen
+- tapOn:
+    text: "Auto-match"
+- assertVisible:
+    text: "match"
+- takeScreenshot: 22-inv-bank-rec-matches

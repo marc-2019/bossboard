@@ -1,0 +1,21 @@
+# F-INV-06: PDF export
+#
+# Demo flow: open an invoice → tap "PDF" / "Download" → OS viewer opens
+# (Maestro can't read into the OS PDF viewer, so we screenshot the
+# detail screen with the PDF button highlighted, then take a second
+# screenshot once the OS sheet appears).
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Invoices"
+- tapOn:
+    index: 0
+    text: "Smith Residence"
+- assertVisible: "PDF"
+- takeScreenshot: 18-inv-pdf-button-visible
+- tapOn:
+    text: "PDF"
+- takeScreenshot: 18-inv-pdf-after-tap

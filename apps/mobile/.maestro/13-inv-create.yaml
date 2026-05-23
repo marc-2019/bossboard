@@ -1,0 +1,36 @@
+# F-INV-01: Create invoice (with line items + GST)
+#
+# Demo flow: tradie taps the Money tab, hits "+ Invoice", fills client
+# details, adds one line item, ticks the 15% GST box (defaults on), then
+# saves as draft.
+#
+# Requires: logged-in user; if launching cold, the test runner must
+# provide credentials via Maestro env. See .maestro/README + ephemeral
+# user pattern used by Playwright.
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Invoices"
+- tapOn:
+    text: "New invoice"
+- tapOn:
+    text: "Client name"
+- inputText: "Smith Residence"
+- tapOn:
+    text: "Client email"
+- inputText: "jane.smith@example.test"
+- tapOn:
+    text: "Description (e.g., Labour, Materials)"
+- inputText: "Replace hot water cylinder (180L mains pressure) x1"
+- tapOn:
+    text: "0.00"
+- inputText: "1850.00"
+- assertVisible: "GST"
+- tapOn:
+    text: "Save as draft"
+- assertVisible:
+    text: "draft"
+- takeScreenshot: 13-inv-create-success

@@ -1,0 +1,18 @@
+# F-INV-05: Mark invoice as paid
+#
+# Demo flow: open a sent invoice, tap "Mark as paid", confirm the status
+# badge changes to "paid".
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Invoices"
+- tapOn:
+    index: 0
+    text: "Smith Residence"
+- tapOn:
+    text: "Mark as paid"
+- assertVisible: "paid"
+- takeScreenshot: 17-inv-marked-paid
