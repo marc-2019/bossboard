@@ -1,0 +1,6 @@
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: true
+- assertVisible: "BossBoard"
+- takeScreenshot: 00-app-launched
