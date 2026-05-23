@@ -1,0 +1,87 @@
+# Maestro flow: F-EXP-01 — Create expense (with category + receipt photo)
+#
+# Spec: docs/testing/SPEC_AND_DEMOS_MATRIX.md § Module 6 F-EXP-01
+# Plan: docs/superpowers/plans/2026-05-23-e2e-demo-spec-coverage-suite.md M.4
+#
+# Drives the on-device capture flow: open Money tab → Expenses →
+# "+ Add" FAB → fill amount + select Materials category + vendor +
+# toggle GST → save → assert it shows on the list.
+#
+# Data realism: a real $45 PVC fittings run at Plumbing World (Penrose),
+# GST claimable. Matches the helpers/expenses.ts NZ_TRADIE_EXPENSE_FIXTURES.
+#
+# Receipt photo: the spec calls for one but Maestro can't synthesise
+# a real receipt image from headed simulator. The photo-attach
+# assertion is exercised in the API spec (e2e/demos/api/expenses.api.spec.ts
+# F-EXP-01 AC4) where we mock a 1x1 PNG buffer. The Maestro flow
+# documents the gap and stops at the "save expense" step.
+#
+# Status: NOT YET RUN. Parent task is syntax-verify only. Validate:
+#   maestro test .maestro/26-expense-create.yaml --include-tags=expenses --debug-output /tmp/maestro
+
+appId: com.instilligent.bossboard
+tags:
+  - expenses
+  - F-EXP-01
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+- takeScreenshot: 26-00-app-launched
+
+# Money tab is the entry point for expenses (see
+# apps/mobile/app/(tabs)/money.tsx:207 — "Expenses" quick action).
+- tapOn: "Money"
+- takeScreenshot: 26-01-money-tab
+
+- tapOn: "Expenses"
+- takeScreenshot: 26-02-expenses-list
+
+# Either the FAB (+) in the empty state OR the "Add Your First
+# Expense" CTA — both route to /expenses/create.
+- runFlow:
+    when:
+      visible: "Add Your First Expense"
+    commands:
+      - tapOn: "Add Your First Expense"
+- runFlow:
+    when:
+      notVisible: "Save Expense"
+    commands:
+      # FAB has no accessibility label; tap by position (bottom-right).
+      - tapOn:
+          point: "92%,92%"
+- takeScreenshot: 26-03-create-screen
+
+# Amount input has autoFocus per create.tsx:118 — keyboard is up.
+- inputText: "45.00"
+- takeScreenshot: 26-04-amount-entered
+
+# Materials is the default category but tap explicitly to make the
+# selection visible in the recording.
+- tapOn: "Materials"
+- takeScreenshot: 26-05-materials-selected
+
+# Description field.
+- tapOn:
+    text: "What was this expense for?"
+- inputText: "PVC fittings + flux"
+
+# Vendor field — placeholder is "e.g. Bunnings, Repco".
+- tapOn:
+    text: "e.g. Bunnings, Repco"
+- inputText: "Plumbing World — Penrose"
+- takeScreenshot: 26-06-fields-filled
+
+# Toggle GST Claimable.
+- tapOn: "GST Claimable"
+- takeScreenshot: 26-07-gst-toggled
+
+- tapOn: "Save Expense"
+- takeScreenshot: 26-08-after-save
+
+# Should be back on the list with the new row visible.
+- assertVisible:
+    text: "PVC fittings"
+    enabled: true
+- takeScreenshot: 26-09-list-after-create
