@@ -13,19 +13,46 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
-// Configuration - supports local LM Studio or cloud Anthropic
-const USE_LOCAL_LLM = process.env.USE_LOCAL_LLM === 'true' || !process.env.ANTHROPIC_API_KEY;
+// Configuration - supports local LM Studio, cloud Anthropic, or mock (Phase 6a)
+// MOCK_CLAUDE === 'true' is the canonical Phase 6a per-service flag.
+// MOCK_EXTERNAL_SERVICES === 'true' is retained as a backward-compat master
+// switch that mocks Anthropic (alongside Stripe + Resend) for existing
+// scripts / docs that still set the legacy flag.
+const MOCK_EXTERNAL =
+  process.env.MOCK_CLAUDE === 'true' ||
+  process.env.MOCK_EXTERNAL_SERVICES === 'true';
+// When MOCK_CLAUDE/MOCK_EXTERNAL_SERVICES=true, route through the Anthropic
+// SDK path so the mock can monkey-patch messages.create — bypass the
+// LM-Studio branch.
+const USE_LOCAL_LLM = !MOCK_EXTERNAL && (
+  process.env.USE_LOCAL_LLM === 'true' || !process.env.ANTHROPIC_API_KEY
+);
 const LM_STUDIO_URL = process.env.LM_STUDIO_URL || 'http://localhost:1234';
 const LM_STUDIO_MODEL = process.env.LM_STUDIO_MODEL || 'qwen/qwen3-vl-4b';
 const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 2048;
 
-// Initialize Anthropic client once at module level
-const anthropicClient = !USE_LOCAL_LLM && process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null;
+// Initialize Anthropic client once at module level.
+// When mocking, we instantiate with a stub key — the mock monkey-patches
+// messages.create() before any HTTP call would happen.
+const anthropicClient: Anthropic | null = (() => {
+  if (MOCK_EXTERNAL) {
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY || 'sk-ant-mock-phase6a-stub-key',
+    });
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const { installClaudeMock } = require('./mocks/claude-mock.js');
+    installClaudeMock(client);
+    console.log('[AI] MOCK_CLAUDE=true — Anthropic SDK mocked');
+    return client;
+  }
+  if (!USE_LOCAL_LLM && process.env.ANTHROPIC_API_KEY) {
+    return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return null;
+})();
 
-console.log(`AI Service initialized: ${USE_LOCAL_LLM ? `LM Studio (local) - ${LM_STUDIO_MODEL}` : 'Anthropic (cloud)'}`);
+console.log(`AI Service initialized: ${MOCK_EXTERNAL ? 'Anthropic (MOCKED — Phase 6a, MOCK_CLAUDE)' : USE_LOCAL_LLM ? `LM Studio (local) - ${LM_STUDIO_MODEL}` : 'Anthropic (cloud)'}`);
 
 // Timeout for LM Studio calls (30 seconds)
 const LM_STUDIO_TIMEOUT = 30000;
