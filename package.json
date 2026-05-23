@@ -23,7 +23,11 @@
     "db:seed": "npm run seed --workspace=apps/api",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+    "docker:logs": "docker-compose logs -f",
+    "demo:all": "bash scripts/run-all-demos.sh",
+    "demo:web": "cd apps/web && npx playwright test e2e/demos/ --headed --workers=1",
+    "demo:api": "cd apps/web && npx playwright test e2e/demos/api/ --workers=2",
+    "demo:mobile": "cd apps/mobile && maestro test .maestro/"
   },
   "keywords": [
     "bossboard",
