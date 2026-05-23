@@ -1,0 +1,58 @@
+# Maestro flow: F-EXP-02 — List + filter expenses by category, monthly summary
+#
+# Spec: docs/testing/SPEC_AND_DEMOS_MATRIX.md § Module 6 F-EXP-02
+# Plan: docs/superpowers/plans/2026-05-23-e2e-demo-spec-coverage-suite.md M.4
+#
+# Pre-req: at least one expense exists in each of two categories so
+# the filter chips render distinct counts. Flow 26-expense-create.yaml
+# seeds one Materials row; this flow ASSUMES it ran first OR that
+# Marc has manually seeded data. If no expenses exist the list will
+# show the empty-state and the chip-filter assertion is skipped.
+#
+# Status: NOT YET RUN. Parent task is syntax-verify only. Validate:
+#   maestro test .maestro/27-expense-list-filter.yaml --include-tags=expenses --debug-output /tmp/maestro
+
+appId: com.instilligent.bossboard
+tags:
+  - expenses
+  - F-EXP-02
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+
+- tapOn: "Money"
+- tapOn: "Expenses"
+- takeScreenshot: 27-00-expenses-list
+
+# Monthly summary card — see apps/mobile/app/expenses/index.tsx:142
+# "This Month" + "GST Claimable" labels.
+- runFlow:
+    when:
+      visible: "This Month"
+    commands:
+      - assertVisible: "GST Claimable"
+      - takeScreenshot: 27-01-monthly-summary
+
+# Filter chips: "All", "Materials", "Fuel", "Tools", "Subbie",
+# "Vehicle", "Office", "Other" (see CATEGORIES const in index.tsx:37).
+- runFlow:
+    when:
+      visible: "Materials"
+    commands:
+      - tapOn: "Materials"
+      - takeScreenshot: 27-02-materials-filter
+
+      # Switch to Fuel.
+      - tapOn: "Fuel"
+      - takeScreenshot: 27-03-fuel-filter
+
+      # Back to All.
+      - tapOn: "All"
+      - takeScreenshot: 27-04-all-filter
+
+# Pull-to-refresh exercises the RefreshControl wiring.
+- swipe:
+    start: "50%,30%"
+    end: "50%,80%"
+- takeScreenshot: 27-05-after-refresh
