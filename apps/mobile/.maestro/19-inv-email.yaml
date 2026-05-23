@@ -1,0 +1,23 @@
+# F-INV-07: Email invoice to customer
+#
+# Demo flow: open an invoice → tap "Email" → enter recipient
+# (defaults to client email) → submit → success toast.
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Invoices"
+- tapOn:
+    index: 0
+    text: "Smith Residence"
+- tapOn:
+    text: "Email"
+- assertVisible: "Recipient"
+# Recipient pre-fills; just submit
+- tapOn:
+    text: "Send"
+- assertVisible:
+    text: "emailed"
+- takeScreenshot: 19-inv-email-sent
