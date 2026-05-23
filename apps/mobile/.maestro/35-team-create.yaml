@@ -1,0 +1,44 @@
+# F-TEAM-01 — Create team (owner)
+#
+# Flow: launch app → assume user is already signed in (prior auth flow)
+# → navigate to the Teams tab/screen → tap "Create team" → fill the
+# team name → submit → assert the team header now reads the new team
+# name and the current user shows as Owner.
+#
+# Mobile screen reference: apps/mobile/app/teams/index.tsx
+#   - "Create team" button shown when user has no team yet
+#   - Form input id-tested by placeholder/labels (Maestro uses text)
+#
+# Data: Mike's Plumbing & Drainage Ltd (matches helpers/teams.ts).
+#
+# NO-EXECUTION caveat: dev env not running while flows were authored.
+# Syntax-verified only (Maestro YAML schema). When run, the test
+# harness should pre-seed an authenticated session — Maestro does not
+# yet support an inline login because the auth-flow contract was
+# defined by Agent 1 in 02-auth-* flows. See coverage/teams.md gap #3.
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+# Assume signed-in. If the app boots to the auth screen because the
+# session expired, surface that as a visible failure rather than
+# silently attempting a re-login here (Agent 1 owns the login flow).
+- assertVisible:
+    text: "Home"
+- tapOn:
+    text: "Team"
+# Empty-team affordance — page.tsx renders this when no team exists.
+- assertVisible:
+    text: "You're not on a team yet"
+- tapOn:
+    text: "Create team"
+- inputText: "Mike's Plumbing & Drainage Ltd"
+- tapOn:
+    text: "Save"
+# After creation the screen should re-render with the team name as
+# header and show the current user as Owner.
+- assertVisible:
+    text: "Mike's Plumbing & Drainage Ltd"
+- assertVisible:
+    text: "Owner"
+- takeScreenshot: 35-team-created

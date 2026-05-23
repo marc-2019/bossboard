@@ -1,0 +1,39 @@
+# F-TEAM-04 — Member role management (owner promotes worker → admin)
+#
+# Flow: open the Team screen as the owner with at least one worker
+# member → tap that member's row → change role from Worker to Admin →
+# assert the role badge updates.
+#
+# Data: Sarah Walker (worker) promoted to Admin by Mike Tane (owner).
+#
+# NO-EXECUTION caveat: role-change UI uses an inline select; Maestro
+# can't always interact cleanly with native picker wheels, so this
+# flow taps the row first to drill into a detail view if the inline
+# control fails. If the screen ever splits role-change to a dedicated
+# sheet, update accordingly.
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- assertVisible:
+    text: "Home"
+- tapOn:
+    text: "Team"
+- assertVisible:
+    text: "Mike's Plumbing & Drainage Ltd"
+- assertVisible:
+    text: "Members"
+# Tap Sarah Walker's row to open the role-change control.
+- tapOn:
+    text: "Sarah Walker"
+# Maestro can drive a native picker via tap-on-option.
+- tapOn:
+    text: "Admin"
+- tapOn:
+    text: "Save"
+# Verify the role badge now reads Admin on the row.
+- assertVisible:
+    text: "Sarah Walker"
+- assertVisible:
+    text: "Admin"
+- takeScreenshot: 38-role-promoted
