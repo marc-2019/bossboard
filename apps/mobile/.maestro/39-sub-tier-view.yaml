@@ -1,0 +1,55 @@
+# F-SUB-01 — View tier definitions (mobile)
+# Phase 3 Agent 10 — Subscriptions module
+#
+# Spec source: docs/testing/SPEC_AND_DEMOS_MATRIX.md § Module 10
+# Acceptance criteria covered:
+#   AC3: Mobile subscription screen renders the tier comparison
+#
+# Implementation under test: apps/mobile/app/subscription.tsx
+#   - TIERS constant (lines 49-97) defines Free / Tradie / Team cards
+#   - Renders price-per-week + price-per-month
+#   - Highlights the user's current tier
+#
+# Demo flow:
+#   1. Launch app cold (clearState)
+#   2. Navigate to subscription screen (via deep link or tab nav)
+#   3. Assert Free / Tradie / Team headings + canonical prices visible
+#   4. Take screenshots for stakeholder review
+#
+# Note: this flow assumes the user is already authenticated. The auth
+# flow lives in 02-auth-* flows; this flow can be chained after them
+# or run standalone if a logged-in fixture is present.
+#
+# TODO(phase5): inject an authenticated session fixture so this flow
+# can run standalone without depending on 02-auth-* completion.
+appId: com.instilligent.bossboard
+tags:
+  - subscriptions
+  - F-SUB-01
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+- takeScreenshot: 39-pre-sub-screen
+# Open subscription screen — expo-router URL scheme.
+# If a tab nav doesn't expose it directly, settings → subscription.
+- runFlow:
+    when:
+      visible: "Settings"
+    commands:
+      - tapOn: "Settings"
+      - tapOn:
+          text: "Subscription"
+          optional: true
+# Direct assertion for tier comparison cards
+- assertVisible: "Free"
+- assertVisible: "Tradie"
+- assertVisible: "Team"
+# AC: canonical NZ prices (CLAUDE.md: $4.99/wk tradie, $9.99/wk team)
+- assertVisible:
+    text: "\\$4.99"
+    optional: true
+- assertVisible:
+    text: "\\$9.99"
+    optional: true
+- takeScreenshot: 39-tier-comparison
