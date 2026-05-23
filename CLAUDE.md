@@ -617,24 +617,28 @@ This project is managed by CortexForge and benefits from:
 | **Primary Language** | TypeScript |
 | **Framework** | React Native + Express |
 
-### Quick API Reference
-```bash
-# CortexForge Base URL
-http://localhost:9000
+### How to keep CF updated (verified 2026-05-23)
 
-# Auth: admin@cortexforge.dev / admin123
+The HTTP API stanza previously shown here (port 9000) is **stale** — that
+port is Portainer on the current host. CF integrates via a commit-watcher
+that picks up two prefixes on `master`:
 
-# Get project
-GET /api/projects/495
+- `marc_decision(bossboard): ...` — decision records (typically paired with
+  an `audit/marc-decision-{topic}-{YYYY-MM-DD}.md` file linked from the
+  commit body). Verified: the commit-watcher writes a queue entry into
+  `.cf-pending-reviews/{YYYYMMDDTHHMMSSZ}-cross-tree.{diff,meta.json}` per
+  commit picked up.
+- `compound_priority_item(bossboard): ...` — CF-originated items shipped by
+  the autonomous executor (e.g. CF-LLM agent commits like `cca8983`).
 
-# Update SDLC phase
-PUT /api/projects/495/sdlc/{phase}
-Body: {"status": "in_progress", "notes": "..."}
+Pattern in recent history (`git log --oneline -30 origin/master`) confirms
+both prefixes are picked up. The `.cf-pending-reviews/` directory is the
+canonical signal that CF saw a commit.
 
-# Create artifact
-POST /api/projects/495/artifacts
-Body: {"name": "...", "type": "markdown", "content": "..."}
-```
+For SDLC phase updates and artifact registration, consult
+`docs/technical/CORTEXFORGE_INTEGRATION.md` — but verify the host/port
+before relying on any HTTP endpoint listed there; that doc may be subject
+to the same staleness.
 
 ### Documentation
 See [docs/technical/CORTEXFORGE_INTEGRATION.md](docs/technical/CORTEXFORGE_INTEGRATION.md) for full API reference and update procedures.
