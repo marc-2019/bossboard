@@ -11,18 +11,38 @@ let resendClient: Resend | null = null;
 
 function getResend(): Resend {
   if (!resendClient) {
-    if (!config.resendApiKey) {
+    const mocking = process.env.MOCK_EXTERNAL_SERVICES === 'true';
+    if (!mocking && !config.resendApiKey) {
       throw new Error('RESEND_API_KEY is not configured');
     }
-    resendClient = new Resend(config.resendApiKey);
+    // When mocking, the SDK is instantiated with a stub key — the mock
+    // monkey-patches send() before any HTTP call would happen, so the key
+    // is never used. The key argument is optional in Resend v6.
+    resendClient = new Resend(config.resendApiKey || 're_mock_phase6a_stub_key');
+    // Phase 6a mock infrastructure: when MOCK_EXTERNAL_SERVICES === 'true',
+    // monkey-patch resend.emails.send() to capture in-memory instead of
+    // calling api.resend.com. Default behavior is unchanged when the env
+    // var is unset/false.
+    if (mocking) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+      const { installResendMock } = require('./mocks/resend-mock.js');
+      installResendMock(resendClient);
+      console.log('[Email] MOCK_EXTERNAL_SERVICES=true — Resend SDK mocked');
+    }
   }
   return resendClient;
 }
 
 /**
- * Check if email sending is configured
+ * Check if email sending is configured.
+ *
+ * When MOCK_EXTERNAL_SERVICES=true, returns true even if RESEND_API_KEY is
+ * unset — the mock swallows sends without needing real credentials. This
+ * keeps the e2e demo flows that depend on email-side-effects (verification
+ * codes, password reset codes, invoice emails) running end-to-end.
  */
 export function isEmailConfigured(): boolean {
+  if (process.env.MOCK_EXTERNAL_SERVICES === 'true') return true;
   return !!config.resendApiKey;
 }
 
