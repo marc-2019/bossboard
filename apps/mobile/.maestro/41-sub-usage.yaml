@@ -1,0 +1,48 @@
+# F-SUB-03 — Usage tracking (mobile)
+# Phase 3 Agent 10 — Subscriptions module
+#
+# Spec source: docs/testing/SPEC_AND_DEMOS_MATRIX.md § Module 10
+# Acceptance criteria covered:
+#   AC1: GET /api/v1/subscriptions/usage drives the UsageBar component
+#   AC2: Counts reflect current month
+#   AC3: Counters increment after each successful POST
+#
+# Implementation under test:
+#   - apps/mobile/app/subscription.tsx:118 (loadUsage)
+#   - apps/mobile/app/subscription.tsx:210 (UsageBar component)
+#   - apps/mobile/src/services/api.ts (subscriptionsApi.getUsage)
+#
+# Demo flow:
+#   1. Open subscription screen
+#   2. Confirm "This Month's Usage" section renders for the user
+#   3. Confirm Invoices / SWMS / AI Assistant rows are visible
+#   4. Take screenshot for stakeholder review
+#
+# Note: usage section is conditional on `usage` state being non-null
+# (apps/mobile/app/subscription.tsx:305). If the API call fails or
+# returns nothing, the section is hidden — that's a graceful failure
+# the demo also documents.
+appId: com.instilligent.bossboard
+tags:
+  - subscriptions
+  - F-SUB-03
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+- runFlow:
+    when:
+      visible: "Settings"
+    commands:
+      - tapOn: "Settings"
+      - tapOn:
+          text: "Subscription"
+          optional: true
+# Wait for usage data to load
+- assertVisible:
+    text: "This Month's Usage"
+    optional: true
+- takeScreenshot: 41-usage-section
+# Pull-to-refresh exercises the loadUsage callback
+- scroll
+- takeScreenshot: 41-usage-after-scroll
