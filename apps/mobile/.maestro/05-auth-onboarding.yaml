@@ -1,0 +1,108 @@
+# F-AUTH-05 — Onboarding wizard (Mobile)
+#
+# Flow assumption: this flow follows 01-auth-register.yaml + 03-auth-
+# verify-email.yaml so the app is on the onboarding wizard (or can be
+# routed there). Onboarding is a 3-step wizard:
+#   Step 1: Trade type + business name
+#   Step 2: Company details (address, phone, email)
+#   Step 3: Bank details
+#
+# ACs covered:
+#   1. POST /complete-onboarding accepts the payload.           (api spec)
+#   2. User record updated with new fields.                     (api spec)
+#   3. /auth/me reflects new fields.                            (api spec)
+#   4. Mobile shows 3 steps with progress indicator.            (this)
+#   5. Skipping mid-flow leaves user resumable.                 (api spec)
+appId: com.instilligent.bossboard
+env:
+  BUSINESS_NAME: "Sarah Builds Ltd"
+  COMPANY_ADDRESS: "47 Queen St, Auckland 1010"
+  COMPANY_PHONE: "+64 9 555 0707"
+  COMPANY_EMAIL: "hello@sarahbuilds.test"
+  BANK_ACCOUNT_NAME: "Sarah Builds Ltd"
+  BANK_ACCOUNT_NUMBER: "01-1234-5678901-00"
+  BANK_NAME: "ANZ"
+---
+# Either a fresh launch routes to onboarding, or the previous flow's
+# state already has us there. assertVisible covers both.
+- assertVisible:
+    text:
+      pattern: "Set up your business|Step 1|Trade Type"
+
+# Step 1: Trade type (Builder) + business name.
+- takeScreenshot: 05-auth-onboarding-step1
+- tapOn:
+    text: "🏗️ Builder"
+- tapOn:
+    text:
+      pattern: "Business Name|Your Business Ltd"
+- inputText: ${BUSINESS_NAME}
+- hideKeyboard
+- tapOn:
+    text:
+      pattern: "Next|Continue"
+
+# Step 2: Company details.
+- assertVisible:
+    text:
+      pattern: "Company Details|Step 2"
+- takeScreenshot: 05-auth-onboarding-step2
+
+- tapOn:
+    text:
+      pattern: "Company Address|Address"
+- inputText: ${COMPANY_ADDRESS}
+- hideKeyboard
+
+- tapOn:
+    text:
+      pattern: "Company Phone|Phone"
+- inputText: ${COMPANY_PHONE}
+- hideKeyboard
+
+- tapOn:
+    text:
+      pattern: "Company Email|Email"
+- inputText: ${COMPANY_EMAIL}
+- hideKeyboard
+
+- tapOn:
+    text:
+      pattern: "Next|Continue"
+
+# Step 3: Bank details.
+- assertVisible:
+    text:
+      pattern: "Bank Details|Step 3"
+- takeScreenshot: 05-auth-onboarding-step3
+
+- tapOn:
+    text:
+      pattern: "Account Name|Bank Account Name"
+- inputText: ${BANK_ACCOUNT_NAME}
+- hideKeyboard
+
+- tapOn:
+    text:
+      pattern: "Account Number|Bank Account Number"
+- inputText: ${BANK_ACCOUNT_NUMBER}
+- hideKeyboard
+
+- tapOn:
+    text:
+      pattern: "Bank Name"
+- inputText: ${BANK_NAME}
+- hideKeyboard
+
+- takeScreenshot: 05-auth-onboarding-step3-filled
+
+# Final submit — "Finish" / "Complete" / "Get Started" depending on
+# copy. Pattern-match for tolerance.
+- tapOn:
+    text:
+      pattern: "Finish|Complete|Get Started|Done"
+
+# Success: lands on tabs Home.
+- assertVisible:
+    text: "Home"
+- takeScreenshot: 05-auth-onboarding-success

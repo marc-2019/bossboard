@@ -1,0 +1,78 @@
+# F-AUTH-01 — Register account (Mobile)
+#
+# Flow: launch app (cleared state) → tap "Sign Up" from login →
+# fill realistic NZ-tradie persona → submit → assert verify-email
+# screen appears.
+#
+# Demo data is intentionally credible (NZ name + plausible business)
+# so stakeholders watching headed runs / reviewing screenshots see
+# a believable journey rather than test123@test.com.
+#
+# In dev mode (__DEV__ === true), the app shows the 6-digit code in
+# an Alert before navigating to verify-email. Maestro tapsOn through
+# that alert so the flow ends on /verify-email.
+#
+# TODO(phase5): replace ${TIMESTAMP} email with a Resend-capture
+# inbox once env-gated stubs land.
+appId: com.instilligent.bossboard
+env:
+  EMAIL: "e2e-${MAESTRO_RUN_ID:-${TIMESTAMP}}-auth01@example.test"
+  PASSWORD: "E2eTestPass123!"
+  NAME: "Mike Tane"
+  BUSINESS: "Mike's Plumbing Ltd"
+---
+- launchApp:
+    clearState: true
+- assertVisible: "BossBoard"
+- takeScreenshot: 01-auth-register-launch
+
+# From login screen tap "Sign Up" link.
+- tapOn:
+    text: "Sign Up"
+- assertVisible: "Create Your Account"
+- takeScreenshot: 01-auth-register-form
+
+# Fill name (Full Name input — first text field).
+- tapOn:
+    text: "John Smith"
+- inputText: ${NAME}
+- hideKeyboard
+
+# Email.
+- tapOn:
+    text: "you@example.com"
+- inputText: ${EMAIL}
+- hideKeyboard
+
+# Password.
+- tapOn:
+    text: "At least 8 characters"
+- inputText: ${PASSWORD}
+- hideKeyboard
+
+# Business name.
+- tapOn:
+    text: "Your Business Ltd"
+- inputText: ${BUSINESS}
+- hideKeyboard
+
+# Pick a trade type.
+- tapOn:
+    text: "Plumber"
+
+- takeScreenshot: 01-auth-register-filled
+- tapOn:
+    text: "Create Account"
+
+# In __DEV__ the app pops an alert with the verification code. Dismiss it.
+- runFlow:
+    when:
+      visible: "Dev Mode"
+    commands:
+      - takeScreenshot: 01-auth-register-dev-code-alert
+      - tapOn:
+          text: "OK"
+
+# After register the app should be on the verify-email screen.
+- assertVisible: "Verify Your Email"
+- takeScreenshot: 01-auth-register-verify-screen
