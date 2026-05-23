@@ -41,6 +41,17 @@ function getStripe(): Stripe {
       apiVersion: '2025-02-24.acacia',
       typescript: true,
     });
+    // Phase 6a mock infrastructure: when MOCK_EXTERNAL_SERVICES === 'true',
+    // monkey-patch the Stripe SDK to return canned responses (no api.stripe.com
+    // calls). Default behavior is unchanged when the env var is unset/false.
+    if (process.env.MOCK_EXTERNAL_SERVICES === 'true') {
+      // Dynamic require so the mock module isn't pulled into the production
+      // bundle / cold-start path when mocks are disabled.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+      const { installStripeMock } = require('./mocks/stripe-mock.js');
+      installStripeMock(_stripe);
+      console.log('[Stripe] MOCK_EXTERNAL_SERVICES=true — Stripe SDK mocked');
+    }
   }
   return _stripe;
 }
