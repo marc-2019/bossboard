@@ -1,0 +1,49 @@
+# F-AUTH-02 — Login (Mobile)
+#
+# Flow: launch app fresh → enter known credentials → tap Sign In →
+# assert tabs (Home) renders.
+#
+# Prerequisite: a user with the EMAIL/PASSWORD below must exist. The
+# demo runner is expected to seed this via the API (or run 01-auth-
+# register.yaml in the same sequence first). For ad-hoc runs, set
+# EMAIL/PASSWORD env vars to point at an existing test account.
+#
+# This flow exercises ACs:
+#   1. POST /auth/login with correct creds returns tokens.       (api side)
+#   5. Mobile login screen stores tokens + routes to tabs.       (this)
+#
+# Wrong-password / refresh / logout cases live in
+# apps/web/e2e/demos/api/auth.api.spec.ts (API surface).
+appId: com.instilligent.bossboard
+env:
+  EMAIL: "e2e-demo-existing@example.test"
+  PASSWORD: "E2eTestPass123!"
+---
+- launchApp:
+    clearState: true
+- assertVisible: "BossBoard"
+- takeScreenshot: 02-auth-login-launch
+
+# Should land on the login screen by default for an unauthenticated app.
+- assertVisible: "Sign In"
+
+- tapOn:
+    text: "you@example.com"
+- inputText: ${EMAIL}
+- hideKeyboard
+
+- tapOn:
+    text: "Enter your password"
+- inputText: ${PASSWORD}
+- hideKeyboard
+
+- takeScreenshot: 02-auth-login-filled
+- tapOn:
+    text: "Sign In"
+
+# On success the app routes to the (tabs) navigator — Home tab is the
+# default. Maestro asserts on tab labels.
+- assertVisible:
+    text: "Home"
+    enabled: true
+- takeScreenshot: 02-auth-login-success
