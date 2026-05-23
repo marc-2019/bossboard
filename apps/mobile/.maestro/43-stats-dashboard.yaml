@@ -1,0 +1,86 @@
+# F-STAT-01 — Mobile demo: Stats & insights on Home tab
+#
+# Spec source: docs/testing/SPEC_AND_DEMOS_MATRIX.md § Module 11 — Stats &
+# insights (1 feature)
+#   F-STAT-01 — Dashboard stats + insights
+#
+# Acceptance criteria exercised on mobile:
+#   AC #1 — Overview card (SWMS / unpaid invoices / certifications)
+#   AC #2 — Insights cards: Revenue, 6-Month Revenue chart, Outstanding
+#           Invoices aging, Top Customers
+#   AC #4 — Empty account state (zero data path, not asserted in this
+#           flow; see 43b-empty-state.yaml if added in Phase 4)
+#
+# Implementing screen: apps/mobile/app/(tabs)/index.tsx (Home tab).
+# Insights data source: GET /api/v1/stats/insights — SQL-only,
+# NOT AI-generated (verified 2026-05-23 against
+# apps/api/src/services/insights.ts).
+#
+# SETUP: requires a seeded login. The flow assumes the app launches into
+# a session with the canonical demo dataset (see
+# apps/web/e2e/demos/helpers/stats.ts:seedInsightsDataset comment):
+#   - Auckland Council as top customer
+#   - 6-month revenue chart populated
+#   - 6 outstanding invoices across the 4 aging buckets
+#
+# If the seeded login isn\'t available (Phase 3 brief = NO EXECUTION),
+# the assertVisible steps still document intent; the screenshots in
+# Phase 4 will exercise them.
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+# Home tab is the default landing after auth; if the app cold-starts
+# to the auth stack, the seeded-login fixture (Phase 4) will navigate
+# here before this flow runs.
+
+# AC #1 — Overview card with the three primary counters
+- assertVisible: "Overview"
+- assertVisible: "SWMS this month"
+- assertVisible:
+    text: ".*Invoice.*"
+- assertVisible: "Certifications"
+
+- takeScreenshot: 43-stats-overview-card
+
+# AC #2 — Revenue comparison card (this month vs last month + % change)
+- assertVisible: "Revenue"
+- assertVisible: "This month"
+- assertVisible: "Last month"
+- assertVisible: "Change"
+
+- takeScreenshot: 43-stats-revenue-compare
+
+# Scroll down to surface the chart card (the Home tab is a long
+# ScrollView; the chart sits below the revenue card).
+- scroll
+- assertVisible: "6-Month Revenue"
+- takeScreenshot: 43-stats-monthly-chart
+
+# Aging card — Outstanding Invoices with the 4 buckets. This card is
+# conditional on the seed having at least one outstanding invoice
+# (apps/mobile/app/(tabs)/index.tsx:383-387). The canonical demo seed
+# satisfies that.
+- scroll
+- assertVisible: "Outstanding Invoices"
+- assertVisible: "0-30d"
+- assertVisible: "31-60d"
+- assertVisible: "61-90d"
+- assertVisible: "90+d"
+- takeScreenshot: 43-stats-aging-buckets
+
+# Top Customers card — anchored to "Auckland Council" being the #1
+# revenue customer in the seed.
+- scroll
+- assertVisible: "Top Customers"
+- assertVisible: "Auckland Council"
+- takeScreenshot: 43-stats-top-customers
+
+# Pull-to-refresh — re-fetches /stats/dashboard + /stats/insights so
+# numbers stay live. Visible behaviour: spinner appears then fades.
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 800
+- takeScreenshot: 43-stats-after-refresh
