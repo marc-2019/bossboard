@@ -1,0 +1,37 @@
+# F-TEAM-03 — Accept invite (invitee side)
+#
+# Flow: launch app as the INVITEE (different user from 35/36) → open
+# the Team screen → see the pending invite from Mike's Plumbing →
+# tap Accept → assert the invitee is now a member of the team and
+# the team name is shown.
+#
+# Data: invitee Sarah Walker, accepting a worker-role invite from
+# Mike's Plumbing & Drainage Ltd (fixture created by API setup).
+#
+# NO-EXECUTION caveat: invite_code is generated server-side; for
+# Maestro the flow assumes the API seeded an invite for the running
+# device's signed-in user. If running standalone, pre-seed via
+# `apps/web/e2e/demos/helpers/teams.ts::inviteMemberByEmail`.
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- assertVisible:
+    text: "Home"
+- tapOn:
+    text: "Team"
+# Empty-team state shows pending invites if the user was invited.
+- assertVisible:
+    text: "You're not on a team yet"
+- tapOn:
+    text: "Pending invites"
+- assertVisible:
+    text: "Mike's Plumbing & Drainage Ltd"
+- tapOn:
+    text: "Accept"
+# After accept: the invitee is now on the team as Worker.
+- assertVisible:
+    text: "Mike's Plumbing & Drainage Ltd"
+- assertVisible:
+    text: "Worker"
+- takeScreenshot: 37-invite-accepted
