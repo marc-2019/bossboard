@@ -14,7 +14,10 @@
     "lint": "eslint . --ext .ts,.tsx",
     "clean": "rm -rf node_modules .expo",
     "generate:assets": "node scripts/generate-assets.js",
-    "export:web": "expo export --platform web"
+    "export:web": "expo export --platform web",
+    "e2e:install-maestro": "curl -Ls 'https://get.maestro.mobile.dev' | bash",
+    "e2e:mobile": "maestro test .maestro/",
+    "e2e:mobile:single": "maestro test"
   },
   "dependencies": {
     "@bossboard/shared": "*",
