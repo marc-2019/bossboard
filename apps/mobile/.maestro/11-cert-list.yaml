@@ -1,0 +1,40 @@
+# F-CERT-01 (list) — View certifications on mobile.
+#
+# Phase 3 Agent 3 of 2026-05-23-e2e-demo-spec-coverage-suite plan.
+# Spec source: docs/testing/SPEC_AND_DEMOS_MATRIX.md § F-CERT-01 AC2.
+#
+# Pre-requisites:
+#   - 10-cert-create.yaml has run (or another seed mechanism has
+#     created at least one cert for the signed-in user).
+#
+# Verifies acceptance criteria:
+#   AC2 — GET /api/v1/certifications populates the People-tab cert
+#         list. The cert created by 10-cert-create appears here.
+#   AC1 (F-CERT-02) — UI status badge ("Valid" / "Expiring soon" /
+#         "Expired") is rendered per the expiryState() logic in
+#         apps/mobile/app/certifications/index.tsx.
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- tapOn:
+    text: "People"
+# The cert created by the previous flow must appear in the list.
+- assertVisible:
+    text: "Electrical Worker License (EWRB)"
+# Issuing body line confirms the row rendered with full detail.
+- assertVisible:
+    text: "Electrical Workers Registration Board"
+# Status badge — for a 2027 expiry today (2026), state should be
+# "Valid" (more than 30 days out).
+- assertVisible:
+    text: "Valid"
+- takeScreenshot: 11-cert-list-populated
+# Tap into the cert detail (if available) — defensive: if no detail
+# route is implemented yet (see F-CERT-02 spec note about deep-link
+# target TBD), this step is optional so the flow still passes.
+- tapOn:
+    text: "Electrical Worker License (EWRB)"
+    optional: true
+- takeScreenshot: 11-cert-detail
