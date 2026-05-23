@@ -1,0 +1,18 @@
+# F-INV-08: Public share link (no auth)
+#
+# Demo flow: open an invoice → tap "Share" → share sheet shows the
+# public URL. The actual no-auth render happens in a browser (covered
+# in the Web spec) — this flow only asserts the share affordance.
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Invoices"
+- tapOn:
+    index: 0
+    text: "Smith Residence"
+- tapOn:
+    text: "Share"
+- takeScreenshot: 20-inv-share-sheet
