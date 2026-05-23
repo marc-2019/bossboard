@@ -1,0 +1,21 @@
+# F-INV-03: Update invoice (draft only)
+#
+# Demo flow: open a draft invoice, tap into the description, change a
+# value, save. The detail page is `app/invoices/[id].tsx` — only draft
+# invoices show the edit affordances.
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Invoices"
+# Tap the first invoice in the list
+- tapOn:
+    index: 0
+    text: "Smith Residence"
+- assertVisible: "Edit"
+- tapOn:
+    text: "Edit"
+- assertVisible: "Save"
+- takeScreenshot: 15-inv-update-edit-state
