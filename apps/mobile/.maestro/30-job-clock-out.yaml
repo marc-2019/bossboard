@@ -1,0 +1,64 @@
+# Module 7 — Job logs / F-JOB-02 — Clock out + add notes (mobile)
+#
+# Demonstrates: tradie returns to the active job log → taps "Clock Out" →
+# adds wrap-up notes → submits. The log transitions to completed and
+# surfaces under the "Completed" filter with an end time + duration.
+#
+# Maps to:
+#   - Mobile screen: apps/mobile/app/jobs/[id].tsx (the detail/clock-out screen)
+#   - API call: POST /api/v1/job-logs/:id/clock-out (apps/api/src/routes/job-logs.ts:226)
+#
+# Pre-condition: an active job exists. Run 29-job-clock-in.yaml first
+# (Maestro runs flows lexicographically by filename, so 29 → 30 is the
+# natural order). If running standalone, expect the "Active" row to be
+# missing and the flow to fail at the first `tapOn: text: "Heat pump"`.
+#
+# Test data continuity: clock-out notes reference the same heat pump job
+# from 29-job-clock-in.yaml so the demo reads as a continuous workday.
+#
+# NOT-RUNNABLE note: see 29-job-clock-in.yaml header.
+
+appId: com.instilligent.bossboard
+tags:
+  - job-logs
+  - F-JOB-02
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+
+# Land on the jobs list — Work tab houses jobs.
+- tapOn:
+    text: "Work"
+- assertVisible: "Jobs"
+
+# Tap into the active job (description prefix from 29-job-clock-in.yaml).
+- tapOn:
+    text: "Heat pump install"
+
+# Detail screen renders the active timer + "Clock Out" affordance.
+- assertVisible: "Clock Out"
+- takeScreenshot: 30-clock-out-detail-active
+
+- tapOn:
+    text: "Clock Out"
+
+# Wrap-up notes prompt — the screen surfaces a notes field before the
+# final clock-out POST (apps/mobile/app/jobs/[id].tsx wraps the notes in
+# a TextInput before calling jobLogsApi.clockOut).
+- assertVisible: "Notes"
+- tapOn: "Notes"
+- inputText: "Job complete — system tested + commissioned. Customer signed off, photos uploaded to SWMS attachments."
+
+- takeScreenshot: 30-clock-out-notes-filled
+
+# Submit
+- tapOn:
+    text: "Save"
+
+# F-JOB-02 AC: after clock-out, the row transitions to completed. We
+# verify by checking the list now shows an "End" time alongside the
+# entry (instead of the pulsing "Active" badge).
+- assertVisible: "Heat pump install"
+- assertNotVisible: "Active"
+- takeScreenshot: 30-clock-out-after-completed
