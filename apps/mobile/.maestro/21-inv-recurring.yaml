@@ -1,0 +1,26 @@
+# F-INV-09: Recurring invoices (mobile-only — no Web UI per drift app §3)
+#
+# Demo flow: Money tab → Recurring → create a monthly recurring invoice
+# → assert it appears in the list. Mobile screens are under
+# `apps/mobile/app/recurring/`.
+appId: com.instilligent.bossboard
+---
+- launchApp
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "Recurring"
+- assertVisible: "Recurring"
+- tapOn:
+    text: "New"
+- inputText: "Te Whanau Trust"
+- tapOn:
+    text: "Monthly"
+- inputText: "Monthly maintenance retainer"
+- tapOn:
+    text: "0.00"
+- inputText: "450.00"
+- tapOn:
+    text: "Save"
+- assertVisible: "Te Whanau Trust"
+- takeScreenshot: 21-inv-recurring-created
