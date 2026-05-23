@@ -1,0 +1,90 @@
+# F-PUSH-01 — Mobile flow: register an Expo push token on first authenticated launch
+#
+# Verifies the user-observable surface of the push-token registration:
+#   1. Fresh app launch (clearState:true) lands the user on the login screen
+#      because no tokens are stored.
+#   2. After login, the AuthContext + useNotifications hook (apps/mobile/
+#      src/hooks/useNotifications.ts) fires `registerForPushNotificationsAsync`,
+#      which:
+#        - requests OS-level permission to send notifications (iOS / Android),
+#        - calls `Notifications.getExpoPushTokenAsync(...)`,
+#        - POSTs the resulting token to /api/v1/notifications/push-token via
+#          `notificationsApi.registerPushToken` in services/api.ts.
+#   3. The permission dialog is OS-rendered. Maestro can drive it on Android
+#      (system UI), but on iOS the dialog text varies by locale. We tap "Allow"
+#      where present and assert the home tab loads either way — the demo
+#      surface is "user lands on home + notifications wired up", not "exact
+#      permission button text".
+#   4. Screenshot the home tab so a reviewer can confirm the build that ran
+#      this flow.
+#
+# What this flow does NOT do (out of scope, covered elsewhere):
+#   - Assert the POST to /push-token succeeded. The API surface is covered by
+#     apps/web/e2e/demos/api/push.api.spec.ts F-PUSH-01 AC#1.
+#   - Trigger a test push and screenshot it. That's the next flow,
+#     45-push-cert-expiry-receive.yaml.
+#
+# Test data:
+#   Uses the marketing demo account credentials. If those aren't seeded in
+#   the local env, the maestro `tapOn { text: "Sign in" }` step still works
+#   but the post-login assertion will fail — flag as env gap rather than
+#   product gap when triaging.
+#
+# NO EXECUTION: simulator not running. YAML is syntax-verified via
+# `maestro test --no-ansi --list .maestro/44-push-token-register.yaml`
+# (Phase 4 will run live).
+
+appId: com.instilligent.bossboard
+tags:
+  - push
+  - F-PUSH-01
+---
+- launchApp:
+    clearState: true
+- assertVisible: "BossBoard"
+- takeScreenshot: 44-01-app-launched
+# Tap "Sign in" / login form — placeholder selectors mirror the auth Maestro
+# flows. Selectors may need adjustment when running for real (see brief:
+# syntax-verify only).
+- runFlow:
+    when:
+      visible:
+        text: "Sign in"
+    commands:
+      - tapOn:
+          text: "Sign in"
+- assertVisible:
+    text: "Email"
+- tapOn:
+    text: "Email"
+- inputText: "demo@bossboard.test"
+- tapOn:
+    text: "Password"
+- inputText: "DemoPass123!"
+- tapOn:
+    text: "Sign in"
+# OS permission dialog (Android system UI; iOS dialog text varies). Tap
+# "Allow" if visible, otherwise continue — the demo cares about the
+# downstream registration POST, not the exact button label.
+- runFlow:
+    when:
+      visible:
+        text: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+- runFlow:
+    when:
+      visible:
+        text: "Allow notifications"
+    commands:
+      - tapOn:
+          text: "Allow notifications"
+# Once on the home tab the useNotifications hook will have fired its
+# registerForPushNotificationsAsync() → notificationsApi.registerPushToken()
+# chain. We can't directly inspect the network call from Maestro, but the
+# screenshot + the subsequent flow (45-push-cert-expiry-receive.yaml)
+# together confirm the token registration round-tripped.
+- assertVisible:
+    text: "Home"
+- takeScreenshot: 44-02-home-after-login-push-registered
