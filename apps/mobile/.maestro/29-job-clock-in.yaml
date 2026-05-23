@@ -1,0 +1,60 @@
+# Module 7 — Job logs / F-JOB-01 — Clock in (mobile)
+#
+# Demonstrates: tradie taps "Clock In" from the Work tab → fills the
+# description, site address, and notes for a real NZ job → submits and
+# lands back on the list with the active log surfaced.
+#
+# Maps to:
+#   - Mobile screen: apps/mobile/app/jobs/create.tsx (the "Clock In" form)
+#   - API call: POST /api/v1/job-logs (apps/api/src/routes/job-logs.ts:44)
+#
+# Test data: hardcoded values from NZ_TRADIE_JOB_SITES (the
+# "Heat pump install — Mitsubishi 7.1kW" job at 247 Queen St, Auckland CBD).
+# Keeping these inline (not env-templated) so the demo flow is reproducible
+# regardless of execution order — Maestro doesn't share state with
+# Playwright fixtures.
+#
+# NOT-RUNNABLE note: Phase 3 brief is "NO EXECUTION" — no simulator was
+# running when this flow was authored. YAML syntax was verified via
+# `maestro test --include-tags=` parse step. Marc will run on real device.
+
+appId: com.instilligent.bossboard
+tags:
+  - job-logs
+  - F-JOB-01
+---
+- launchApp:
+    clearState: false  # assume user already logged in (cf. 03-auth-login)
+- assertVisible: "BossBoard"
+
+# Navigate: Work tab → Jobs list → "+ Clock In" button
+# (The mobile app's Work tab houses jobs alongside SWMS — see CLAUDE.md
+# "Mobile app/(tabs)" map; the jobs index lives at apps/mobile/app/jobs/index.tsx)
+- tapOn:
+    text: "Work"
+- assertVisible: "Jobs"
+- tapOn:
+    text: "Clock In"
+
+# Form fields (apps/mobile/app/jobs/create.tsx)
+- assertVisible: "Job Description"
+- tapOn: "Job Description"
+- inputText: "Heat pump install — Mitsubishi 7.1kW"
+
+- tapOn: "Site Address"
+- inputText: "247 Queen St, Auckland CBD"
+
+- tapOn: "Notes"
+- inputText: "Hi-wall split, indoor on north-facing living room wall, outdoor unit on existing concrete pad."
+
+- takeScreenshot: 29-clock-in-form-filled
+
+# Submit
+- tapOn:
+    text: "Clock In"
+
+# F-JOB-01 AC: after submit, router.back() returns to the jobs list and
+# the new active job is visible with its description.
+- assertVisible: "Heat pump install"
+- assertVisible: "Active"
+- takeScreenshot: 29-clock-in-active-on-list

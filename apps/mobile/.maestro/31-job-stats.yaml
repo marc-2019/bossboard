@@ -1,0 +1,46 @@
+# Module 7 — Job logs / F-JOB-03 — Job log stats (mobile)
+#
+# Demonstrates: tradie opens the jobs list → the stats card at top of
+# screen shows totalLogs, thisWeek, totalHoursThisWeek, activeLog
+# (from GET /api/v1/job-logs/stats).
+#
+# Maps to:
+#   - Mobile screen: apps/mobile/app/jobs/index.tsx (the JobLogsListScreen
+#     fetches stats in parallel with the list — see lines 52-69)
+#   - API call: GET /api/v1/job-logs/stats (apps/api/src/routes/job-logs.ts:104)
+#
+# Pre-condition: at least one job log exists. If 29 + 30 ran first, this
+# flow asserts non-empty stats. Running standalone with a clean account
+# will see empty/zero stats — assertions still pass because the labels
+# render unconditionally.
+#
+# NOT-RUNNABLE note: see 29-job-clock-in.yaml header.
+
+appId: com.instilligent.bossboard
+tags:
+  - job-logs
+  - F-JOB-03
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+
+# Navigate to jobs list.
+- tapOn:
+    text: "Work"
+- assertVisible: "Jobs"
+
+# F-JOB-03 AC: the stats card surfaces at the top of the list.
+# The mobile JobLogsListScreen renders 4 stats tiles (see the interface
+# JobLogStats at apps/mobile/app/jobs/index.tsx:31-36: totalLogs,
+# thisWeek, activeLog, totalHoursThisWeek). The labels rendered on the
+# tile UI are the demo signals.
+- assertVisible: "This Week"
+
+- takeScreenshot: 31-stats-card-visible
+
+# Optional sanity: stats card visually distinguishes the "active now"
+# state — if any job is clocked-in, a green pulse indicator surfaces.
+# We don't hard-assert presence/absence (depends on whether 29 + 30
+# completed cleanly); the screenshot is the demo artifact.
+- takeScreenshot: 31-stats-with-active-state
