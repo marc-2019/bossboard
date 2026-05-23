@@ -1,0 +1,62 @@
+# F-AUTH-03 — Email verification (Mobile)
+#
+# Flow assumption: this flow is run IMMEDIATELY AFTER 01-auth-register.yaml
+# so the app is sitting on the /verify-email screen with the user freshly
+# registered. The dev-mode alert in 01- exposes the 6-digit code; Maestro
+# tests are expected to either:
+#   (a) run the bundled sequence (01 → 03) where the tester reads the
+#       code off the screen and supplies CODE env var, OR
+#   (b) seed a known code via an API hook (Phase 5).
+#
+# This flow does NOT call clearState — it relies on the prior register
+# flow's session.
+#
+# ACs covered:
+#   1. 6-digit code is provisioned on register.            (asserted in 01-)
+#   2. POST /auth/verify-email with correct code → 200.    (this flow)
+#   3. Wrong code → 400.                                   (api spec)
+#   4. resend-verification regenerates the code.           (api spec)
+#   5. Verified state unlocks downstream behaviour.        (api spec)
+#
+# TODO(phase5): wire a test hook so CODE can be fetched from a Resend
+# capture endpoint instead of being passed in via env.
+appId: com.instilligent.bossboard
+env:
+  CODE: "123456"
+---
+- assertVisible: "Verify Your Email"
+- takeScreenshot: 03-auth-verify-screen
+
+# The verify screen has 6 single-digit boxes. Maestro's `inputText`
+# spreads the digits across boxes via the screen's auto-advance logic
+# (the React Native component handles paste-style input on the first
+# box).
+- tapOn:
+    index: 0
+    optional: false
+    point: "50%,50%"
+    waitToSettleTimeoutMs: 2000
+
+# Fall-through: tap the first code input by relative position.
+- tapOn:
+    index: 0
+- inputText: ${CODE}
+- hideKeyboard
+
+- takeScreenshot: 03-auth-verify-code-entered
+
+# The screen auto-submits when all 6 digits are filled. If not, tap
+# the Verify Email button explicitly.
+- runFlow:
+    when:
+      visible: "Verify Email"
+    commands:
+      - tapOn:
+          text: "Verify Email"
+
+# Successful verification routes to onboarding (next step) OR tabs if
+# onboarding already complete. Either is a green state.
+- assertVisible:
+    text:
+      pattern: "Home|Welcome|Set up your business"
+- takeScreenshot: 03-auth-verify-success
