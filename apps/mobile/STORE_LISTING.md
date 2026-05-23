@@ -89,10 +89,10 @@ tradies, jobs, scheduling, SWMS, compliance, invoicing, NZ, team, dispatch, safe
 - No objectionable content
 
 ## Privacy Policy URL
-https://trademate-nz-production.up.railway.app/legal/privacy
+https://api.instilligent.com/legal/privacy
 
 ## Support URL
-https://trademate-nz-production.up.railway.app/legal/support
+https://api.instilligent.com/legal/support
 
 ## Marketing URL
 https://bossboard.co.nz

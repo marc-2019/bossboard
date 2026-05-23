@@ -5,7 +5,7 @@
 ### 1. Install Dependencies
 
 ```bash
-cd /home/marc/projects/trademate-nz/apps/mobile
+cd /home/marc/projects/bossboard/apps/mobile
 npm install
 ```
 
@@ -28,7 +28,7 @@ Or use your own icons - place them in `assets/`:
 ### 3. Start the API (in separate terminal)
 
 ```bash
-cd /home/marc/projects/trademate-nz
+cd /home/marc/projects/bossboard
 docker-compose up -d
 ```
 
@@ -37,7 +37,7 @@ Verify API is running: http://192.168.50.128:29000/health
 ### 4. Start the Mobile App
 
 ```bash
-cd /home/marc/projects/trademate-nz/apps/mobile
+cd /home/marc/projects/bossboard/apps/mobile
 npx expo start
 ```
 
