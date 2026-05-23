@@ -98,3 +98,4 @@ TASK_COMPLETION_SUMMARY.md
 delete-account-page.png
 delete-data-page.png
 .claude/launch.json
+.claude/worktrees/
