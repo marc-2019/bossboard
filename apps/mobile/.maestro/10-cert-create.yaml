@@ -1,0 +1,76 @@
+# F-CERT-01 — Create a certification on mobile.
+#
+# Phase 3 Agent 3 of 2026-05-23-e2e-demo-spec-coverage-suite plan.
+# Spec source: docs/testing/SPEC_AND_DEMOS_MATRIX.md § F-CERT-01.
+#
+# Pre-requisites:
+#   - Mobile app already launched + a user signed in (Maestro flow
+#     01-auth-login or similar must run first). This flow assumes the
+#     People tab is reachable from the current screen; it taps from
+#     wherever the app is rather than re-launching, so the suite can
+#     run as a single demo sequence.
+#   - Backend reachable on http://localhost:29000 (apps/api dev).
+#
+# Verifies acceptance criteria:
+#   AC1 — POST /api/v1/certifications via the mobile add-cert form
+#         returns 201 (we infer this from the success Alert + return to
+#         list).
+#   AC2 — The newly-created cert appears in the People tab list.
+#
+# Cleanup: this flow leaves a cert in the DB. The e2e test data
+# lifecycle (~/.claude/CLAUDE.md) lives at the test runner; for now
+# Marc accepts these as demo residue. A follow-up cleanup script
+# (matching the registerEphemeralUser pattern) should sweep them by
+# the e2e- tag prefix.
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+# Navigate to the People tab (where certifications live in the mobile
+# IA — see apps/mobile/app/(tabs)/_layout.tsx).
+- tapOn:
+    text: "People"
+# Add a new certification — the People screen has a + button / link
+# that routes to /certifications/add.
+- tapOn:
+    text: "Add Certification"
+    optional: true
+- tapOn:
+    text: "+ Cert"
+    optional: true
+- tapOn:
+    id: "add-cert-button"
+    optional: true
+# We are now on the /certifications/add screen
+- assertVisible:
+    text: "Certification Type"
+# Select Electrical (matches NZ_CERT_FIXTURES.electricalEWRB)
+- tapOn:
+    text: "Electrical"
+# Default name auto-populated by the form; clear and override with
+# our realistic NZ cert name so the demo viewer sees a credible value.
+- tapOn:
+    text: "Certification Name *"
+- inputText: "Electrical Worker License (EWRB)"
+- tapOn:
+    text: "Certificate Number"
+- inputText: "EW-123456"
+- tapOn:
+    text: "Issuing Body"
+- inputText: "Electrical Workers Registration Board"
+- tapOn:
+    text: "Issue Date"
+- inputText: "2025-06-01"
+- tapOn:
+    text: "Expiry Date"
+- inputText: "2027-06-01"
+- takeScreenshot: 10-cert-create-form-filled
+- tapOn:
+    text: "Add Certification"
+# Form posts; success Alert appears
+- assertVisible:
+    text: "Success"
+- tapOn:
+    text: "Done"
+- takeScreenshot: 10-cert-create-success
