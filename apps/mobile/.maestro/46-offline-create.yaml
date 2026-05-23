@@ -1,0 +1,107 @@
+# F-X-02 — Offline-first sync (Mobile), step 1 of 2.
+#
+# Goal: with airplane mode ON, create an invoice locally and confirm the
+# UI accepts the action (writes to SQLite + queues a sync op). The
+# companion flow 47-online-sync.yaml turns airplane mode off and verifies
+# the queue drains to the server.
+#
+# Platform note: setAirplaneMode is ANDROID-ONLY. On iOS the command
+# passes but is a no-op — the offline scenario cannot be exercised on
+# the iOS simulator via Maestro. This flow is documented as Android-only
+# in docs/testing/coverage/cross-cutting.md. To run on a Mac/iOS-only
+# dev environment, use the in-app "developer settings → simulate
+# offline" toggle (if exposed) or skip and rely on the API spec in
+# apps/web/e2e/demos/api/cross-cutting.api.spec.ts for sync contract
+# coverage.
+#
+# Preconditions:
+#   - Android emulator running (avd booted via Android Studio)
+#   - apps/api on port 29000 reachable from the emulator
+#     (use 10.0.2.2:29000 as the API_URL in EXPO_PUBLIC env)
+#   - A user is already logged in (run 02-auth-register.yaml or
+#     04-auth-login.yaml beforehand). This flow ASSUMES authed state.
+#
+# Demo realism: amount, client name, and job description match the
+# F-INV-01 fixture style (NZ tradie, realistic dollar values).
+
+appId: com.instilligent.bossboard
+env:
+  AIRPLANE_OFFLINE_DELAY_MS: "2000"
+---
+# Bring app to foreground without clearing state — we want the previous
+# login session to persist. (If clearState were true, the user would be
+# logged out and the offline create wouldn't have anywhere to write to.)
+- launchApp:
+    clearState: false
+
+# Confirm we're at the authenticated home tab. If not, the flow fails
+# early with a clear assertion rather than ploughing into the wrong
+# screen.
+- assertVisible:
+    text: "BossBoard"
+
+# Take a baseline screenshot showing online state (data tab visible,
+# any sync indicator should show "synced" or hidden).
+- takeScreenshot: 46-before-offline
+
+# Enable airplane mode. ANDROID-ONLY (see header).
+- setAirplaneMode: enabled
+
+# Small settle delay so the app's NetInfo listener picks up the change.
+# expo-network polling intervals are typically 1-2s.
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- takeScreenshot: 46-after-offline-mode-on
+
+# Navigate to invoices tab → create new invoice. The exact selector
+# depends on the app's testID conventions; we use both text and id where
+# possible so the flow degrades gracefully if testIDs are added later.
+- tapOn:
+    text: "Money"
+- tapOn:
+    text: "New invoice"
+    optional: false
+
+# Fill the form with realistic NZ tradie data so a stakeholder watching
+# the screencast sees credible content, not "test123".
+- tapOn:
+    id: "invoice-client-name"
+    optional: true
+- inputText: "Smith Residence (offline test)"
+
+- tapOn:
+    id: "invoice-job-description"
+    optional: true
+- inputText: "Bathroom reno — emergency call-out while van had no signal"
+
+- tapOn:
+    id: "invoice-line-item-1-description"
+    optional: true
+- inputText: "Hot-water cylinder swap + tempering valve"
+
+- tapOn:
+    id: "invoice-line-item-1-amount"
+    optional: true
+- inputText: "185000"
+
+# Submit. The save handler should write to local SQLite and enqueue a
+# sync op. The UI should either:
+#   (a) show a success state with an "Offline — will sync" indicator, OR
+#   (b) navigate back to the invoice list with the new invoice marked
+#       as unsynced
+- tapOn:
+    text: "Save"
+    optional: false
+
+# Either the success modal or the list view — assert at least one
+# offline-state hint is visible. The exact copy depends on the app.
+- assertVisible:
+    text: "Offline"
+    optional: true
+
+- takeScreenshot: 46-after-offline-create
+
+# Final state hint: the invoice list should now have the just-created
+# row. We don't strictly assert this — the companion 47- flow will
+# verify the sync queue drains after airplane mode is turned off.

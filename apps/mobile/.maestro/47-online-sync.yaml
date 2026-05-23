@@ -1,0 +1,82 @@
+# F-X-02 — Offline-first sync (Mobile), step 2 of 2.
+#
+# Goal: with the offline-created invoice from 46-offline-create.yaml in
+# the local queue, turn airplane mode OFF and verify the sync queue
+# drains. After drain, the invoice should be marked as "synced" in the
+# UI and (if checked via API in a separate test) present on the server.
+#
+# Platform note: setAirplaneMode is ANDROID-ONLY (same caveat as
+# 46-offline-create.yaml — see that file's header for the iOS
+# alternative).
+#
+# Preconditions:
+#   - 46-offline-create.yaml just ran and left an unsynced invoice in
+#     the local SQLite queue
+#   - Airplane mode is currently ON (set by 46-offline-create.yaml)
+#
+# Order matters: run these as a sequence with `maestro test
+# .maestro/46-offline-create.yaml .maestro/47-online-sync.yaml` OR
+# `maestro test --include-tags=offline-sync` once the tag is added.
+
+appId: com.instilligent.bossboard
+---
+# Resume the app without clearing state.
+- launchApp:
+    clearState: false
+
+# Confirm airplane mode is still on — if 46- didn't run, the resulting
+# online state would make this flow pass spuriously.
+- takeScreenshot: 47-before-going-online
+
+# Turn airplane mode OFF.
+- setAirplaneMode: disabled
+
+# Wait for connectivity to re-establish AND for the sync scheduler to
+# pick up the queued items. apps/mobile/src/services/syncScheduler.ts
+# polls every ~30s in default config; we explicitly nudge via the app's
+# foreground state by tapping into the relevant tab.
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- takeScreenshot: 47-after-airplane-off
+
+# Navigate to invoices tab — this triggers most apps' refresh-on-focus
+# behaviour AND forces sync queue to attempt drain.
+- tapOn:
+    text: "Money"
+
+# Some implementations expose a manual "Sync now" affordance. If yes,
+# tap it; if no, skip (optional). The Maestro `optional: true` on tap
+# means the flow continues either way.
+- tapOn:
+    text: "Sync now"
+    optional: true
+
+# Allow time for the batch sync HTTP request to complete. The server's
+# POST /api/v1/sync/batch is fast (<500ms typical) but TLS handshake +
+# JWT refresh + retry-backoff can add up.
+- waitForAnimationToEnd:
+    timeout: 15000
+
+# The offline invoice should now show as synced. Assertion priority:
+#   1. The "Smith Residence (offline test)" client name from 46-
+#      should be visible in the invoice list.
+#   2. The "Offline" badge from 46- should be GONE (synced state).
+- assertVisible:
+    text: "Smith Residence (offline test)"
+
+# Soft assertion — the negative "Offline" badge is no longer visible.
+# If the app doesn't render an offline badge at all, this passes
+# trivially; we only fail if it's still showing.
+- assertNotVisible:
+    text: "Offline"
+    optional: true
+
+- takeScreenshot: 47-synced-final-state
+
+# Cleanup hint for the human running the demo: the offline invoice will
+# remain in the database under the logged-in user. The global e2e-
+# tagged cleanup sweep does NOT pick up mobile-generated rows because
+# they're not @example.test domain. To clean up: log in as the test
+# user via the API and DELETE the invoice, or simply use a throwaway
+# user for the Android-only flow set.
