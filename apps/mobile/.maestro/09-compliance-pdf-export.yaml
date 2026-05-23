@@ -1,0 +1,76 @@
+# F-COMP-04 — SWMS PDF export + digital signature
+# Module: Compliance
+# Spec: docs/testing/SPEC_AND_DEMOS_MATRIX.md § F-COMP-04
+#
+# Demo flow: open a draft SWMS, sign as worker, assert the signed state
+# appears on the detail. PDF export from mobile uses the device's share
+# sheet — Maestro can't easily drive the share sheet on every platform,
+# so PDF export AC is covered by the API spec (apps/web/e2e/demos/api/
+# compliance.api.spec.ts) rather than this flow.
+#
+# Drift note (2026-05-23): The spec mentions "PDF export endpoint returns
+# Content-Type: application/pdf" but no `GET /api/v1/swms/:id/pdf` route
+# exists in apps/api/src/routes/swms.ts. The PDF generator
+# (apps/api/src/services/pdf.ts) is invoice/quote-only. F-COMP-04 PDF AC
+# is a SPEC-vs-CODE drift gap. Flagged in coverage report.
+#
+# This flow asserts the SIGN ACs (3, 4) which are implemented:
+#   AC 3: POST /api/v1/swms/:id/sign accepts a signature payload
+#   AC 4: Signed state appears on subsequent GETs (status badge updates)
+#
+# Prerequisites:
+#   - Run 06-compliance-swms-create.yaml first (creates a draft SWMS).
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+
+# Open Work tab → first SWMS in list.
+- tapOn:
+    text: "Work"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: ".*SWMS.*"
+    optional: true
+
+# Detail loaded; should show draft status.
+- assertVisible:
+    text: "(?i)draft"
+    timeout: 10000
+
+- takeScreenshot: 09-draft-before-sign
+
+# AC 3: tap Sign as Worker.
+- tapOn:
+    text: "Sign as Worker"
+
+# Confirmation alert appears.
+- assertVisible:
+    text: "Sign Document"
+    timeout: 5000
+- tapOn:
+    text: "Sign"
+
+# Success alert.
+- assertVisible:
+    text: "Document signed successfully"
+    timeout: 15000
+- tapOn:
+    text: "OK"
+    optional: true
+
+# AC 4: status flips to signed; signatures section renders.
+- assertVisible:
+    text: "(?i)signed"
+    timeout: 10000
+- assertVisible: "Signatures"
+
+- takeScreenshot: 09-signed-state
+
+# PDF export — NOT covered here (see drift note in file header).
+# When a SWMS PDF route ships, add a takeScreenshot after the share-sheet
+# tap to capture the PDF preview.

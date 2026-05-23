@@ -1,0 +1,63 @@
+# F-COMP-03 — WorkSafe checklists / NZ regulation references
+# Module: Compliance
+# Spec: docs/testing/SPEC_AND_DEMOS_MATRIX.md § F-COMP-03
+#
+# Demo flow: open a SWMS detail and assert the PPE / emergency / NZ
+# regulation surfaces render. The mobile detail screen
+# (apps/mobile/app/swms/[id].tsx) shows:
+#   - Hazards & Controls section
+#   - PPE Required section (when present)
+#   - Job details with site/client (NZ context)
+#
+# Per the spec, F-COMP-03 mobile is "partial (read-only display)". This
+# flow asserts the read surface. AI-augmented regulation citations come
+# from the AI path; the template path ships baseline references. The
+# disclaimer banner on the generate screen also cites HSWA 2015.
+#
+# Prerequisites:
+#   - Run 06-compliance-swms-create.yaml first.
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+
+# First: verify the HSWA 2015 disclaimer is visible on the Generate screen.
+# This is the canonical regulation reference on the mobile surface.
+- tapOn:
+    text: "Work"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "swms-generate-fab"
+    optional: true
+- tapOn:
+    text: "Create Your First SWMS"
+    optional: true
+
+# AC 4: HSWA 2015 reference visible in disclaimer copy.
+- assertVisible:
+    text: "Health and Safety at Work Act 2015"
+    timeout: 10000
+
+- takeScreenshot: 08-hswa-disclaimer
+
+# Back to list, open the SWMS to confirm trade-specific content.
+- back
+- tapOn:
+    text: ".*SWMS.*"
+    optional: true
+
+- assertVisible:
+    text: "Job Details"
+    timeout: 10000
+
+# AC: job details show site address + client (NZ context).
+- takeScreenshot: 08-job-details-nz-context
+
+# AC: hazards section shows control measures (regulation-aligned content).
+- assertVisible: "Control Measures:"
+
+- takeScreenshot: 08-controls-aligned

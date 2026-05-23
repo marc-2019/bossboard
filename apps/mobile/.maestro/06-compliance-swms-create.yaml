@@ -1,0 +1,82 @@
+# F-COMP-01 — SWMS generator (AI-powered)
+# Module: Compliance
+# Spec: docs/testing/SPEC_AND_DEMOS_MATRIX.md § F-COMP-01
+#
+# Demo flow: launch app, navigate to Work tab, tap the Generate-SWMS entry
+# point, pick a trade, enter a realistic NZ plumber job description, and
+# assert the "SWMS generated" success path.
+#
+# Cost note: this flow exercises the mobile UI but the backing API call
+# (POST /api/v1/swms/generate) defaults to useAI=true → Claude. In a
+# CI/demo context, run the API under USE_LOCAL_LLM=true (LM Studio) or
+# point the mobile build at a stub server. See helpers/compliance.ts for
+# the canned response shape.
+#
+# Prerequisites:
+#   - App built with EXPO_PUBLIC_API_URL pointing at a test API
+#   - A logged-in user already onboarded (run 02-auth-login flow first)
+#   - Tradie tier (free tier blocked at 2 SWMS/month)
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+
+# Navigate to the Work tab where SWMS lives.
+- tapOn:
+    text: "Work"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Tap the FAB / empty-state button to start a new SWMS.
+# Either "Create Your First SWMS" (empty state) or the + FAB shows.
+- tapOn:
+    text: "Create Your First SWMS"
+    optional: true
+- tapOn:
+    id: "swms-generate-fab"
+    optional: true
+
+# We should now be on /swms/generate.
+- assertVisible: "Trade Type"
+
+# Pick plumber (realistic NZ trade for the canned scenario).
+- tapOn:
+    text: "Plumber"
+
+# Fill the job description (must be >= 10 chars per zod schema).
+- tapOn:
+    text: "Describe the work to be performed..."
+    optional: true
+- inputText: "Replace failed hot water cylinder in residential ceiling cavity. Confined space entry above ceiling joists."
+
+# Optional NZ context fields.
+- tapOn:
+    text: "123 Main Street, Auckland"
+    optional: true
+- inputText: "42 Williamson Ave, Grey Lynn, Auckland 1021"
+
+- tapOn:
+    text: "Client or company name"
+    optional: true
+- inputText: "Smith Residence"
+
+- tapOn:
+    text: "e.g., 2 days, 1 week"
+    optional: true
+- inputText: "1 day"
+
+- takeScreenshot: 06-swms-form-filled
+
+# Submit.
+- tapOn:
+    text: "Generate SWMS"
+
+# Wait for the success alert (Claude or template path).
+- assertVisible:
+    text: "SWMS document generated"
+    timeout: 30000
+
+- takeScreenshot: 06-swms-generated

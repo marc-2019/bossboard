@@ -1,0 +1,47 @@
+# F-COMP-02 — Risk assessment builder
+# Module: Compliance
+# Spec: docs/testing/SPEC_AND_DEMOS_MATRIX.md § F-COMP-02
+#
+# Demo flow: open an existing draft SWMS, verify the hazards/controls list
+# renders, and assert at least one risk badge is visible. Full edit
+# affordance (add/remove hazard inline) is currently mobile UI gap — the
+# detail screen renders hazards but the edit UI is partial. Flagged in
+# coverage report. This flow asserts the read-side ACs (1, 4, 5 read).
+#
+# Prerequisites:
+#   - Run 06-compliance-swms-create.yaml first OR seed a SWMS via API.
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- assertVisible: "BossBoard"
+
+# Land on Work tab.
+- tapOn:
+    text: "Work"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Open the first SWMS in the list. Maestro's tapOn with optional shorthand
+# is used because the title is dynamic (per-run).
+- tapOn:
+    text: ".*SWMS.*"
+    optional: true
+
+# Detail screen should load.
+- assertVisible:
+    text: "Hazards & Controls"
+    timeout: 10000
+
+- takeScreenshot: 07-swms-detail-loaded
+
+# AC: at least one risk level badge is visible (low/medium/high).
+- assertVisible:
+    text: "(?i)(low|medium|high)"
+
+# AC: at least one control measure row is visible (denoted by "Control Measures:").
+- assertVisible: "Control Measures:"
+
+- takeScreenshot: 07-swms-hazards-visible
