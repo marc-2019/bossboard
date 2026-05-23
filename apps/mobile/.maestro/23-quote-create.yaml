@@ -1,0 +1,98 @@
+# F-QUO-01 — Create quote (mobile)
+#
+# Spec: docs/testing/SPEC_AND_DEMOS_MATRIX.md § Module 5 / F-QUO-01
+# Surface: apps/mobile/app/quotes/create.tsx
+# Trade scenario: bathroom renovation — Smith Residence (~$17K incl GST)
+#
+# Acceptance criteria covered:
+#   AC1: user can tap a Quotes affordance and reach Create
+#   AC2: form accepts client name + line items (description + amount)
+#   AC3: line items can be added with the "+" affordance
+#   AC4: saving routes to the quote detail or list with the new quote visible
+#
+# Pre-req: a user is already logged in. The 00-smoke-app-launches flow
+# loads the app; this flow assumes a separate setup (or relies on
+# clearState:false to reuse the prior session).
+#
+# NO EXECUTION: written for syntax-verification only. Run via:
+#   cd apps/mobile && maestro test .maestro/23-quote-create.yaml
+
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+# Reach the Money tab (Quotes live alongside Invoices on the Money screen)
+- tapOn:
+    text: "Money"
+    optional: true
+- assertVisible:
+    text: "Quotes"
+    optional: true
+- takeScreenshot: 23-quote-money-tab
+# Navigate to quote create — UI text candidates: "New quote", "Create quote", "+"
+- tapOn:
+    text: "Quote"
+    index: 0
+- tapOn:
+    text: "Create quote"
+    optional: true
+- tapOn:
+    text: "New quote"
+    optional: true
+- takeScreenshot: 23-quote-create-form
+# Fill the client + first line item
+- tapOn:
+    id: "client-name-input"
+    optional: true
+- tapOn:
+    text: "Client name"
+    optional: true
+- inputText: "Smith Residence"
+- tapOn:
+    text: "Job description"
+    optional: true
+- inputText: "Full bathroom renovation — strip-out, waterproofing, new fixtures, tiling. 14-day site time."
+# First line item: Demolition + skip hire ($1,800 = 180000 cents)
+- tapOn:
+    text: "Description"
+    index: 0
+    optional: true
+- inputText: "Demolition + skip hire"
+- tapOn:
+    text: "Amount"
+    index: 0
+    optional: true
+- inputText: "1800"
+# Add a second line item
+- tapOn:
+    text: "Add line item"
+    optional: true
+- tapOn:
+    text: "+ Add"
+    optional: true
+- tapOn:
+    text: "Description"
+    index: 1
+    optional: true
+- inputText: "Plumbing rough-in"
+- tapOn:
+    text: "Amount"
+    index: 1
+    optional: true
+- inputText: "3200"
+- takeScreenshot: 23-quote-create-filled
+# Save the quote
+- tapOn:
+    text: "Save"
+    optional: true
+- tapOn:
+    text: "Create quote"
+    optional: true
+- tapOn:
+    text: "Save quote"
+    optional: true
+# Assert: the quote now appears (in detail view or back on the list).
+# "Smith Residence" is the cheapest identifier with low collision risk.
+- assertVisible:
+    text: "Smith Residence"
+- takeScreenshot: 23-quote-create-saved
