@@ -65,15 +65,17 @@ BossBoard is a **mobile-first micro-SaaS platform** for New Zealand tradies and 
 
 ### Services & Ports
 
-> Container names retain the `trademate-*` prefix from before the brand
-> consolidation; renaming containers is deferred to avoid breaking local
-> compose state and CI references. Treat the prefix as a historical artifact.
+> `docker-compose.yml` declares services with the `bossboard-*` prefix.
+> Per-environment containers (e.g. `bossboard-dev-api`, `bossboard-staging-postgres`)
+> are created from those services. The historical `trademate-*` prefix is no
+> longer in use anywhere in compose state or CI — verified 2026-05-23.
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| trademate-api (BossBoard API) | 29000 | Express API server |
-| trademate-postgres (BossBoard DB) | 29432 | PostgreSQL database |
-| trademate-redis (BossBoard cache) | 29379 | Redis cache |
+| bossboard-api | 29000 | Express API server |
+| bossboard-postgres | 29432 | PostgreSQL database |
+| bossboard-redis | 29379 | Redis cache |
+| bossboard-web | 3000 | Next.js web app |
 
 ### Project Structure
 
@@ -550,17 +552,17 @@ router.post('/', authenticate, attachSubscription, requireFeature('photos'), han
 # Check Docker containers
 docker ps
 
-# View logs (container retains legacy `trademate-api` name)
-docker-compose logs trademate-api
+# View logs
+docker-compose logs bossboard-api
 
 # Restart
-docker-compose restart trademate-api
+docker-compose restart bossboard-api
 ```
 
 ### Database Connection Issues
 ```bash
-# Check PostgreSQL (container retains legacy `trademate-postgres` name)
-docker exec trademate-postgres pg_isready -U trademate
+# Check PostgreSQL
+docker exec bossboard-postgres pg_isready -U bossboard
 
 # Reset database
 docker-compose down -v
