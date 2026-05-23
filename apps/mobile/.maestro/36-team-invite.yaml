@@ -1,0 +1,38 @@
+# F-TEAM-02 — Invite member (6-char invite code via email)
+#
+# Flow: open the Team screen as the owner → tap "Invite member" →
+# enter the invitee email + role → submit → assert the invite is now
+# in the pending invites list. Resend send is mocked at the service
+# boundary, so we don't try to assert on a real inbox here.
+#
+# Data: invitee Hemi Hapuku (admin role).
+#
+# NO-EXECUTION caveat: written against UI strings from
+# apps/mobile/app/teams/index.tsx — if those strings drift, tighten the
+# selectors with explicit testIDs in a follow-up.
+appId: com.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- assertVisible:
+    text: "Home"
+- tapOn:
+    text: "Team"
+# Owner already has a team (run after 35-team-create or with a seeded
+# fixture user). The screen renders the team name + Members panel.
+- assertVisible:
+    text: "Mike's Plumbing & Drainage Ltd"
+- tapOn:
+    text: "Invite member"
+- inputText: "hemi+e2e@example.test"
+# Role picker — admin role for Hemi (matches helpers/teams.ts persona).
+- tapOn:
+    text: "Admin"
+- tapOn:
+    text: "Send invite"
+# Pending invites panel should now show the email.
+- assertVisible:
+    text: "Pending invites"
+- assertVisible:
+    text: "hemi+e2e@example.test"
+- takeScreenshot: 36-invite-sent
