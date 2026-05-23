@@ -96,20 +96,16 @@ export async function uploadPhoto(opts: UploadPhotoOptions) {
     mimeType = 'image/png',
   } = opts;
 
-  const multipart: Record<string, unknown> = {
-    entityType,
-    entityId,
-    photo: {
-      name: filename,
-      mimeType,
-      buffer,
-    },
-  };
-  if (caption) multipart.caption = caption;
+  const form = new FormData();
+  form.append('entityType', entityType);
+  form.append('entityId', entityId);
+  const photoBlob = new Blob([new Uint8Array(buffer)], { type: mimeType });
+  form.append('photo', photoBlob, filename);
+  if (caption) form.append('caption', caption);
 
   return request.post(`${API_BASE_URL}/api/v1/photos`, {
     headers: { Authorization: `Bearer ${token}` },
-    multipart,
+    multipart: form,
   });
 }
 
@@ -133,11 +129,11 @@ export function buildMultipart(opts: {
     buffer = tinyPngBuffer(),
     mimeType = 'image/png',
   } = opts;
-  const out: Record<string, unknown> = {
-    entityType,
-    entityId,
-    photo: { name: filename, mimeType, buffer },
-  };
-  if (caption) out.caption = caption;
-  return out;
+  const form = new FormData();
+  form.append('entityType', entityType);
+  form.append('entityId', entityId);
+  const photoBlob = new Blob([new Uint8Array(buffer)], { type: mimeType });
+  form.append('photo', photoBlob, filename);
+  if (caption) form.append('caption', caption);
+  return form;
 }
