@@ -12,7 +12,18 @@ where we stopped — without re-deriving state.
 
 ## 1. Where we stopped — the exact blocker
 
-**Status: BLOCKED on a one-liner sudo command that requires Marc.**
+**Status: ✅ RESOLVED 2026-05-26 (later same day).** Marc ran the fixup
+script `/tmp/fix-bossboard-perms.sh` (Claude-authored single-command
+wrapper). Output confirmed: 0 root-owned files in node_modules,
+overrides block restored (count=1), `@sentry/integrations` installed,
+npm install net delta `added 14 packages, removed 9 packages, changed 6`.
+Marc is now restarting his PC; docker postgres + redis will stop and
+need `docker compose up -d bossboard-postgres bossboard-redis` next
+session. Section 4 quick-start picks up from there.
+
+**Original blocker (kept for historical context):**
+
+Was: BLOCKED on a one-liner sudo command that requires Marc.
 
 `/home/marc/projects/bossboard/node_modules/` and the per-workspace
 `*/node_modules/` trees have **59,229 root-owned files** (758 packages at
