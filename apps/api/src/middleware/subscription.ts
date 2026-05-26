@@ -184,8 +184,8 @@ export function checkLimit(resource: 'invoice' | 'swms' | 'teamMember' | 'aiCall
       }
 
       if (!result.allowed) {
-        // Return 402 Payment Required for limit reached
-        res.status(402).json({
+        // Return 403 Forbidden for limit reached
+        res.status(403).json({
           success: false,
           error: 'LIMIT_REACHED',
           message: result.reason || 'You have reached the limit for this resource on your current plan.',
