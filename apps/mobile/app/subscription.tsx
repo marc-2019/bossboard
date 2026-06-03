@@ -19,6 +19,7 @@ import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
+import * as Sentry from '@sentry/react-native';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -167,6 +168,7 @@ export default function SubscriptionScreen() {
     if (tier !== 'tradie' && tier !== 'team') return; // free tier has no checkout
 
     try {
+      Sentry.addBreadcrumb({ category: 'checkout', message: 'createCheckoutSession start', level: 'info', data: { tier } });
       const res = await subscriptionsApi.createCheckoutSession({ tier });
       const data = res.data?.data;
 
@@ -198,6 +200,7 @@ export default function SubscriptionScreen() {
       }
       await Linking.openURL(data.url);
     } catch (err: any) {
+      Sentry.captureException(err);
       const msg = err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
       Alert.alert('Upgrade failed', msg);
     }

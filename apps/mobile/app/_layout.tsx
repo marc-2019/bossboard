@@ -11,9 +11,21 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { View, ActivityIndicator } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
+
+// Initialize Sentry
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  environment: __DEV__ ? 'development' : 'production',
+  release: 'bossboard-mobile@0.5.1',
+  tracesSampleRate: 0.2,
+  enableAutoSessionTracking: true,
+  // Silent initialization if DSN is missing or empty
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN
+});
 
 function RootLayoutNav() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -313,11 +325,11 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   return (
     <AuthProvider>
       <StatusBar style="dark" />
       <RootLayoutNav />
     </AuthProvider>
   );
-}
+});

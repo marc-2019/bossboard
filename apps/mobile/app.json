@@ -169,6 +169,14 @@
         {
           "locationWhenInUsePermission": "BossBoard uses your location to auto-fill site addresses for job logs and SWMS documents."
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "instilligent",
+          "project": "bossboard-mobile",
+          "url": "https://sentry.io/"
+        }
       ]
     ],
     "experiments": {
