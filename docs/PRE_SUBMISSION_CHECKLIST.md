@@ -1,4 +1,4 @@
-# TradeMate NZ — Pre-Submission Checklist
+# BossBoard — Pre-Submission Checklist
 
 **Version**: 0.5.0 | **Last Updated**: February 23, 2026
 
@@ -51,7 +51,7 @@ All placeholders have been filled. EAS project ID `e5d4e8a5-631b-45c8-8e29-2a7c8
 
 | Location | Current Value | What You Need |
 |----------|---------------|---------------|
-| `build.preview.env.EXPO_PUBLIC_API_URL` | `REPLACE_ME_RAILWAY_URL` | Your Railway deployment URL (e.g., `https://trademate-api-production.up.railway.app`) |
+| `build.preview.env.EXPO_PUBLIC_API_URL` | `REPLACE_ME_RAILWAY_URL` | Your Railway deployment URL (e.g., `https://api.instilligent.com`) |
 | `build.production.env.EXPO_PUBLIC_API_URL` | `REPLACE_ME_RAILWAY_URL` | Same Railway URL |
 | `submit.production.ios.ascAppId` | `REPLACE_ME_APP_STORE_CONNECT_APP_ID` | From App Store Connect > App Information > Apple ID |
 | `submit.production.ios.appleTeamId` | `REPLACE_ME_APPLE_TEAM_ID` | From developer.apple.com > Membership > Team ID |
@@ -130,7 +130,7 @@ Set these in Railway dashboard. Reference: `.env.production.example`
 | `JWT_SECRET` | Generate: `openssl rand -hex 32` | 64-char hex string |
 | `JWT_REFRESH_SECRET` | Generate: `openssl rand -hex 32` | Different from JWT_SECRET |
 | `ANTHROPIC_API_KEY` | From console.anthropic.com | For AI SWMS generation |
-| `CORS_ORIGINS` | Your Railway URL | e.g., `https://trademate-api-production.up.railway.app` |
+| `CORS_ORIGINS` | Your Railway URL | e.g., `https://api.instilligent.com` |
 
 ### Required for Email Features
 
