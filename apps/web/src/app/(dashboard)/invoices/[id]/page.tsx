@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
 import { invoicesClient, ApiError } from '@/lib/api-client';
+import { PhotoUploader } from '@/components/ui/photo-uploader';
 import type { Invoice } from '@bossboard/shared';
 import {
   ArrowLeft,
@@ -462,6 +463,10 @@ export default function InvoiceDetailPage() {
           <p className="text-sm text-gray-800 whitespace-pre-line">{invoice.notes}</p>
         </Card>
       )}
+
+      <Card>
+        <PhotoUploader entityType="invoice" entityId={id!} />
+      </Card>
     </div>
   );
 }

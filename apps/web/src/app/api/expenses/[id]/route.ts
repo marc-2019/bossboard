@@ -18,7 +18,7 @@ async function authedRequest(
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(`${API_URL}/api/v1/quotes/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${API_URL}/api/v1/expenses/${encodeURIComponent(id)}`, {
     method,
     headers,
     body,
@@ -37,7 +37,7 @@ export async function GET(
     return await authedRequest(id, 'GET');
   } catch {
     return NextResponse.json(
-      { success: false, error: 'PROXY_ERROR', message: 'Failed to fetch quote' },
+      { success: false, error: 'PROXY_ERROR', message: 'Failed to fetch expense' },
       { status: 502 },
     );
   }
@@ -53,7 +53,7 @@ export async function PUT(
     return await authedRequest(id, 'PUT', body);
   } catch {
     return NextResponse.json(
-      { success: false, error: 'PROXY_ERROR', message: 'Failed to update quote' },
+      { success: false, error: 'PROXY_ERROR', message: 'Failed to update expense' },
       { status: 502 },
     );
   }
@@ -68,7 +68,7 @@ export async function DELETE(
     return await authedRequest(id, 'DELETE');
   } catch {
     return NextResponse.json(
-      { success: false, error: 'PROXY_ERROR', message: 'Failed to delete quote' },
+      { success: false, error: 'PROXY_ERROR', message: 'Failed to delete expense' },
       { status: 502 },
     );
   }

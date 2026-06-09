@@ -1,12 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { expensesClient, ApiError } from '@/lib/api-client';
 import type { Expense, ExpenseCategory } from '@bossboard/shared';
-import { Receipt } from 'lucide-react';
+import { Receipt, Plus, Pencil } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
+
+// Amounts are stored in integer cents on the API; divide before locale-formatting.
+function formatCents(cents: number): string {
+  return nzd.format(cents / 100);
+}
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
   month: 'short',
@@ -63,6 +69,13 @@ export default function ExpensesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
+        <Link
+          href="/expenses/new"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+        >
+          <Plus size={16} />
+          New expense
+        </Link>
       </div>
 
       {error && (
@@ -84,10 +97,17 @@ export default function ExpensesPage() {
               <Receipt size={20} className="text-gray-500" />
             </div>
             <h2 className="text-base font-semibold text-gray-900 mb-1">No expenses recorded</h2>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
-              Capture expenses on site (with receipt photos and GST flags) in the BossBoard
-              mobile app — they show up here for desktop review and search.
+            <p className="text-sm text-gray-600 max-w-md mx-auto mb-4">
+              Track materials, fuel, tools and more with GST flags. Add one here, or capture
+              expenses on site (with receipt photos) in the BossBoard mobile app.
             </p>
+            <Link
+              href="/expenses/new"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+            >
+              <Plus size={16} />
+              Add expense
+            </Link>
           </div>
         </Card>
       )}
@@ -133,11 +153,11 @@ export default function ExpensesPage() {
             <div className="flex flex-wrap gap-6 text-sm">
               <div>
                 <p className="text-xs text-gray-500">{filter === 'all' ? 'Total' : categoryLabel[filter as ExpenseCategory]} ({filtered.length})</p>
-                <p className="text-lg font-semibold text-gray-900 mt-0.5">{nzd.format(total)}</p>
+                <p className="text-lg font-semibold text-gray-900 mt-0.5">{formatCents(total)}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">GST claimable</p>
-                <p className="text-lg font-semibold text-gray-900 mt-0.5">{nzd.format(gstClaimable)}</p>
+                <p className="text-lg font-semibold text-gray-900 mt-0.5">{formatCents(gstClaimable)}</p>
               </div>
             </div>
           </Card>
@@ -174,14 +194,21 @@ export default function ExpensesPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-sm font-semibold text-gray-900">
-                        {nzd.format(Number(e.amount || 0))}
+                        {formatCents(Number(e.amount || 0))}
                       </div>
                       {e.isGstClaimable && Number(e.gstAmount || 0) > 0 && (
                         <div className="text-xs text-gray-500">
-                          incl. {nzd.format(Number(e.gstAmount))} GST
+                          incl. {formatCents(Number(e.gstAmount))} GST
                         </div>
                       )}
                     </div>
+                    <Link
+                      href={`/expenses/${e.id}/edit`}
+                      className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                      aria-label="Edit expense"
+                    >
+                      <Pencil size={15} />
+                    </Link>
                   </li>
                 ))}
               </ul>

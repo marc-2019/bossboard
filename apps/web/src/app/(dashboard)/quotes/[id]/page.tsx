@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
 import { quotesClient, ApiError } from '@/lib/api-client';
 import type { Quote } from '@bossboard/shared';
-import { ArrowLeft, FileCheck } from 'lucide-react';
+import { ArrowLeft, FileCheck, Pencil } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
@@ -21,6 +21,11 @@ function formatDate(iso: string | Date | null) {
   if (!iso) return '—';
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   return Number.isNaN(d.getTime()) ? '—' : dateFmt.format(d);
+}
+
+// Amounts are stored in cents on the API; divide before locale-formatting.
+function formatCents(cents: number): string {
+  return nzd.format(cents / 100);
 }
 
 export default function QuoteDetailPage() {
@@ -109,25 +114,36 @@ export default function QuoteDetailPage() {
               Issued {formatDate(quote.createdAt)} · Valid until {formatDate(quote.validUntil)}
             </p>
           </div>
-          {alreadyConverted ? (
-            <Link
-              href={`/invoices/${quote.convertedInvoiceId}`}
-              className="inline-flex items-center text-sm font-medium text-accent hover:underline"
-            >
-              View linked invoice →
-            </Link>
-          ) : (
-            <Button
-              onClick={onConvert}
-              loading={convertBusy}
-              variant="primary"
-              size="md"
-              disabled={quote.status === 'declined' || quote.status === 'expired'}
-            >
-              <FileCheck size={16} className="mr-2" />
-              Convert to invoice
-            </Button>
-          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            {quote.status === 'draft' && !alreadyConverted && (
+              <Link
+                href={`/quotes/${quote.id}/edit`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg text-gray-700 border border-border hover:bg-gray-50 transition-colors"
+              >
+                <Pencil size={14} />
+                Edit
+              </Link>
+            )}
+            {alreadyConverted ? (
+              <Link
+                href={`/invoices/${quote.convertedInvoiceId}`}
+                className="inline-flex items-center text-sm font-medium text-accent hover:underline"
+              >
+                View linked invoice →
+              </Link>
+            ) : (
+              <Button
+                onClick={onConvert}
+                loading={convertBusy}
+                variant="primary"
+                size="md"
+                disabled={quote.status === 'declined' || quote.status === 'expired'}
+              >
+                <FileCheck size={16} className="mr-2" />
+                Convert to invoice
+              </Button>
+            )}
+          </div>
         </div>
 
         {error && quote && (
@@ -190,7 +206,7 @@ export default function QuoteDetailPage() {
             <li key={item.id} className="px-6 py-3 flex items-start justify-between gap-4">
               <span className="text-sm text-gray-800">{item.description}</span>
               <span className="text-sm font-medium text-gray-900 shrink-0">
-                {nzd.format(item.amount)}
+                {formatCents(item.amount)}
               </span>
             </li>
           ))}
@@ -198,17 +214,17 @@ export default function QuoteDetailPage() {
         <div className="px-6 py-4 border-t border-border-light bg-gray-50 space-y-1">
           <div className="flex justify-between text-sm text-gray-700">
             <span>Subtotal</span>
-            <span>{nzd.format(quote.subtotal)}</span>
+            <span>{formatCents(quote.subtotal)}</span>
           </div>
           {quote.includeGst && (
             <div className="flex justify-between text-sm text-gray-700">
               <span>GST (15%)</span>
-              <span>{nzd.format(quote.gstAmount)}</span>
+              <span>{formatCents(quote.gstAmount)}</span>
             </div>
           )}
           <div className="flex justify-between text-base font-semibold text-gray-900 pt-1">
             <span>Total</span>
-            <span>{nzd.format(quote.total)}</span>
+            <span>{formatCents(quote.total)}</span>
           </div>
         </div>
       </Card>

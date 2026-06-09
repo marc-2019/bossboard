@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { certificationsClient, ApiError } from '@/lib/api-client';
 import type { Certification } from '@bossboard/shared';
-import { Award } from 'lucide-react';
+import { Award, Plus, Pencil } from 'lucide-react';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -93,6 +94,13 @@ export default function CertificationsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Certifications</h1>
+        <Link
+          href="/certifications/new"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+        >
+          <Plus size={16} />
+          Add certification
+        </Link>
       </div>
 
       {error && (
@@ -114,10 +122,17 @@ export default function CertificationsPage() {
               <Award size={20} className="text-gray-500" />
             </div>
             <h2 className="text-base font-semibold text-gray-900 mb-1">No certifications recorded</h2>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
-              Add your trade licences, safety certifications, and tickets in the BossBoard mobile
-              app and we'll remind you before they expire. The web view is read-only.
+            <p className="text-sm text-gray-600 max-w-md mx-auto mb-4">
+              Add your trade licences, safety certifications, and tickets, and we&apos;ll remind
+              you before they expire.
             </p>
+            <Link
+              href="/certifications/new"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+            >
+              <Plus size={16} />
+              Add certification
+            </Link>
           </div>
         </Card>
       )}
@@ -177,6 +192,14 @@ export default function CertificationsPage() {
                       {formatDate(c.expiryDate)}
                     </div>
                   </div>
+                  <Link
+                    href={`/certifications/${c.id}/edit`}
+                    className="inline-flex items-center gap-1 shrink-0 px-2.5 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                    aria-label={`Edit ${c.name}`}
+                  >
+                    <Pencil size={14} />
+                    Edit
+                  </Link>
                 </li>
               );
             })}

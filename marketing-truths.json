@@ -57,11 +57,11 @@
     {
       "id": "bossboard.swms",
       "claim": "AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 — operator stays accountable as the PCBU.",
-      "surfaces": ["apps/web/src/app/page.tsx#L136-142", "apps/web/src/app/page.tsx#L295-296", "llms.txt", "apps/web/public/llms.txt"],
+      "surfaces": ["apps/web/src/app/page.tsx#L136-142", "apps/web/src/app/page.tsx#L295-296", "apps/web/src/app/(dashboard)/swms/new/page.tsx", "apps/web/src/app/(dashboard)/swms/[id]/page.tsx", "llms.txt", "apps/web/public/llms.txt"],
       "code_references": ["apps/api/src/services/swms.ts (558 LOC)", "apps/api/src/services/claude.ts"],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-05-19",
-      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with...' — implied product certifies output. Reframed 2026-05-11 as AI-assisted + operator-accountable. 2026-05-19 re-verification: page.tsx:136-142 carries 'AI-Assisted SWMS Drafts ... hazard suggestions ... aligned to ... not legal advice. While you stay accountable as the PCBU'; page.tsx:295-296 carries 'SWMS templates aligned to Health and Safety at Work Act 2015 — operator signs off.' Voice-A disclaimer pattern intact."
+      "last_verified": "2026-06-09",
+      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with...' — implied product certifies output. Reframed 2026-05-11 as AI-assisted + operator-accountable. 2026-05-19 re-verification: page.tsx:136-142 carries 'AI-Assisted SWMS Drafts ... hazard suggestions ... aligned to ... not legal advice. While you stay accountable as the PCBU'; page.tsx:295-296 carries 'SWMS templates aligned to Health and Safety at Work Act 2015 — operator signs off.' Voice-A disclaimer pattern intact. 2026-06-09: web CRUD-parity build added an in-app SWMS generation form (swms/new) + detail view (swms/[id]). The generate form carries the Voice-A disclaimer verbatim: 'Generated documents are designed to align with the NZ Health and Safety at Work Act 2015. BossBoard is not affiliated with WorkSafe NZ or any government agency.' — uses 'align with', not 'compliant'; explicit WorkSafe non-affiliation. No certification/guarantee implication."
     },
     {
       "id": "bossboard.invoicing",
@@ -147,6 +147,25 @@
       "last_verified": "2026-05-17",
       "owner": "marc",
       "notes": "GA4 + Klaro v0.7.21 + Consent Mode v2 scaffold (2026-05-17). Banner copy: 'Privacy preferences. We use cookies to understand how this app is used. Choose your preferences below.' Service: 'Google Analytics — Anonymous analytics so we can understand how users navigate BossBoard.' Factual privacy notice; not a product claim. No compliance-promise / partnership / certification implication."
+    },
+    {
+      "id": "bossboard.web-crud-parity",
+      "claim": "The web dashboard now supports creating/editing quotes, expenses, job logs (clock in/out), SWMS (AI generation), certifications, and photo uploads — not just viewing them.",
+      "surfaces": [
+        "apps/web/src/app/(dashboard)/quotes/new/page.tsx + quotes/[id]/edit",
+        "apps/web/src/app/(dashboard)/expenses/new + expenses/[id]/edit",
+        "apps/web/src/app/(dashboard)/job-logs/new",
+        "apps/web/src/app/(dashboard)/swms/new + swms/[id]",
+        "apps/web/src/app/(dashboard)/certifications/new + certifications/[id]/edit",
+        "apps/web/src/components/ui/photo-uploader.tsx (mounted on invoices/[id])"
+      ],
+      "code_references": [
+        "apps/web/src/lib/api-client.ts (create/update/generate/upload methods, commit cc9e4a9)",
+        "apps/api/src/routes/{quotes,expenses,job-logs,swms,certifications,photos}.ts (existing Express endpoints — unchanged)"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-09",
+      "notes": "2026-06-09 web CRUD-parity build. Empty-state copy on these list pages previously read 'The web view is read-only — create from the BossBoard mobile app'; that copy was TRUTHFUL when web was view-only and was updated to action CTAs ('New quote', 'Generate SWMS', 'Add certification', 'Clock in', etc.) because the web app now backs those actions against the same Express endpoints the mobile app uses. No new product capability is claimed beyond features already verified IMPLEMENTED elsewhere in this file — this entry records a surface/affordance change, not a new claim. Customer-facing copy strings flagged to Marc for review at branch-merge (four-eyes on UI copy). No compliance/guarantee/partnership language introduced; SWMS generation carries the Voice-A disclaimer (see bossboard.swms)."
     }
   ],
   "recall_history": [

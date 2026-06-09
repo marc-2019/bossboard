@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { swmsClient, ApiError } from '@/lib/api-client';
 import type { SWMSDocument } from '@bossboard/shared';
-import { HardHat } from 'lucide-react';
+import { HardHat, Plus } from 'lucide-react';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -71,6 +73,12 @@ export default function SwmsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">SWMS documents</h1>
+        <Link href="/swms/new">
+          <Button size="md">
+            <Plus size={14} className="mr-2" />
+            Generate SWMS
+          </Button>
+        </Link>
       </div>
 
       {error && (
@@ -92,11 +100,17 @@ export default function SwmsPage() {
               <HardHat size={20} className="text-gray-500" />
             </div>
             <h2 className="text-base font-semibold text-gray-900 mb-1">No SWMS documents yet</h2>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
-              Generate Safe Work Method Statements on site in the BossBoard mobile app —
-              AI-assisted hazard ID, photo evidence, signatures, and PDF export all live in
-              the app. Completed SWMS show up here for desktop review.
+            <p className="text-sm text-gray-600 max-w-md mx-auto mb-4">
+              Generate an AI-assisted Safe Work Method Statement in seconds — site-specific
+              hazard ID, control measures, and PDF export. Sign on site in the BossBoard
+              mobile app.
             </p>
+            <Link href="/swms/new">
+              <Button size="md">
+                <Plus size={14} className="mr-2" />
+                Generate your first SWMS
+              </Button>
+            </Link>
           </div>
         </Card>
       )}
@@ -128,7 +142,11 @@ export default function SwmsPage() {
             {sorted.map((d) => {
               const badge = statusBadge[d.status] || statusBadge.draft;
               return (
-                <li key={d.id} className="flex items-center gap-4 px-4 py-3">
+                <li key={d.id}>
+                  <Link
+                    href={`/swms/${d.id}`}
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold text-gray-900 truncate">
@@ -152,6 +170,7 @@ export default function SwmsPage() {
                       {formatDate(d.createdAt as unknown as string)}
                     </div>
                   </div>
+                  </Link>
                 </li>
               );
             })}

@@ -2,10 +2,12 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { jobLogsClient, ApiError } from '@/lib/api-client';
 import type { JobLog, JobLogStatus } from '@bossboard/shared';
-import { Clock } from 'lucide-react';
+import { Clock, Plus } from 'lucide-react';
 
 type StatusFilter = JobLogStatus | 'all';
 
@@ -66,6 +68,13 @@ function JobLogsPageContent() {
 
   const [logs, setLogs] = useState<JobLog[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeJob, setActiveJob] = useState<JobLog | null>(null);
+  const [clockOutNotes, setClockOutNotes] = useState('');
+  const [clockingOut, setClockingOut] = useState(false);
+  const [clockOutError, setClockOutError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const updateStatusFilter = useCallback(
     (next: StatusFilter) => {
@@ -99,7 +108,43 @@ function JobLogsPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter]);
+  }, [statusFilter, reloadKey]);
+
+  // The currently clocked-in job is fetched independently of the status filter
+  // so the clock-out banner is always available regardless of which list view
+  // is selected.
+  useEffect(() => {
+    let cancelled = false;
+    jobLogsClient
+      .getActive()
+      .then((data) => {
+        if (!cancelled) setActiveJob(data.jobLog);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveJob(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const handleClockOut = useCallback(async () => {
+    if (!activeJob) return;
+    setClockOutError(null);
+    setClockingOut(true);
+    try {
+      const notes = clockOutNotes.trim();
+      await jobLogsClient.clockOut(activeJob.id, notes ? { notes } : {});
+      setClockOutNotes('');
+      refresh();
+    } catch (err) {
+      setClockOutError(
+        err instanceof ApiError ? err.message : 'Could not clock out.',
+      );
+    } finally {
+      setClockingOut(false);
+    }
+  }, [activeJob, clockOutNotes, refresh]);
 
   // Sort active first, then completed by start desc.
   const sorted = (logs || []).slice().sort((a, b) => {
@@ -120,26 +165,100 @@ function JobLogsPageContent() {
   const totalHours = Math.floor(totalMinutes / 60);
   const totalMins = Math.round(totalMinutes % 60);
 
+  // The currently clocked-in job is surfaced in the banner above with its own
+  // clock-out action, so omit it from the list rows to avoid showing it twice.
+  const listRows = activeJob ? sorted.filter((l) => l.id !== activeJob.id) : sorted;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">Job logs</h1>
-        <label className="flex items-center gap-2 text-sm text-gray-600">
-          <span>Status</span>
-          <select
-            aria-label="Filter job logs by status"
-            value={statusFilter}
-            onChange={(e) => updateStatusFilter(e.target.value as StatusFilter)}
-            className="rounded border border-border-light bg-white px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        <div className="flex items-center gap-4 flex-wrap">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <span>Status</span>
+            <select
+              aria-label="Filter job logs by status"
+              value={statusFilter}
+              onChange={(e) => updateStatusFilter(e.target.value as StatusFilter)}
+              className="rounded border border-border-light bg-white px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Link
+            href="/job-logs/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
           >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            <Plus size={16} />
+            Clock in
+          </Link>
+        </div>
       </div>
+
+      {activeJob && (
+        <Card className="mb-4 border border-emerald-200 bg-emerald-50/50">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    Clocked in
+                  </span>
+                </div>
+                <p className="text-base font-semibold text-gray-900 truncate">
+                  {activeJob.description}
+                </p>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Started {formatDateTime(activeJob.startTime)}
+                  {activeJob.siteAddress ? ` · ${activeJob.siteAddress}` : ''}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-xs text-gray-500">Elapsed</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {formatDuration(activeJob.startTime, null)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-1">
+                <label
+                  htmlFor="clock-out-notes"
+                  className="block text-xs font-medium text-gray-600"
+                >
+                  Notes (optional)
+                </label>
+                <input
+                  id="clock-out-notes"
+                  type="text"
+                  value={clockOutNotes}
+                  onChange={(e) => setClockOutNotes(e.target.value)}
+                  placeholder="What did you get done?"
+                  maxLength={2000}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-white text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="danger"
+                loading={clockingOut}
+                onClick={handleClockOut}
+              >
+                <Clock size={16} className="mr-1.5" />
+                Clock out
+              </Button>
+            </div>
+
+            {clockOutError && <p className="text-sm text-danger">{clockOutError}</p>}
+          </div>
+        </Card>
+      )}
 
       {error && (
         <Card className="mb-4">
@@ -162,10 +281,17 @@ function JobLogsPageContent() {
             {statusFilter === 'all' ? (
               <>
                 <h2 className="text-base font-semibold text-gray-900 mb-1">No job logs yet</h2>
-                <p className="text-sm text-gray-600 max-w-md mx-auto">
-                  Clock in to a job from the BossBoard mobile app to track your time on site.
-                  Completed logs show up here for billing and review.
+                <p className="text-sm text-gray-600 max-w-md mx-auto mb-4">
+                  Clock in to a job to track your time on site. Completed logs show up here
+                  for billing and review.
                 </p>
+                <Link
+                  href="/job-logs/new"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+                >
+                  <Plus size={16} />
+                  Clock in
+                </Link>
               </>
             ) : (
               <>
@@ -202,10 +328,10 @@ function JobLogsPageContent() {
         </Card>
       )}
 
-      {sorted.length > 0 && (
+      {listRows.length > 0 && (
         <Card className="!p-0 overflow-hidden">
           <ul className="divide-y divide-border-light">
-            {sorted.map((l) => {
+            {listRows.map((l) => {
               const active = l.status === 'active';
               return (
                 <li key={l.id} className="flex items-center gap-4 px-4 py-3">
