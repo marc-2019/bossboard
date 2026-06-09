@@ -35,7 +35,20 @@ jest.mock('../../services/claude.js', () => ({
   default: {
     generateHazardSuggestions: (...args: unknown[]) => mockGenerateHazardSuggestions(...args),
     generateControlMeasures: (...args: unknown[]) => mockGenerateControlMeasures(...args),
+    // generateSWMS calls getAIConfig() at the top of the AI block (swms.ts:129).
+    // Defined as a plain arrow (not jest.fn) so beforeEach's resetAllMocks can't
+    // wipe it to undefined mid-suite, which would throw and silently fall back
+    // to the deterministic defaults path.
+    getAIConfig: () => ({ model: 'claude-sonnet-4-20250514', provider: 'anthropic' as const }),
   },
+}));
+
+// recordAICall (imported by swms.ts from subscriptions.js) does usage-tracking
+// DB writes that are out of scope for these assertions; stub it so the AI path
+// runs without consuming the mockDbQuery queue.
+jest.mock('../../services/subscriptions.js', () => ({
+  __esModule: true,
+  recordAICall: async () => undefined,
 }));
 
 jest.mock('../../middleware/error.js', () => ({

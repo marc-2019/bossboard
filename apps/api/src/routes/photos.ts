@@ -48,7 +48,7 @@ const upload = multer({
 // VALIDATION SCHEMAS
 // =============================================================================
 
-const entityTypeSchema = z.enum(['swms', 'invoice', 'expense', 'job_log']);
+const entityTypeSchema = z.enum(['swms', 'invoice', 'expense', 'job_log', 'certification', 'quote']);
 
 const uploadSchema = z.object({
   entityType: entityTypeSchema,

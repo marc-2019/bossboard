@@ -62,6 +62,9 @@ temp/
 *.sql
 *.dump
 backups/
+# ...but migrations are source, not dumps — never ignore them. Without this,
+# the blanket *.sql above silently swallows every new migration file.
+!database/migrations/*.sql
 
 # Certificates
 *.pem

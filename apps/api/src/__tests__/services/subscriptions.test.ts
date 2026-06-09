@@ -152,14 +152,16 @@ describe('Subscription Service', () => {
       mockDbQuery
         .mockResolvedValueOnce({ rows: [{ count: '5' }] })  // invoices
         .mockResolvedValueOnce({ rows: [{ count: '3' }] })  // swms
+        .mockResolvedValueOnce({ rows: [{ count: '7' }] })  // ai calls
         .mockResolvedValueOnce({ rows: [{ count: '2' }] }); // team members
 
       const usage = await getTierUsage('user-1');
 
       expect(usage.invoicesThisMonth).toBe(5);
       expect(usage.swmsThisMonth).toBe(3);
+      expect(usage.aiCallsThisMonth).toBe(7);
       expect(usage.teamMemberCount).toBe(2);
-      expect(mockDbQuery).toHaveBeenCalledTimes(3);
+      expect(mockDbQuery).toHaveBeenCalledTimes(4);
     });
   });
 

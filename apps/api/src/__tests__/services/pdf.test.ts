@@ -81,7 +81,8 @@ jest.mock('pdfkit', () => {
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
 
-import { generateInvoicePDF, generateQuotePDF } from '../../services/pdf.js';
+import { generateInvoicePDF, generateQuotePDF, generateSWMSPDF } from '../../services/pdf.js';
+import type { SWMSPdfInput } from '../../services/pdf.js';
 import type { Invoice, Quote, InvoiceLineItem } from '../../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -130,6 +131,11 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     irdNumber: '123-456-789',
     gstNumber: '123-456-789',
     shareToken: null,
+    paymentProvider: null,
+    paymentReference: null,
+    paymentLinkUrl: null,
+    stripeCheckoutSessionId: null,
+    stripePaymentIntentId: null,
     createdAt: new Date('2026-04-01T00:00:00Z'),
     updatedAt: new Date('2026-04-01T00:00:00Z'),
     ...overrides,
@@ -194,6 +200,63 @@ describe('generateInvoicePDF', () => {
   it('starts with PDF magic bytes (%PDF)', async () => {
     const buf = await generateInvoicePDF(makeInvoice());
     expect(buf.slice(0, 4).toString('ascii')).toBe('%PDF');
+  });
+});
+
+// ===========================================================================
+// generateSWMSPDF — Safe Work Method Statement PDF (F-COMP-04)
+// ===========================================================================
+
+function makeSWMS(overrides: Partial<SWMSPdfInput> = {}): SWMSPdfInput {
+  return {
+    id: 'swms-uuid-1',
+    title: 'Electrical Rewire — 12 Queen St',
+    trade_type: 'electrician',
+    status: 'draft',
+    job_description: 'Full rewire of a two-storey villa',
+    site_address: '12 Queen St, Auckland',
+    client_name: 'Jane Client',
+    expected_duration: '3 days',
+    hazards: [
+      {
+        id: 'h1',
+        hazard: 'Electric shock from live conductors',
+        risk_level: 'high',
+        control_measures: ['Isolate and lock out the circuit', 'Test for dead before work'],
+        ppe_required: ['Insulated gloves'],
+      },
+    ],
+    ppe_required: ['Safety boots', 'Hi-vis vest'],
+    emergency_procedures: ['Call 111 for emergencies', 'First aid kit on site'],
+    signatures: [],
+    created_at: new Date('2026-04-01T00:00:00Z'),
+    updated_at: new Date('2026-04-01T00:00:00Z'),
+    ...overrides,
+  };
+}
+
+describe('generateSWMSPDF', () => {
+  it('resolves to a non-empty Buffer starting with %PDF', async () => {
+    const buf = await generateSWMSPDF(makeSWMS());
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf.length).toBeGreaterThan(0);
+    expect(buf.slice(0, 4).toString('ascii')).toBe('%PDF');
+  });
+
+  it('writes the document title banner and hazard text', async () => {
+    await generateSWMSPDF(makeSWMS());
+    expect(mockTextCalls).toContain('SAFE WORK METHOD STATEMENT');
+    expect(mockTextCalls.some(t => t.includes('Electric shock from live conductors'))).toBe(true);
+  });
+
+  it('renders an explicit empty state when there are no hazards', async () => {
+    await generateSWMSPDF(makeSWMS({ hazards: [] }));
+    expect(mockTextCalls).toContain('No hazards recorded.');
+  });
+
+  it('shows "Not yet signed." when there are no signatures', async () => {
+    await generateSWMSPDF(makeSWMS({ signatures: [] }));
+    expect(mockTextCalls).toContain('Not yet signed.');
   });
 });
 

@@ -656,7 +656,7 @@ export interface PaginatedResponse<T> {
 // PHOTOS
 // =============================================================================
 
-export type PhotoEntityType = 'swms' | 'invoice' | 'expense' | 'job_log';
+export type PhotoEntityType = 'swms' | 'invoice' | 'expense' | 'job_log' | 'certification' | 'quote';
 
 export interface Photo {
   id: string;

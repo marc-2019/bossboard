@@ -6,9 +6,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import swmsService from '../services/swms.js';
+import pdfService, { SWMSPdfInput } from '../services/pdf.js';
 import auditLog from '../services/audit-log.js';
 import { authenticate } from '../middleware/auth.js';
-import { attachSubscription, checkLimit } from '../middleware/subscription.js';
+import { attachSubscription, checkLimit, requireFeature } from '../middleware/subscription.js';
 
 // App error type for error handling
 interface AppError extends Error {
@@ -191,6 +192,38 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
       success: true,
       data: { document },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/swms/:id/pdf
+ * Download SWMS document as PDF. Gated like invoice/quote PDF export.
+ */
+router.get('/:id/pdf', authenticate, attachSubscription, requireFeature('pdfExport'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    // NOTE: getSWMSById returns the mobile-shaped object (cast as SWMSDocument
+    // in the service); generateSWMSPDF consumes that shape, hence the cast.
+    const document = await swmsService.getSWMSById(id as string, req.user!.userId);
+
+    if (!document) {
+      res.status(404).json({
+        success: false,
+        error: 'NOT_FOUND',
+        message: 'SWMS document not found',
+      });
+      return;
+    }
+
+    const pdfBuffer = await pdfService.generateSWMSPDF(document as unknown as SWMSPdfInput);
+
+    const safeTitle = String((document as { title?: string }).title || 'SWMS').replace(/[^a-zA-Z0-9-_]+/g, '-');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="SWMS-${safeTitle}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }

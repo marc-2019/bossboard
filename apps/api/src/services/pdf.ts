@@ -335,7 +335,169 @@ export async function generateQuotePDF(quote: Quote): Promise<Buffer> {
   return generateInvoicePDF(invoiceCompat);
 }
 
+// =============================================================================
+// SWMS PDF
+// =============================================================================
+
+/** Map a risk level to a colour for the PDF badge. */
+function riskColor(level: string): string {
+  switch (String(level).toLowerCase()) {
+    case 'extreme': return '#b00020';
+    case 'high': return '#d35400';
+    case 'medium': return '#b8860b';
+    case 'low': return '#2e7d32';
+    default: return '#333333';
+  }
+}
+
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * Shape returned by swmsService.getSWMSById (mobile-friendly, snake_case).
+ * The PDF route passes that object straight through, so the PDF input mirrors
+ * it rather than the raw SWMSDocument type.
+ */
+export interface SWMSPdfInput {
+  id: string;
+  title: string;
+  trade_type: string;
+  status: string;
+  job_description: string | null;
+  site_address: string | null;
+  client_name: string | null;
+  expected_duration: string | null;
+  hazards: Array<{
+    id: string;
+    hazard: string;
+    risk_level: string;
+    control_measures: string[];
+    ppe_required?: string[];
+  }>;
+  ppe_required: string[];
+  emergency_procedures: string[];
+  signatures: Array<{ role: string; signed_at: string; signed_by: string }>;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+/**
+ * Generate a Safe Work Method Statement PDF and return it as a Buffer.
+ */
+export async function generateSWMSPDF(swms: SWMSPdfInput): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 },
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const leftX = doc.page.margins.left;
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const bottomLimit = doc.page.height - doc.page.margins.bottom - 60;
+
+      // ─── Title ───
+      doc.fontSize(20).font('Helvetica-Bold').fill('#000000')
+        .text('SAFE WORK METHOD STATEMENT', leftX, 50);
+      doc.moveDown(0.2);
+      doc.fontSize(13).font('Helvetica-Bold').fill('#333333').text(swms.title);
+      doc.fill('#000000').fontSize(9).font('Helvetica');
+      doc.text(
+        `Trade: ${swms.trade_type}    |    Status: ${String(swms.status).toUpperCase()}    |    Date: ${formatDate(swms.created_at as Date)}`
+      );
+      doc.moveDown(0.5);
+      doc.moveTo(leftX, doc.y).lineTo(leftX + pageWidth, doc.y).lineWidth(1).stroke('#cccccc');
+      doc.moveDown(0.6);
+
+      // ─── Job Details ───
+      doc.fill('#000000').fontSize(11).font('Helvetica-Bold').text('Job Details');
+      doc.moveDown(0.2);
+      doc.fontSize(9).font('Helvetica');
+      if (swms.job_description) doc.text(`Description: ${swms.job_description}`, { width: pageWidth });
+      if (swms.site_address) doc.text(`Site: ${swms.site_address}`);
+      if (swms.client_name) doc.text(`Client: ${swms.client_name}`);
+      if (swms.expected_duration) doc.text(`Duration: ${swms.expected_duration}`);
+      doc.moveDown(0.6);
+
+      // ─── Hazards & Control Measures ───
+      doc.fontSize(11).font('Helvetica-Bold').text('Hazards & Control Measures');
+      doc.moveDown(0.3);
+      if (swms.hazards.length === 0) {
+        doc.fontSize(9).font('Helvetica').fill('#888888').text('No hazards recorded.');
+        doc.fill('#000000');
+      }
+      for (let i = 0; i < swms.hazards.length; i++) {
+        const h = swms.hazards[i];
+        if (doc.y > bottomLimit) doc.addPage();
+        doc.fontSize(10).font('Helvetica-Bold').fill('#000000')
+          .text(`${i + 1}. ${h.hazard}`, { continued: true });
+        doc.fill(riskColor(h.risk_level)).text(`   [${String(h.risk_level).toUpperCase()} RISK]`);
+        doc.fill('#000000').font('Helvetica').fontSize(9);
+        for (const cm of h.control_measures) {
+          doc.text(`   • ${cm}`, { width: pageWidth - 10 });
+        }
+        if (h.ppe_required && h.ppe_required.length) {
+          doc.fill('#555555').text(`   PPE: ${h.ppe_required.join(', ')}`);
+          doc.fill('#000000');
+        }
+        doc.moveDown(0.4);
+      }
+
+      // ─── PPE Required ───
+      if (swms.ppe_required && swms.ppe_required.length) {
+        if (doc.y > bottomLimit) doc.addPage();
+        doc.moveDown(0.2);
+        doc.fontSize(11).font('Helvetica-Bold').text('PPE Required');
+        doc.fontSize(9).font('Helvetica').text(swms.ppe_required.join(', '), { width: pageWidth });
+        doc.moveDown(0.4);
+      }
+
+      // ─── Emergency Procedures ───
+      if (swms.emergency_procedures && swms.emergency_procedures.length) {
+        if (doc.y > bottomLimit) doc.addPage();
+        doc.fontSize(11).font('Helvetica-Bold').text('Emergency Procedures');
+        doc.fontSize(9).font('Helvetica');
+        for (const ep of swms.emergency_procedures) doc.text(`• ${ep}`);
+        doc.moveDown(0.4);
+      }
+
+      // ─── Sign-off ───
+      if (doc.y > bottomLimit) doc.addPage();
+      doc.moveDown(0.2);
+      doc.fontSize(11).font('Helvetica-Bold').text('Sign-off');
+      doc.fontSize(9).font('Helvetica');
+      if (swms.signatures && swms.signatures.length) {
+        for (const s of swms.signatures) {
+          doc.fill('#000000').text(`${capitalize(s.role)}: ${s.signed_by} — signed ${formatDate(s.signed_at)}`);
+        }
+      } else {
+        doc.fill('#888888').text('Not yet signed.');
+        doc.fill('#000000');
+      }
+
+      // ─── Footer ───
+      const footerY = doc.page.height - doc.page.margins.bottom - 30;
+      if (doc.y < footerY - 10) {
+        doc.moveTo(leftX, footerY).lineTo(leftX + pageWidth, footerY).lineWidth(0.5).stroke('#cccccc');
+        doc.fontSize(8).font('Helvetica').fill('#888888')
+          .text(`Generated by ${config.appName}`, leftX, footerY + 5, { width: pageWidth, align: 'center' });
+      }
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 export default {
   generateInvoicePDF,
   generateQuotePDF,
+  generateSWMSPDF,
 };
