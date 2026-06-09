@@ -430,7 +430,7 @@ export const photosClient = {
     entityId: string,
   ) =>
     deepCamelize<{ photos: import('@bossboard/shared').Photo[] }>(
-      await clientFetch<unknown>(`/api/photos/${entityType}/${entityId}`),
+      await clientFetch<unknown>(`/api/photos/entity/${entityType}/${entityId}`),
     ),
 
   remove: (id: string) =>
