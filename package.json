@@ -64,6 +64,8 @@
     "@tootallnate/once": "^3.0.1",
     "uuid": "^11.1.1",
     "postcss": "^8.5.10",
-    "@expo/metro-runtime": "6.1.2"
+    "@expo/metro-runtime": "6.1.2",
+    "qs": "^6.15.2",
+    "ws@>=8.0.0 <8.20.1": "8.20.1"
   }
 }
