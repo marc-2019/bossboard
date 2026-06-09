@@ -84,7 +84,7 @@ describe('POST /webhooks/stripe', () => {
 
     it('returns 400 with a generic message when a non-Error is thrown during verification', async () => {
       mockConstructWebhookEvent.mockImplementation(() => {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
+        // Intentionally throw a non-Error to exercise the generic-message path.
         throw 'unexpected non-error value';
       });
 

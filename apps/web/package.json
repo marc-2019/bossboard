@@ -6,7 +6,7 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "check:routes": "node scripts/check-routes.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",

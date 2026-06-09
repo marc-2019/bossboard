@@ -11,7 +11,7 @@
     "build:ios": "eas build --platform ios",
     "build:android": "eas build --platform android",
     "test": "jest",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint .",
     "clean": "rm -rf node_modules .expo",
     "generate:assets": "node scripts/generate-assets.js",
     "export:web": "expo export --platform web",
