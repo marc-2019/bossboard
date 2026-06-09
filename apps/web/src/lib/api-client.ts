@@ -178,53 +178,266 @@ export const invoicesClient = {
   pdfUrl: (id: string) => `/api/invoices/${id}/pdf`,
 };
 
-/** Quotes API (read-only first ship — list + detail + convert-to-invoice).
- *  Create / edit / send live in the BossBoard mobile app for v1. */
+/** Quotes API — list + detail + convert + full create/edit.
+ *  All reads are deepCamelize-normalized (Express returns snake_case). */
+export interface CreateQuoteInput {
+  clientName: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  customerId?: string;
+  jobDescription?: string;
+  lineItems: InvoiceLineItemInput[];
+  includeGst?: boolean;
+  /** ISO date string (YYYY-MM-DD) */
+  validUntil?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  notes?: string;
+}
+export type UpdateQuoteInput = Partial<CreateQuoteInput>;
+
+type QuoteEnvelope = { quote: import('@bossboard/shared').Quote };
+type QuoteListEnvelope = { quotes: import('@bossboard/shared').Quote[] };
+
 export const quotesClient = {
-  list: () =>
-    clientFetch<{ quotes: import('@bossboard/shared').Quote[] }>('/api/quotes'),
+  list: async () =>
+    deepCamelize<QuoteListEnvelope>(await clientFetch<unknown>('/api/quotes')),
 
-  get: (id: string) =>
-    clientFetch<{ quote: import('@bossboard/shared').Quote }>(`/api/quotes/${id}`),
+  get: async (id: string) =>
+    deepCamelize<QuoteEnvelope>(await clientFetch<unknown>(`/api/quotes/${id}`)),
 
-  convert: (id: string) =>
-    clientFetch<{ invoice: import('@bossboard/shared').Invoice }>(
-      `/api/quotes/${id}/convert`,
-      { method: 'POST' },
+  create: async (data: CreateQuoteInput) =>
+    deepCamelize<QuoteEnvelope>(
+      await clientFetch<unknown>('/api/quotes', { method: 'POST', body: data }),
+    ),
+
+  update: async (id: string, data: UpdateQuoteInput) =>
+    deepCamelize<QuoteEnvelope>(
+      await clientFetch<unknown>(`/api/quotes/${id}`, { method: 'PUT', body: data }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok: true }>(`/api/quotes/${id}`, { method: 'DELETE' }),
+
+  convert: async (id: string) =>
+    deepCamelize<{ invoice: import('@bossboard/shared').Invoice }>(
+      await clientFetch<unknown>(`/api/quotes/${id}/convert`, { method: 'POST' }),
     ),
 };
 
-/** Certifications API (v1 read-only — list. Add / edit / delete in mobile). */
+/** Certifications API — list + full create/edit/delete. */
+export type CertificationType =
+  | 'electrical' | 'gas' | 'plumbing' | 'lpg' | 'first_aid' | 'site_safe' | 'other';
+
+export interface CreateCertificationInput {
+  type: CertificationType;
+  name: string;
+  certNumber?: string;
+  issuingBody?: string;
+  /** ISO date string (YYYY-MM-DD) */
+  issueDate?: string;
+  /** ISO date string (YYYY-MM-DD) */
+  expiryDate?: string;
+}
+export type UpdateCertificationInput = Partial<CreateCertificationInput>;
+
+type CertEnvelope = { certification: import('@bossboard/shared').Certification };
+type CertListEnvelope = { certifications: import('@bossboard/shared').Certification[] };
+
 export const certificationsClient = {
-  list: () =>
-    clientFetch<{ certifications: import('@bossboard/shared').Certification[] }>(
-      '/api/certifications',
+  list: async () =>
+    deepCamelize<CertListEnvelope>(await clientFetch<unknown>('/api/certifications')),
+
+  get: async (id: string) =>
+    deepCamelize<CertEnvelope>(await clientFetch<unknown>(`/api/certifications/${id}`)),
+
+  create: async (data: CreateCertificationInput) =>
+    deepCamelize<CertEnvelope>(
+      await clientFetch<unknown>('/api/certifications', { method: 'POST', body: data }),
     ),
+
+  update: async (id: string, data: UpdateCertificationInput) =>
+    deepCamelize<CertEnvelope>(
+      await clientFetch<unknown>(`/api/certifications/${id}`, { method: 'PUT', body: data }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok: true }>(`/api/certifications/${id}`, { method: 'DELETE' }),
 };
 
-/** Expenses API (v1 read-only). Receipts + create/edit live in mobile. */
+/** Expenses API — list + full create/edit/delete. */
+export type ExpenseCategory =
+  | 'materials' | 'fuel' | 'tools' | 'subcontractor' | 'vehicle' | 'office' | 'other';
+
+export interface CreateExpenseInput {
+  /** Amount in cents (integer). $5.99 → 599. */
+  amount: number;
+  category: ExpenseCategory;
+  /** ISO date string (YYYY-MM-DD) */
+  date?: string;
+  description?: string;
+  vendor?: string;
+  isGstClaimable?: boolean;
+  notes?: string;
+}
+export type UpdateExpenseInput = Partial<CreateExpenseInput>;
+
+type ExpenseEnvelope = { expense: import('@bossboard/shared').Expense };
+type ExpenseListEnvelope = { expenses: import('@bossboard/shared').Expense[] };
+
 export const expensesClient = {
-  list: () =>
-    clientFetch<{ expenses: import('@bossboard/shared').Expense[] }>('/api/expenses'),
+  list: async () =>
+    deepCamelize<ExpenseListEnvelope>(await clientFetch<unknown>('/api/expenses')),
+
+  get: async (id: string) =>
+    deepCamelize<ExpenseEnvelope>(await clientFetch<unknown>(`/api/expenses/${id}`)),
+
+  create: async (data: CreateExpenseInput) =>
+    deepCamelize<ExpenseEnvelope>(
+      await clientFetch<unknown>('/api/expenses', { method: 'POST', body: data }),
+    ),
+
+  update: async (id: string, data: UpdateExpenseInput) =>
+    deepCamelize<ExpenseEnvelope>(
+      await clientFetch<unknown>(`/api/expenses/${id}`, { method: 'PUT', body: data }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok: true }>(`/api/expenses/${id}`, { method: 'DELETE' }),
 };
 
-/** Job logs API (v1 read-only). Clock in/out lives in mobile. */
+/** Job logs API — list + clock in (create) / clock out / edit / active. */
+export interface CreateJobLogInput {
+  description: string;
+  siteAddress?: string;
+  customerId?: string;
+  /** ISO datetime; defaults to now server-side when omitted */
+  startTime?: string;
+  notes?: string;
+}
+export interface UpdateJobLogInput {
+  description?: string;
+  siteAddress?: string;
+  customerId?: string | null;
+  notes?: string;
+}
+
+type JobLogEnvelope = { jobLog: import('@bossboard/shared').JobLog };
+type JobLogListEnvelope = { jobLogs: import('@bossboard/shared').JobLog[] };
+
 export const jobLogsClient = {
-  list: (params?: { status?: 'active' | 'completed' }) => {
+  list: async (params?: { status?: 'active' | 'completed' }) => {
     const qs = params?.status ? `?status=${params.status}` : '';
-    return clientFetch<{ jobLogs: import('@bossboard/shared').JobLog[] }>(
-      `/api/job-logs${qs}`,
+    return deepCamelize<JobLogListEnvelope>(
+      await clientFetch<unknown>(`/api/job-logs${qs}`),
     );
   },
+
+  /** The currently clocked-in job, or { jobLog: null }. */
+  getActive: async () =>
+    deepCamelize<{ jobLog: import('@bossboard/shared').JobLog | null }>(
+      await clientFetch<unknown>('/api/job-logs/active'),
+    ),
+
+  /** Clock in (start a job log). */
+  create: async (data: CreateJobLogInput) =>
+    deepCamelize<JobLogEnvelope>(
+      await clientFetch<unknown>('/api/job-logs', { method: 'POST', body: data }),
+    ),
+
+  clockOut: async (id: string, data: { notes?: string } = {}) =>
+    deepCamelize<JobLogEnvelope>(
+      await clientFetch<unknown>(`/api/job-logs/${id}/clock-out`, {
+        method: 'POST',
+        body: data,
+      }),
+    ),
+
+  update: async (id: string, data: UpdateJobLogInput) =>
+    deepCamelize<JobLogEnvelope>(
+      await clientFetch<unknown>(`/api/job-logs/${id}`, { method: 'PUT', body: data }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok: true }>(`/api/job-logs/${id}`, { method: 'DELETE' }),
 };
 
-/** SWMS API (v1 read-only list). Generation, signing, photos, PDF
- *  download all live in the BossBoard mobile app — those are
- *  on-site / signature-pad workflows that don't translate to a
- *  desktop web view. */
+/** SWMS API — list + AI generation + detail + templates. */
+type SWMSGenerateResult = {
+  swmsId: string;
+  document: Partial<import('@bossboard/shared').SWMSDocument>;
+  suggestedHazards: import('@bossboard/shared').Hazard[];
+  suggestedControls: import('@bossboard/shared').Control[];
+  template: import('@bossboard/shared').SWMSTemplate;
+};
+
 export const swmsClient = {
-  list: () =>
-    clientFetch<{ documents: import('@bossboard/shared').SWMSDocument[] }>('/api/swms'),
+  list: async () =>
+    deepCamelize<{ documents: import('@bossboard/shared').SWMSDocument[] }>(
+      await clientFetch<unknown>('/api/swms'),
+    ),
+
+  get: async (id: string) =>
+    deepCamelize<{ document: import('@bossboard/shared').SWMSDocument }>(
+      await clientFetch<unknown>(`/api/swms/${id}`),
+    ),
+
+  /** AI-generate a SWMS document. Slow (AI call) — show a loading state. */
+  generate: async (data: import('@bossboard/shared').SWMSGenerateInput) =>
+    deepCamelize<SWMSGenerateResult>(
+      await clientFetch<unknown>('/api/swms/generate', { method: 'POST', body: data }),
+    ),
+
+  listTemplates: () =>
+    clientFetch<{ templates: import('@bossboard/shared').SWMSTemplate[] }>(
+      '/api/swms/templates',
+    ),
+
+  /** Absolute URL for the SWMS PDF download endpoint (browser fetches directly). */
+  pdfUrl: (id: string) => `/api/swms/${id}/pdf`,
+};
+
+/** Photos API — universal attachments. Upload is multipart/form-data, so it
+ *  cannot use clientFetch (which is JSON-only); it uses a bare fetch + FormData
+ *  and lets the browser set the multipart boundary. */
+export const photosClient = {
+  upload: async (
+    file: File,
+    entityType: import('@bossboard/shared').PhotoEntityType,
+    entityId: string,
+    caption?: string,
+  ) => {
+    const fd = new FormData();
+    fd.append('photo', file);
+    fd.append('entityType', entityType);
+    fd.append('entityId', entityId);
+    if (caption) fd.append('caption', caption);
+
+    const res = await fetch('/api/photos', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new ApiError(
+        res.status,
+        json.error || 'UNKNOWN_ERROR',
+        json.message || 'Upload failed',
+      );
+    }
+    return deepCamelize<{ photo: import('@bossboard/shared').Photo }>(json.data);
+  },
+
+  listByEntity: async (
+    entityType: import('@bossboard/shared').PhotoEntityType,
+    entityId: string,
+  ) =>
+    deepCamelize<{ photos: import('@bossboard/shared').Photo[] }>(
+      await clientFetch<unknown>(`/api/photos/${entityType}/${entityId}`),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok: true }>(`/api/photos/${id}`, { method: 'DELETE' }),
+
+  /** Absolute URL for the raw image bytes — use as <img src>. */
+  fileUrl: (id: string) => `/api/photos/${id}/file`,
 };
 
 /** Teams API (web scope: view team + invite/cancel + remove/role/leave).
