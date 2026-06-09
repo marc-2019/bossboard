@@ -17,12 +17,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-// Force single copy of React and related packages
-config.resolver.extraNodeModules = {
-  'react': path.resolve(projectRoot, 'node_modules/react'),
-  'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
-  'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
-  'react-native-web': path.resolve(workspaceRoot, 'node_modules/react-native-web'),
-};
+// NOTE: No extraNodeModules force-resolution. With react/react-dom aligned to
+// the Expo SDK 54 pins (19.1.0) across the workspace, npm hoists a single copy
+// of each and Metro's default resolution finds it. The previous force-block
+// pinned react to a nested 19.2.4 copy while react-dom resolved to the root
+// 19.1.0 copy (and pointed react-native at a non-existent nested path), which
+// crashed the app on first render. See commit fb740e5 for the regression.
 
 module.exports = config;
