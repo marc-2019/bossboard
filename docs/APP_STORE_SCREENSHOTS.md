@@ -181,7 +181,7 @@ Make sure the demo has enough invoice data to populate:
 ### Design Suggestion
 - Navy background (`#1e3a5f`)
 - App icon on the left (150x150 area)
-- Title: "TradeMate NZ" in white bold text
+- Title: "BossBoard" in white bold text
 - Tagline: "AI Safety Docs & Invoicing for Kiwi Tradies" below
 - 2-3 small phone mockup frames showing key screens on the right side
 - NZ flag or fern icon accent (optional, subtle)
