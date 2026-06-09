@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 // Security response headers (F-X-03). Applied to every route. The CSP is
 // intentionally moderate: Next.js needs 'unsafe-inline'/'unsafe-eval' for its
@@ -28,6 +29,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Pin the monorepo root so Next doesn't infer the wrong workspace root from a
+  // stray ~/package-lock.json (multi-lockfile detection). Keeps standalone file
+  // tracing correct and silences the "inferred workspace root" warning.
+  outputFileTracingRoot: path.join(__dirname, '../../'),
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
