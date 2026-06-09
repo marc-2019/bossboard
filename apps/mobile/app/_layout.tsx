@@ -47,12 +47,12 @@ function RootLayoutNav() {
       // Check if user needs verification or onboarding
       if (!user?.isVerified) {
         // Need email verification - only redirect if not already on verify screen
-        if ((segments[1] as string) !== 'verify-email') {
+        if ((segments as string[])[1] !== 'verify-email') {
           router.replace('/(auth)/verify-email' as any);
         }
       } else if (!user?.onboardingCompleted) {
         // Need onboarding - only redirect if not already on onboarding screen
-        if ((segments[1] as string) !== 'onboarding') {
+        if ((segments as string[])[1] !== 'onboarding') {
           router.replace('/(auth)/onboarding' as any);
         }
       } else {
