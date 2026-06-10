@@ -23,6 +23,12 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
 RUN npm install --omit=dev --workspace=packages/shared --workspace=apps/api \
     && npm cache clean --force
+# npm only creates apps/api/node_modules when version conflicts force nested
+# installs; with a fully-hoisted lockfile (true since ~2026-05) the directory
+# does not exist and the production stage's COPY of it hard-fails the build
+# ("/app/apps/api/node_modules": not found). Guarantee it exists — empty is
+# fine, Node resolution walks up to the root node_modules.
+RUN mkdir -p apps/api/node_modules
 
 # =============================================================================
 # BUILD STAGE - Compile shared package, then compile API
