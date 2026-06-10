@@ -23,7 +23,7 @@
  * `TODO(phase5)` markers in the demo specs.
  */
 
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import {
   testDataName,
   registerEphemeralUser,
@@ -185,3 +185,34 @@ export { registerEphemeralUser };
  */
 export const API_BASE_URL =
   process.env.API_BASE_URL || 'http://localhost:29000';
+
+/**
+ * Establish a real authenticated WEB session in the browser context.
+ *
+ * The dashboard routes are protected by Next middleware that checks the
+ * httpOnly `bb_access_token` cookie and 307-redirects to /login when absent.
+ * Web demos therefore can't just `page.goto('/quotes')` — they must first
+ * have a session. We register an ephemeral user through the Next proxy
+ * (`/api/auth/register`, which sets the cookie); `page.request` shares the
+ * cookie jar with `page`, so subsequent navigations render the real UI.
+ *
+ * Data calls the page then makes (e.g. GET /api/quotes) should be
+ * `page.route`-mocked AT THE PROXY PATH (`/api/...`, NOT `/api/v1/...` — the
+ * browser hits the Next proxy, the `/api/v1/*` Express call happens
+ * server-side and is not interceptable by page.route).
+ */
+export async function establishWebSession(
+  page: Page,
+  purpose = 'web',
+): Promise<{ email: string }> {
+  const email = uniqueAuthEmail(purpose);
+  const res = await page.request.post('/api/auth/register', {
+    data: { email, password: 'DemoPass123!', name: `${purpose} demo` },
+  });
+  if (!res.ok()) {
+    throw new Error(
+      `establishWebSession: register returned ${res.status()} for ${email}: ${await res.text()}`,
+    );
+  }
+  return { email };
+}

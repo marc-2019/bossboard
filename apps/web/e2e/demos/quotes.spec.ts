@@ -35,16 +35,23 @@
  */
 import { test, expect } from '@playwright/test';
 import { QUOTE_SCENARIOS, formatNzd, expectedTotals } from './helpers/quotes';
+import { establishWebSession } from './helpers/auth';
 
 const MOCK_QUOTE_ID = '00000000-0000-4000-8000-000000000123';
 const MOCK_INVOICE_ID = '00000000-0000-4000-8000-000000000456';
 
 test.describe('F-QUO (Quotes module) — Web', () => {
+  // Dashboard routes are auth-gated — establish a real session so the page
+  // renders instead of redirecting to /login. Data is page.route-mocked below.
+  test.beforeEach(async ({ page }) => {
+    await establishWebSession(page, 'quotes');
+  });
+
   test.describe('F-QUO-01: Create / view quote on web', () => {
-    test('F-QUO-01.a: empty state renders mobile-first hint', async ({ page }) => {
+    test('F-QUO-01.a: empty state renders a New quote CTA', async ({ page }) => {
       // Intercept the underlying API call the page makes via the proxy
       // and return zero quotes so we see the empty state.
-      await page.route('**/api/v1/quotes**', async (route) => {
+      await page.route('**/api/quotes**', async (route) => {
         if (route.request().method() !== 'GET') return route.continue();
         await route.fulfill({
           status: 200,
@@ -55,11 +62,12 @@ test.describe('F-QUO (Quotes module) — Web', () => {
 
       await page.goto('/quotes');
 
-      await expect(page.getByRole('heading', { name: 'Quotes' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Quotes', exact: true })).toBeVisible();
       await expect(page.getByText('No quotes yet')).toBeVisible();
-      // Acceptance: empty-state copy steers tradies to mobile for creation
+      // Acceptance: web now supports creation (Phase 2 CRUD parity) — the empty
+      // state offers a "New quote" CTA, replacing the old mobile-only hint.
       await expect(
-        page.getByText(/mobile app/i),
+        page.getByRole('link', { name: /new quote/i }).first(),
       ).toBeVisible();
     });
 
@@ -69,7 +77,7 @@ test.describe('F-QUO (Quotes module) — Web', () => {
       const bathroom = QUOTE_SCENARIOS.bathroomReno;
       const totals = expectedTotals(bathroom);
 
-      await page.route('**/api/v1/quotes**', async (route) => {
+      await page.route('**/api/quotes**', async (route) => {
         if (route.request().method() !== 'GET') return route.continue();
         await route.fulfill({
           status: 200,
@@ -113,7 +121,7 @@ test.describe('F-QUO (Quotes module) — Web', () => {
       const bathroom = QUOTE_SCENARIOS.bathroomReno;
       const totals = expectedTotals(bathroom);
 
-      await page.route(`**/api/v1/quotes/${MOCK_QUOTE_ID}`, async (route) => {
+      await page.route(`**/api/quotes/${MOCK_QUOTE_ID}`, async (route) => {
         if (route.request().method() !== 'GET') return route.continue();
         await route.fulfill({
           status: 200,
@@ -180,7 +188,7 @@ test.describe('F-QUO (Quotes module) — Web', () => {
       // matrix + coverage update.
       const bathroom = QUOTE_SCENARIOS.bathroomReno;
 
-      await page.route(`**/api/v1/quotes/${MOCK_QUOTE_ID}`, async (route) => {
+      await page.route(`**/api/quotes/${MOCK_QUOTE_ID}`, async (route) => {
         if (route.request().method() !== 'GET') return route.continue();
         await route.fulfill({
           status: 200,
@@ -221,7 +229,7 @@ test.describe('F-QUO (Quotes module) — Web', () => {
     }) => {
       const bathroom = QUOTE_SCENARIOS.bathroomReno;
 
-      await page.route(`**/api/v1/quotes/${MOCK_QUOTE_ID}`, async (route) => {
+      await page.route(`**/api/quotes/${MOCK_QUOTE_ID}`, async (route) => {
         if (route.request().method() !== 'GET') return route.continue();
         await route.fulfill({
           status: 200,
@@ -268,7 +276,7 @@ test.describe('F-QUO (Quotes module) — Web', () => {
       const totals = expectedTotals(bathroom);
 
       // Mock GET for the quote detail
-      await page.route(`**/api/v1/quotes/${MOCK_QUOTE_ID}`, async (route) => {
+      await page.route(`**/api/quotes/${MOCK_QUOTE_ID}`, async (route) => {
         if (route.request().method() !== 'GET') return route.continue();
         await route.fulfill({
           status: 200,
@@ -301,7 +309,7 @@ test.describe('F-QUO (Quotes module) — Web', () => {
 
       // Mock the convert mutation — returns a freshly-minted invoice id.
       await page.route(
-        `**/api/v1/quotes/${MOCK_QUOTE_ID}/convert`,
+        `**/api/quotes/${MOCK_QUOTE_ID}/convert`,
         async (route) => {
           if (route.request().method() !== 'POST') return route.continue();
           await route.fulfill({
@@ -322,7 +330,7 @@ test.describe('F-QUO (Quotes module) — Web', () => {
       // Mock the invoice detail page\'s GET so navigation lands somewhere
       // renderable (otherwise the assertion below would flake on
       // /invoices/[id] loading state).
-      await page.route(`**/api/v1/invoices/${MOCK_INVOICE_ID}`, async (route) => {
+      await page.route(`**/api/invoices/${MOCK_INVOICE_ID}`, async (route) => {
         if (route.request().method() !== 'GET') return route.continue();
         await route.fulfill({
           status: 200,
