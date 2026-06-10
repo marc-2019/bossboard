@@ -42,7 +42,7 @@ jest.mock('../../src/config/index.js', () => ({
       webhookSecret: 'whsec_test_mock_secret',
       priceIdTradie: 'price_tradie_test',
       priceIdTeam: 'price_team_test',
-      returnUrl: 'https://app.trademate.co.nz',
+      returnUrl: 'https://app.bossboard.test',
     },
   },
 }));
@@ -192,7 +192,7 @@ describe('ensureStripeCustomer', () => {
     expect(mockCustomersCreate).toHaveBeenCalledWith({
       email: 'tradie@example.com',
       name: 'Bob Smith',
-      metadata: { trademate_user_id: 'user-001' },
+      metadata: { bossboard_user_id: 'user-001' },
     });
   });
 
@@ -208,7 +208,7 @@ describe('ensureStripeCustomer', () => {
     expect(mockCustomersCreate).toHaveBeenCalledWith({
       email: 'new@example.com',
       name: undefined,  // null → undefined per stripe.ts
-      metadata: { trademate_user_id: 'user-002' },
+      metadata: { bossboard_user_id: 'user-002' },
     });
   });
 
@@ -248,8 +248,8 @@ describe('createCheckoutSession', () => {
     userEmail: 'tradie@example.com',
     userName: 'Bob Smith',
     tier: 'tradie' as const,
-    successUrl: 'https://app.trademate.co.nz/success',
-    cancelUrl: 'https://app.trademate.co.nz/cancel',
+    successUrl: 'https://app.bossboard.test/success',
+    cancelUrl: 'https://app.bossboard.test/cancel',
   };
 
   beforeEach(() => {
@@ -319,7 +319,7 @@ describe('createCheckoutSession', () => {
     );
   });
 
-  it('embeds trademate_user_id and tier in session metadata', async () => {
+  it('embeds bossboard_user_id and tier in session metadata', async () => {
     mockCheckoutSessionsCreate.mockResolvedValueOnce({
       id: 'cs_test_004',
       url: 'https://checkout.stripe.com/pay/cs_test_004',
@@ -329,9 +329,9 @@ describe('createCheckoutSession', () => {
 
     expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+        metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
         subscription_data: expect.objectContaining({
-          metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+          metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
         }),
       })
     );
@@ -403,7 +403,7 @@ describe('createPortalSession', () => {
       url: 'https://billing.stripe.com/session/bps_test_001',
     });
 
-    const url = await createPortalSession('cus_test_001', 'https://app.trademate.co.nz/settings');
+    const url = await createPortalSession('cus_test_001', 'https://app.bossboard.test/settings');
 
     expect(url).toBe('https://billing.stripe.com/session/bps_test_001');
   });
@@ -427,7 +427,7 @@ describe('createPortalSession', () => {
     );
 
     await expect(
-      createPortalSession('cus_bad', 'https://app.trademate.co.nz')
+      createPortalSession('cus_bad', 'https://app.bossboard.test')
     ).rejects.toThrow('No such customer: cus_bad');
   });
 });
@@ -483,7 +483,7 @@ describe('handleWebhookEvent — idempotency', () => {
     mockDbQuery.mockResolvedValueOnce({ rowCount: 0 });
 
     const event = makeEvent('checkout.session.completed', {
-      metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+      metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
       customer: 'cus_test',
       subscription: 'sub_test',
     });
@@ -499,7 +499,7 @@ describe('handleWebhookEvent — idempotency', () => {
     mockDbQuery.mockResolvedValueOnce({ rowCount: 1 });
 
     const event = makeEvent('checkout.session.completed', {
-      metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+      metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
       customer: 'cus_test',
       subscription: 'sub_test',
     });
@@ -516,7 +516,7 @@ describe('handleWebhookEvent — idempotency', () => {
     mockDbQuery.mockRejectedValueOnce(new Error('relation "stripe_webhook_events" does not exist'));
 
     const event = makeEvent('checkout.session.completed', {
-      metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+      metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
       customer: 'cus_test',
       subscription: 'sub_test',
     });
@@ -533,7 +533,7 @@ describe('handleWebhookEvent — idempotency', () => {
     const event = makeEvent(
       'checkout.session.completed',
       {
-        metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+        metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
         customer: 'cus_test',
         subscription: 'sub_test',
       },
@@ -561,7 +561,7 @@ describe('handleWebhookEvent — checkout.session.completed', () => {
 
   it('upgrades user to the tier from session metadata', async () => {
     const event = makeEvent('checkout.session.completed', {
-      metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+      metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
       customer: 'cus_test_001',
       subscription: 'sub_test_001',
     });
@@ -583,7 +583,7 @@ describe('handleWebhookEvent — checkout.session.completed', () => {
 
   it('upgrades user to team tier from session metadata', async () => {
     const event = makeEvent('checkout.session.completed', {
-      metadata: { trademate_user_id: 'user-007', tier: 'team' },
+      metadata: { bossboard_user_id: 'user-007', tier: 'team' },
       customer: 'cus_team_001',
       subscription: 'sub_team_001',
     });
@@ -604,7 +604,7 @@ describe('handleWebhookEvent — checkout.session.completed', () => {
 
   it('handles customer as an object (expanded Stripe response)', async () => {
     const event = makeEvent('checkout.session.completed', {
-      metadata: { trademate_user_id: 'user-002', tier: 'tradie' },
+      metadata: { bossboard_user_id: 'user-002', tier: 'tradie' },
       customer: { id: 'cus_expanded_001', object: 'customer' },
       subscription: { id: 'sub_expanded_001', object: 'subscription' },
     });
@@ -623,9 +623,9 @@ describe('handleWebhookEvent — checkout.session.completed', () => {
     );
   });
 
-  it('skips update when metadata is missing trademate_user_id', async () => {
+  it('skips update when metadata is missing bossboard_user_id', async () => {
     const event = makeEvent('checkout.session.completed', {
-      metadata: { tier: 'tradie' },  // missing trademate_user_id
+      metadata: { tier: 'tradie' },  // missing bossboard_user_id
       customer: 'cus_test',
       subscription: 'sub_test',
     });
@@ -637,7 +637,7 @@ describe('handleWebhookEvent — checkout.session.completed', () => {
 
   it('skips update when metadata is missing tier', async () => {
     const event = makeEvent('checkout.session.completed', {
-      metadata: { trademate_user_id: 'user-001' },  // missing tier
+      metadata: { bossboard_user_id: 'user-001' },  // missing tier
       customer: 'cus_test',
       subscription: 'sub_test',
     });
@@ -670,7 +670,7 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
 
   it('updates tier to tradie when subscription is active and price matches', async () => {
     const subscription = makeSubscription({
-      metadata: { trademate_user_id: 'user-001' },
+      metadata: { bossboard_user_id: 'user-001' },
       status: 'active',
       items: { data: [{ price: { id: 'price_tradie_test' } }] },
       current_period_end: 1800000000,
@@ -690,7 +690,7 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
 
   it('updates tier to team when subscription price is the team price ID', async () => {
     const subscription = makeSubscription({
-      metadata: { trademate_user_id: 'user-005' },
+      metadata: { bossboard_user_id: 'user-005' },
       status: 'active',
       items: { data: [{ price: { id: 'price_team_test' } }] },
     });
@@ -709,7 +709,7 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
 
   it('updates tier when subscription status is trialing', async () => {
     const subscription = makeSubscription({
-      metadata: { trademate_user_id: 'user-002' },
+      metadata: { bossboard_user_id: 'user-002' },
       status: 'trialing',
       items: { data: [{ price: { id: 'price_tradie_test' } }] },
     });
@@ -724,7 +724,7 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
 
   it('does NOT downgrade user when status is past_due', async () => {
     const subscription = makeSubscription({
-      metadata: { trademate_user_id: 'user-003' },
+      metadata: { bossboard_user_id: 'user-003' },
       status: 'past_due',
     });
 
@@ -737,7 +737,7 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
 
   it('does NOT downgrade user when status is unpaid', async () => {
     const subscription = makeSubscription({
-      metadata: { trademate_user_id: 'user-004' },
+      metadata: { bossboard_user_id: 'user-004' },
       status: 'unpaid',
     });
 
@@ -748,9 +748,9 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
     expect(mockUpdateSubscriptionTier).not.toHaveBeenCalled();
   });
 
-  it('looks up user by stripe_customer_id when metadata has no trademate_user_id', async () => {
+  it('looks up user by stripe_customer_id when metadata has no bossboard_user_id', async () => {
     const subscription = makeSubscription({
-      metadata: {},  // no trademate_user_id
+      metadata: {},  // no bossboard_user_id
       customer: 'cus_lookup_001',
       status: 'active',
       items: { data: [{ price: { id: 'price_tradie_test' } }] },
@@ -803,7 +803,7 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
 
   it('does not update tier when price ID is not recognized', async () => {
     const subscription = makeSubscription({
-      metadata: { trademate_user_id: 'user-006' },
+      metadata: { bossboard_user_id: 'user-006' },
       status: 'active',
       items: { data: [{ price: { id: 'price_unknown_product' } }] },
     });
@@ -817,7 +817,7 @@ describe('handleWebhookEvent — customer.subscription.updated', () => {
   it('sets expiresAt from current_period_end', async () => {
     const periodEnd = 1900000000;
     const subscription = makeSubscription({
-      metadata: { trademate_user_id: 'user-001' },
+      metadata: { bossboard_user_id: 'user-001' },
       status: 'active',
       items: { data: [{ price: { id: 'price_tradie_test' } }] },
       current_period_end: periodEnd,

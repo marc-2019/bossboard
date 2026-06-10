@@ -163,7 +163,7 @@ describe('createInvoicePaymentLink', () => {
         ],
         metadata: {
           bossboard_invoice_id: 'inv-001',
-          trademate_user_id: 'user-001',
+          bossboard_user_id: 'user-001',
           kind: 'invoice_payment',
         },
       })
@@ -377,7 +377,7 @@ describe('handleWebhookEvent — invoice checkout.session.completed', () => {
     const event = makeEvent('checkout.session.completed', {
       id: 'cs_sub_001',
       mode: 'subscription',
-      metadata: { trademate_user_id: 'user-001', tier: 'tradie' },
+      metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
       customer: 'cus_001',
       subscription: 'sub_001',
     });

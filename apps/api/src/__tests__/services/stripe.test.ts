@@ -178,7 +178,7 @@ describe('Stripe Service', () => {
       setupMarkEventDuplicate();
 
       const event = makeEvent('checkout.session.completed', {
-        metadata: { trademate_user_id: 'user-1', tier: 'tradie' },
+        metadata: { bossboard_user_id: 'user-1', tier: 'tradie' },
       });
 
       await handleWebhookEvent(event);
@@ -191,7 +191,7 @@ describe('Stripe Service', () => {
       mockUpdateSubscriptionTier.mockResolvedValue(undefined);
 
       const event = makeEvent('checkout.session.completed', {
-        metadata: { trademate_user_id: 'user-1', tier: 'tradie' },
+        metadata: { bossboard_user_id: 'user-1', tier: 'tradie' },
         customer: 'cus_1',
         subscription: 'sub_1',
       });
@@ -209,7 +209,7 @@ describe('Stripe Service', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       const event = makeEvent('checkout.session.completed', {
-        metadata: { trademate_user_id: 'user-1', tier: 'tradie' },
+        metadata: { bossboard_user_id: 'user-1', tier: 'tradie' },
         customer: 'cus_1',
         subscription: 'sub_1',
       });
@@ -229,7 +229,7 @@ describe('Stripe Service', () => {
       mockUpdateSubscriptionTier.mockResolvedValue(undefined);
 
       const event = makeEvent('checkout.session.completed', {
-        metadata: { trademate_user_id: 'user-1', tier: 'tradie' },
+        metadata: { bossboard_user_id: 'user-1', tier: 'tradie' },
         customer: 'cus_123',
         subscription: 'sub_123',
       });
@@ -243,6 +243,31 @@ describe('Stripe Service', () => {
           stripeCustomerId: 'cus_123',
           stripeSubscriptionId: 'sub_123',
           startedAt: expect.any(Date),
+        })
+      );
+    });
+
+    it('resolves the user from legacy trademate_user_id when bossboard_user_id is absent (migration fallback)', async () => {
+      setupMarkEventNew();
+      mockUpdateSubscriptionTier.mockResolvedValue(undefined);
+
+      // A Stripe object created before the 2026-06 metadata rename carries only
+      // the old key. The dual-read fallback in handleCheckoutCompleted must
+      // still resolve it; do not remove the fallback while legacy subs exist.
+      const event = makeEvent('checkout.session.completed', {
+        metadata: { trademate_user_id: 'legacy-user', tier: 'tradie' },
+        customer: 'cus_legacy',
+        subscription: 'sub_legacy',
+      });
+
+      await handleWebhookEvent(event);
+
+      expect(mockUpdateSubscriptionTier).toHaveBeenCalledWith(
+        'legacy-user',
+        'tradie',
+        expect.objectContaining({
+          stripeCustomerId: 'cus_legacy',
+          stripeSubscriptionId: 'sub_legacy',
         })
       );
     });
@@ -263,7 +288,7 @@ describe('Stripe Service', () => {
       setupMarkEventNew();
 
       const event = makeEvent('checkout.session.completed', {
-        metadata: { trademate_user_id: 'user-1' },
+        metadata: { bossboard_user_id: 'user-1' },
       });
 
       await handleWebhookEvent(event);
@@ -280,7 +305,7 @@ describe('Stripe Service', () => {
 
       const event = makeEvent('customer.subscription.updated', {
         id: 'sub_123',
-        metadata: { trademate_user_id: 'user-1' },
+        metadata: { bossboard_user_id: 'user-1' },
         status: 'active',
         items: { data: [{ price: { id: 'price_tradie_test' } }] },
         current_period_end: 1800000000,
@@ -328,7 +353,7 @@ describe('Stripe Service', () => {
 
       const event = makeEvent('customer.subscription.updated', {
         id: 'sub_123',
-        metadata: { trademate_user_id: 'user-1' },
+        metadata: { bossboard_user_id: 'user-1' },
         status: 'past_due',
         items: { data: [{ price: { id: 'price_tradie_test' } }] },
         customer: 'cus_1',

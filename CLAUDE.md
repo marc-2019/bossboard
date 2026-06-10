@@ -7,11 +7,14 @@
 > **Brand history**: This product was previously named "TradeMate NZ". Marc consolidated
 > the product line into a single brand on 2026-05-11 (CF op `da31d539`); see
 > recall PR #3 + Marc-direct 2026-05-12. The on-disk repo path
-> `/home/marc/projects/trademate-nz` is the pre-rename legacy path; the GitHub
-> repo rename `marc-2019/trademate-nz` → `marc-2019/bossboard` is a coordinated
-> Marc-action pending. The Stripe metadata field `trademate_user_id` is a
-> contract surface — do NOT rename without a coordinated Stripe-metadata
-> migration. The third-party domain `trademate.co.nz` is owned by an
+> `/home/marc/projects/trademate-nz` is the pre-rename legacy on-disk path. The
+> GitHub repo rename `marc-2019/trademate-nz` → `marc-2019/bossboard` is
+> COMPLETE (origin remote = `marc-2019/bossboard`, verified 2026-06). The Stripe
+> metadata field was renamed `trademate_user_id` → `bossboard_user_id` on
+> 2026-06-10 via a coordinated dual-read migration: writes emit
+> `bossboard_user_id`; webhook reads fall back to the legacy `trademate_user_id`
+> so any pre-rename Stripe objects still resolve. Drop the fallback once no
+> legacy subscriptions remain. The third-party domain `trademate.co.nz` is owned by an
 > unrelated company (Trademate NZ Ltd, WooCommerce sunscreen retailer) — do
 > NOT link customers to it.
 
@@ -276,7 +279,7 @@ Copy `.env.example` to `.env` and fill in your credentials.
 | `services/teams.ts` | Team management + invites |
 | `services/notifications.ts` | Push notifications (Expo Push API) |
 | `services/cron.ts` | Cert expiry daily check |
-| `services/stripe.ts` | Stripe billing — uses `trademate_user_id` metadata field (contract: do not rename without coordinated migration) |
+| `services/stripe.ts` | Stripe billing — metadata field `bossboard_user_id` (renamed from `trademate_user_id` 2026-06-10; webhooks dual-read the legacy key for backward-compat) |
 
 ### Mobile (apps/mobile/)
 | File | Purpose |

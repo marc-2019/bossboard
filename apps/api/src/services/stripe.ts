@@ -99,7 +99,7 @@ export async function ensureStripeCustomer(
   const customer = await stripe.customers.create({
     email,
     name: name ?? undefined,
-    metadata: { trademate_user_id: userId },
+    metadata: { bossboard_user_id: userId },
   });
 
   // Persist the customer ID
@@ -160,14 +160,14 @@ export async function createCheckoutSession(
     cancel_url: input.cancelUrl,
     subscription_data: {
       metadata: {
-        trademate_user_id: input.userId,
+        bossboard_user_id: input.userId,
         tier: input.tier,
       },
     },
     // Allow promo codes
     allow_promotion_codes: true,
     metadata: {
-      trademate_user_id: input.userId,
+      bossboard_user_id: input.userId,
       tier: input.tier,
     },
   });
@@ -264,16 +264,16 @@ export async function createInvoicePaymentLink(
     customer_email: input.customerEmail,
     // Metadata is the bridge between Stripe-land and our DB. The webhook
     // handler reads invoice_id back off session.metadata to find the row to
-    // flip to 'paid'. trademate_user_id is captured for audit context.
+    // flip to 'paid'. bossboard_user_id is captured for audit context.
     metadata: {
       bossboard_invoice_id: input.invoiceId,
-      trademate_user_id: input.userId,
+      bossboard_user_id: input.userId,
       kind: 'invoice_payment',
     },
     payment_intent_data: {
       metadata: {
         bossboard_invoice_id: input.invoiceId,
-        trademate_user_id: input.userId,
+        bossboard_user_id: input.userId,
         kind: 'invoice_payment',
       },
     },
@@ -439,7 +439,10 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  const userId = session.metadata?.trademate_user_id;
+  // Read the new field, falling back to the legacy trademate_user_id so any
+  // Stripe objects created before the 2026-06 rename still resolve. The fallback
+  // can be dropped once no live subscriptions carry the old key.
+  const userId = session.metadata?.bossboard_user_id ?? session.metadata?.trademate_user_id;
   const tier = session.metadata?.tier as SubscriptionTier | undefined;
 
   if (!userId || !tier) {
@@ -464,7 +467,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
-  const userId = subscription.metadata?.trademate_user_id;
+  const userId = subscription.metadata?.bossboard_user_id ?? subscription.metadata?.trademate_user_id;
   if (!userId) {
     // Look up via stripe_customer_id
     const customerId =
