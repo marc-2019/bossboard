@@ -2,7 +2,7 @@
 
 ## Project Brain
 
-**Version**: 0.5.0 | **Status**: Beta-Ready | **Updated**: 2026-05-12
+**Version**: 0.5.0 | **Status**: Beta-Ready | **Updated**: 2026-05-18
 
 > **Brand history**: This product was previously named "TradeMate NZ". Marc consolidated
 > the product line into a single brand on 2026-05-11 (CF op `da31d539`); see
@@ -34,7 +34,7 @@ BossBoard is a **mobile-first micro-SaaS platform** for New Zealand tradies and 
 - **Free tier**: 3 invoices/mo, 2 SWMS/mo, basic dashboard ($0)
 - **Tradie tier**: Unlimited everything, single user ($4.99 NZD/week ~ $19.99/mo)
 - **Team tier**: Everything + up to 5 team members ($9.99 NZD/week ~ $39.99/mo)
-- Currently in **beta mode** - all features free for all users
+- Beta mode is environment-gated via BETA_MODE: when BETA_MODE=false, paid features are enabled via Stripe; when BETA_MODE=true (default), the beta remains free for all users
 
 ### Product Modules
 1. **Compliance + Business Module** (v0.5.0 - COMPLETE) - SWMS, invoicing, quotes, expenses, jobs, teams
@@ -589,7 +589,7 @@ npm install
 ### Beta Phase (Current)
 - 50 active users target
 - 80% weekly retention
-- All features free (beta mode)
+- Beta free for all users while BETA_MODE=true; paid checkout enabled when BETA_MODE=false
 - Trigger Stripe integration at ~50 users
 
 ### Paid Launch Phase
