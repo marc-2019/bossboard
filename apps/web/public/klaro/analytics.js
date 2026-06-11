@@ -57,12 +57,16 @@
           SITE_LABEL + ".",
         purposes: ["analytics"],
         cookies: [/^_ga/, /^_gid/, /^_gat/],
+        // Accept: grant analytics_storage ONLY. Advertising signals
+        // (ad_storage / ad_user_data / ad_personalization) stay denied always —
+        // BossBoard runs no advertising/remarketing, so opt-in is limited to
+        // usage analytics (NZ-privacy-friendly). 2026-06-11: narrowed from the
+        // previous all-4 grant which over-collected advertising consent.
         onAccept:
-          "gtag('consent','update',{analytics_storage:'granted',ad_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});gtag('event','page_view');",
+          "gtag('consent','update',{analytics_storage:'granted'});gtag('event','page_view');",
         onDecline:
-          // 2026-05-21: revoke ALL 4 categories on decline (was only revoking
-          // analytics_storage — asymmetric with onAccept which granted 4).
-          // GDPR/CPRA require declining to revoke all granted consent.
+          // Re-deny all four categories on decline (symmetric safety floor;
+          // GDPR/CPRA require declining to revoke any granted consent).
           "gtag('consent','update',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});"
       }
     ],

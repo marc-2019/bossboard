@@ -84,7 +84,7 @@ export default function Home() {
             <Link href="/login" className="nav-signin">
               Sign in
             </Link>
-            <Link href="/register" className="lp-btn lp-btn-primary">
+            <Link href="/register" className="lp-btn lp-btn-primary" data-cf-event="cta_click" data-cf-cta="get_started" data-cf-location="nav">
               Get Started
             </Link>
           </div>
@@ -213,6 +213,10 @@ export default function Home() {
                 href="/register"
                 className="lp-btn lp-btn-outline"
                 style={{ width: '100%', justifyContent: 'center' }}
+                data-cf-event="cta_click"
+                data-cf-cta="get_started"
+                data-cf-tier="free"
+                data-cf-location="pricing"
               >
                 Get Started
               </Link>

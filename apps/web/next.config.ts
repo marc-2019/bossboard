@@ -9,11 +9,16 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // GA4 (gtag.js) is loaded from googletagmanager.com; google-analytics.com
+      // serves the analytics.js fallback. Both must be allowlisted for script-src
+      // or the consent-gated GA loader is CSP-blocked.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https:",
+      // GA4 collect/region beacons. 'https:' already permits these, but they are
+      // listed explicitly so the analytics dependency is visible in the policy.
+      "connect-src 'self' https: https://www.google-analytics.com https://*.google-analytics.com https://region1.google-analytics.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
