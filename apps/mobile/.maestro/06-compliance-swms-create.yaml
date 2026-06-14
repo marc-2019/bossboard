@@ -75,8 +75,9 @@ appId: com.instilligent.bossboard
     text: "Generate SWMS"
 
 # Wait for the success alert (Claude or template path).
-- assertVisible:
-    text: "SWMS document generated"
+- extendedWaitUntil:
+    visible:
+      text: "SWMS document generated"
     timeout: 30000
 
 - takeScreenshot: 06-swms-generated

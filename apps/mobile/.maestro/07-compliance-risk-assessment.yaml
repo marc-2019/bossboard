@@ -31,8 +31,9 @@ appId: com.instilligent.bossboard
     optional: true
 
 # Detail screen should load.
-- assertVisible:
-    text: "Hazards & Controls"
+- extendedWaitUntil:
+    visible:
+      text: "Hazards & Controls"
     timeout: 10000
 
 - takeScreenshot: 07-swms-detail-loaded

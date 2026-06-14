@@ -38,8 +38,9 @@ appId: com.instilligent.bossboard
     optional: true
 
 # AC 4: HSWA 2015 reference visible in disclaimer copy.
-- assertVisible:
-    text: "Health and Safety at Work Act 2015"
+- extendedWaitUntil:
+    visible:
+      text: "Health and Safety at Work Act 2015"
     timeout: 10000
 
 - takeScreenshot: 08-hswa-disclaimer
@@ -50,8 +51,9 @@ appId: com.instilligent.bossboard
     text: ".*SWMS.*"
     optional: true
 
-- assertVisible:
-    text: "Job Details"
+- extendedWaitUntil:
+    visible:
+      text: "Job Details"
     timeout: 10000
 
 # AC: job details show site address + client (NZ context).

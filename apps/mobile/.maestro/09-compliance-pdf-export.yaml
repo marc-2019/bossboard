@@ -38,8 +38,9 @@ appId: com.instilligent.bossboard
     optional: true
 
 # Detail loaded; should show draft status.
-- assertVisible:
-    text: "(?i)draft"
+- extendedWaitUntil:
+    visible:
+      text: "(?i)draft"
     timeout: 10000
 
 - takeScreenshot: 09-draft-before-sign
@@ -49,23 +50,26 @@ appId: com.instilligent.bossboard
     text: "Sign as Worker"
 
 # Confirmation alert appears.
-- assertVisible:
-    text: "Sign Document"
+- extendedWaitUntil:
+    visible:
+      text: "Sign Document"
     timeout: 5000
 - tapOn:
     text: "Sign"
 
 # Success alert.
-- assertVisible:
-    text: "Document signed successfully"
+- extendedWaitUntil:
+    visible:
+      text: "Document signed successfully"
     timeout: 15000
 - tapOn:
     text: "OK"
     optional: true
 
 # AC 4: status flips to signed; signatures section renders.
-- assertVisible:
-    text: "(?i)signed"
+- extendedWaitUntil:
+    visible:
+      text: "(?i)signed"
     timeout: 10000
 - assertVisible: "Signatures"
 
