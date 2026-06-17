@@ -67,6 +67,17 @@ export const config = {
 
   // Resend HTTP API (preferred over SMTP on cloud platforms)
   resendApiKey: process.env.RESEND_API_KEY || '',
+
+  // GA4 (Google Analytics 4) — server-side Measurement Protocol.
+  // Used to report off-web conversions (Stripe Checkout / mobile / webhook
+  // tier upgrades) that the web gtag.js client can't observe. The web stream
+  // measurement ID matches the public landing page tag (G-83NPHN0QP5).
+  // mpApiSecret is generated in GA4 Admin → Data Streams → Measurement Protocol
+  // API secrets; when unset, trackServerEvent() is a clean no-op.
+  ga4: {
+    measurementId: process.env.GA4_MEASUREMENT_ID || 'G-83NPHN0QP5',
+    mpApiSecret: process.env.GA4_MP_API_SECRET || '',
+  },
 } as const;
 
 // Fail fast: require critical env vars in production

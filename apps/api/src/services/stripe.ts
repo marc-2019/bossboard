@@ -25,6 +25,7 @@ import {
   attachStripePaymentLink,
   getInvoiceByIdRaw,
 } from './invoices.js';
+import { trackServerEvent } from './ga4.js';
 
 // ---------------------------------------------------------------------------
 // Stripe client
@@ -68,6 +69,43 @@ function tierForPriceId(priceId: string): SubscriptionTier | null {
   if (priceId === config.stripe.priceIdTradie) return 'tradie';
   if (priceId === config.stripe.priceIdTeam) return 'team';
   return null;
+}
+
+// Approximate monthly NZD value reported on GA4 conversion events. Used only
+// for analytics revenue attribution — NOT a billing source of truth (Stripe
+// is authoritative for what the customer actually pays). Mirrors the published
+// pricing: Tradie $19.99/mo, Team $39.99/mo.
+const TIER_GA4_VALUE_NZD: Record<string, number> = {
+  tradie: 19.99,
+  team: 39.99,
+};
+
+/**
+ * Fire the GA4 `checkout_completed` conversion event for a successful paid
+ * upgrade. Fail-open and best-effort: trackServerEvent never throws, and it
+ * no-ops cleanly when GA4_MP_API_SECRET is unset. We still await it so the
+ * (fast) network ping completes before the webhook handler returns, but a
+ * GA4 outage can never break tier processing.
+ */
+async function trackCheckoutConversion(opts: {
+  userId: string;
+  tier: string;
+  transactionId: string;
+  clientId?: string;
+}): Promise<void> {
+  await trackServerEvent(
+    'checkout_completed',
+    {
+      tier: opts.tier,
+      value: TIER_GA4_VALUE_NZD[opts.tier] ?? 0,
+      currency: 'nzd',
+      transaction_id: opts.transactionId,
+      user_id: opts.userId,
+    },
+    // Stable client_id: prefer the Stripe customer id, fall back to user id.
+    // Either is durable across this user's events (no GA cookie server-side).
+    opts.clientId ?? opts.userId
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -464,6 +502,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   });
 
   console.log(`[Stripe] User ${userId} upgraded to ${tier} tier`);
+
+  // GA4 conversion (server-side): the web gtag.js client never sees the
+  // Stripe-hosted checkout completion, so report it here. Best-effort.
+  await trackCheckoutConversion({
+    userId,
+    tier,
+    transactionId: session.id,
+    clientId: customerId ?? userId,
+  });
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -505,6 +552,20 @@ async function handleSubscriptionUpdatedForUser(
         expiresAt: periodEnd ? new Date(periodEnd * 1000) : undefined,
       });
       console.log(`[Stripe] User ${userId} subscription updated to ${tier}`);
+
+      // Report the active-subscription conversion too — covers renewals and
+      // plan changes that complete via subscription lifecycle events rather
+      // than the initial checkout.session.completed. Best-effort.
+      const subCustomerId =
+        typeof subscription.customer === 'string'
+          ? subscription.customer
+          : subscription.customer?.id;
+      await trackCheckoutConversion({
+        userId,
+        tier,
+        transactionId: subscription.id,
+        clientId: subCustomerId ?? userId,
+      });
     }
   } else if (subscription.status === 'past_due' || subscription.status === 'unpaid') {
     console.warn(`[Stripe] User ${userId} subscription is ${subscription.status}`);
@@ -639,6 +700,22 @@ async function handleInvoicePaymentCompleted(
 
   console.log(
     `[Stripe] Invoice ${invoice.invoiceNumber} (${invoice.id}) marked paid via session ${session.id} (intent ${paymentIntentId ?? 'n/a'})`
+  );
+
+  // GA4 conversion (server-side): a tradie's customer paid an invoice via the
+  // Stripe Payment Link. invoice.total is in NZD cents → convert to dollars.
+  // The owning tradie's user id is the conversion's user_id. Best-effort.
+  const ownerUserId = session.metadata?.bossboard_user_id;
+  await trackServerEvent(
+    'checkout_completed',
+    {
+      tier: 'invoice_payment',
+      value: typeof invoice.total === 'number' ? invoice.total / 100 : 0,
+      currency: 'nzd',
+      transaction_id: reference,
+      user_id: ownerUserId,
+    },
+    ownerUserId ?? invoice.id
   );
 }
 
