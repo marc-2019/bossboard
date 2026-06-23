@@ -270,6 +270,10 @@ async function startServer() {
   });
 }
 
-startServer();
+// Skip auto-start under test so the app can be imported and exercised
+// (construct/boot baseline) without binding a port or running migrations.
+if (config.nodeEnv !== 'test') {
+  startServer();
+}
 
 export default app;
