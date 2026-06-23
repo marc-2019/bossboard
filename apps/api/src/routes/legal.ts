@@ -112,7 +112,7 @@ function renderPrivacyPolicy(): string {
       <p class="meta">Effective Date: 24 March 2026 &middot; Last Updated: 24 March 2026</p>
 
       <p>
-        <strong>Instilligent Limited</strong> (NZBN 9429051796498), trading as <strong>${appName}</strong>
+        <strong>Instilligent Limited</strong> (NZBN 9429041896853), trading as <strong>${appName}</strong>
         (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), operates the
         ${appName} mobile application and associated services (the &ldquo;Service&rdquo;). This Privacy
         Policy explains how we collect, use, disclose, and safeguard your information when you use our
@@ -246,7 +246,7 @@ function renderPrivacyPolicy(): string {
       <div class="contact-box">
         <p><strong>Instilligent Limited</strong></p>
         <p>Trading as ${appName}</p>
-        <p>NZBN: 9429051796498</p>
+        <p>NZBN: 9429041896853</p>
         <p>Auckland, New Zealand</p>
         <p>Email: <a href="mailto:privacy@instilligent.com">privacy@instilligent.com</a></p>
         <p style="margin-top:0.5rem;"><strong>Privacy Commissioner (NZ):</strong> <a href="https://www.privacy.org.nz" target="_blank" rel="noopener">www.privacy.org.nz</a></p>

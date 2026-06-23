@@ -9,6 +9,15 @@
   "_note": "Fourth marketing-truths.json in the portfolio. BossBoard had the highest FTA risk fact pattern in the audit (paid Team-tier features that didn't exist in code). Recall PR #2 dropped those; recall PR #3 (2026-05-11) softened residual compliance promises (Compliant → Built to standards), removed remaining Team-tier scheduling/dispatch survivors in legacy landing.html, scrubbed brand-bleed (TradeMate aliases) from llms.txt, and reframed cashflow as revenue.",
   "product_claims": [
     {
+      "id": "bossboard.legal-entity-nzbn",
+      "claim": "BossBoard is a product of Instilligent Limited (NZBN 9429041896853).",
+      "surfaces": ["apps/web/src/app/page.tsx", "apps/api/src/landing.html", "landing/index.html", "apps/api/src/routes/legal.ts", ".git-hooks/brand-name-dictionary.json"],
+      "evidence_references": ["Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 — company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "previous_overclaim": "Customer-facing surfaces carried THREE wrong NZBNs (9429051598102 in landings, 9429051796498 in legal.ts, 9429051796284 in the brand-name dictionary). None appeared on any authoritative source. Corrected to the registered 9429041896853 on 2026-06-24 (Marc-approved in-session after reviewing the before/after)."
+    },
+    {
       "id": "bossboard.user-count",
       "claim": "Join early Kiwi tradies in beta who are ditching the paperwork.",
       "surfaces": ["apps/web/src/app/page.tsx#L337", "apps/api/src/landing.html (legacy)", "landing/index.html (legacy)"],

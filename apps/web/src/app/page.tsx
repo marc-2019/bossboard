@@ -392,7 +392,7 @@ export default function Home() {
             >
               Instilligent Limited
             </a>{' '}
-            | NZBN 9429051598102 | New Zealand
+            | NZBN 9429041896853 | New Zealand
           </p>
         </div>
       </footer>
