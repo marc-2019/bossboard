@@ -51,8 +51,8 @@ All placeholders have been filled. EAS project ID `e5d4e8a5-631b-45c8-8e29-2a7c8
 
 | Location | Current Value | What You Need |
 |----------|---------------|---------------|
-| `build.preview.env.EXPO_PUBLIC_API_URL` | `REPLACE_ME_RAILWAY_URL` | Your Railway deployment URL (e.g., `https://api.instilligent.com`) |
-| `build.production.env.EXPO_PUBLIC_API_URL` | `REPLACE_ME_RAILWAY_URL` | Same Railway URL |
+| `build.preview.env.EXPO_PUBLIC_API_URL` | `https://api.instilligent.com` | Your Railway deployment URL (e.g., `https://api.instilligent.com`) |
+| `build.production.env.EXPO_PUBLIC_API_URL` | `https://api.instilligent.com` | Same Railway URL |
 | `submit.production.ios.ascAppId` | `REPLACE_ME_APP_STORE_CONNECT_APP_ID` | From App Store Connect > App Information > Apple ID |
 | `submit.production.ios.appleTeamId` | `REPLACE_ME_APPLE_TEAM_ID` | From developer.apple.com > Membership > Team ID |
 | `submit.preview.ios.ascAppId` | `REPLACE_ME_APP_STORE_CONNECT_APP_ID` | Same as production |
