@@ -197,7 +197,10 @@ function isValidatePrompt(p: string): boolean {
 }
 
 function isSectionCompletionPrompt(p: string): boolean {
-  return /completing a Safe Work Method Statement/i.test(p) && /fieldName/i.test(p);
+  // claude.ts builds this prompt as "...helping complete a Safe Work Method
+  // Statement." — match "complete a Safe Work Method Statement" so the real
+  // wording is detected (the earlier "completing a" form never matched).
+  return /complet(?:e|ing) a Safe Work Method Statement/i.test(p) && /fieldName/i.test(p);
 }
 
 // Extract hazard list from a controls prompt — services/claude.ts builds the
@@ -223,17 +226,13 @@ function extractHazardsFromControlsPrompt(p: string): string[] {
 // ---------------------------------------------------------------------------
 
 function buildCannedResponseText(promptText: string): string {
+  // Order matters: the validate and section-completion prompts both contain
+  // the substring "control measures", so they MUST be classified before the
+  // broad isControlsPrompt() check or they would misroute to a controls map.
   if (isHazardPrompt(promptText)) {
     const trade = detectTrade(promptText);
     const hazards = CANNED_HAZARDS[trade] ?? CANNED_HAZARDS.builder;
     return JSON.stringify(hazards, null, 2);
-  }
-
-  if (isControlsPrompt(promptText)) {
-    const extracted = extractHazardsFromControlsPrompt(promptText);
-    const hazards =
-      extracted.length > 0 ? extracted : CANNED_HAZARDS[detectTrade(promptText)];
-    return JSON.stringify(controlsForHazards(hazards), null, 2);
   }
 
   if (isRiskAssessmentPrompt(promptText)) {
@@ -278,6 +277,15 @@ function buildCannedResponseText(promptText: string): string {
       null,
       2
     );
+  }
+
+  // Controls is the broadest matcher (it triggers on "control measures"),
+  // so it runs last — after the more specific validate/section classifiers.
+  if (isControlsPrompt(promptText)) {
+    const extracted = extractHazardsFromControlsPrompt(promptText);
+    const hazards =
+      extracted.length > 0 ? extracted : CANNED_HAZARDS[detectTrade(promptText)];
+    return JSON.stringify(controlsForHazards(hazards), null, 2);
   }
 
   // Unknown prompt shape — return an empty JSON object so the caller's

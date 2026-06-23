@@ -447,3 +447,174 @@ describe('chatCompletion — Anthropic backend', () => {
     expect(Array.isArray(result)).toBe(true);
   });
 });
+
+// ===========================================================================
+// MOCK_CLAUDE provider rung — Phase 6a canned-mock backend
+// ---------------------------------------------------------------------------
+// Guardrail: mock the FULL provider cascade, not just the primary. The
+// cascade in claude.ts has three rungs selected at module init:
+//   1. MOCK_CLAUDE / MOCK_EXTERNAL_SERVICES → Anthropic SDK + installClaudeMock
+//   2. Anthropic cloud  (ANTHROPIC_API_KEY set, not local)   ← covered above
+//   3. LM Studio local  (USE_LOCAL_LLM / no key)             ← covered above
+// Rung 1 (the canned-mock provider) was previously untested. These tests
+// exercise it end-to-end so every rung of the cascade has coverage.
+// ===========================================================================
+
+describe('MOCK_CLAUDE provider rung — canned-mock backend', () => {
+  // Re-isolate the module with MOCK_CLAUDE=true so its init wires the real
+  // Anthropic SDK and then monkey-patches messages.create via installClaudeMock.
+  // We deliberately do NOT jest.mock('@anthropic-ai/sdk') here — the point is
+  // to prove the real cascade wiring routes through the mock provider.
+
+  beforeEach(() => {
+    jest.resetModules();
+    jest.unmock('@anthropic-ai/sdk');
+    process.env.MOCK_CLAUDE = 'true';
+    delete process.env.USE_LOCAL_LLM;
+    delete process.env.ANTHROPIC_API_KEY;
+    // If the LM Studio fetch were hit, this would throw — proving the mock
+    // provider rung (not the primary LM Studio rung) is the one in use.
+    mockFetch.mockReset();
+    mockFetch.mockRejectedValue(new Error('LM Studio must not be called on the MOCK_CLAUDE rung'));
+  });
+
+  afterEach(() => {
+    delete process.env.MOCK_CLAUDE;
+    jest.resetModules();
+  });
+
+  it('routes generateHazardSuggestions through the canned mock (not LM Studio, not static defaults)', async () => {
+    const mod = await import('../../services/claude.js');
+    const result = await mod.default.generateHazardSuggestions(TRADE, 'Rewire a switchboard', 'Commercial');
+
+    expect(Array.isArray(result)).toBe(true);
+    // Canned-mock electrician hazards contain text that does NOT appear in the
+    // static getDefaultHazards() table — proves we got the mock, not a fallback.
+    expect(result.some((h) => /solar inverters/i.test(h))).toBe(true);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('routes generateControlMeasures through the canned mock with full hierarchy of controls', async () => {
+    const mod = await import('../../services/claude.js');
+    const hazards = ['Electric shock from live conductors', 'Arc flash/blast from electrical fault'];
+    const result = await mod.default.generateControlMeasures(hazards, TRADE);
+
+    // One entry per requested hazard, keyed exactly (mock echoes caller hazards).
+    expect(Object.keys(result)).toEqual(hazards);
+    // Mock cycles the hierarchy: first hazard = elimination, second = substitution.
+    expect(result[hazards[0]].controlType).toBe('elimination');
+    expect(result[hazards[1]].controlType).toBe('substitution');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('routes generateRiskAssessment through the canned mock (no-fallback path returns data, not throws)', async () => {
+    const mod = await import('../../services/claude.js');
+    // generateRiskAssessment has NO default fallback — a successful array
+    // return can only come from the mock provider answering the call.
+    const result = await mod.default.generateRiskAssessment('Scaffold erection', 'Outdoor', TRADE);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0]).toMatchObject({
+      hazard: expect.any(String),
+      likelihood: expect.any(Number),
+      riskRating: expect.any(Number),
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('routes validateSWMS through the canned mock (returns canned completenessScore)', async () => {
+    const mod = await import('../../services/claude.js');
+    const result = await mod.default.validateSWMS('electrician', { supervisor: 'Jane' });
+
+    // Canned mock returns a fixed completenessScore of 87; validateSWMS has no
+    // fallback, so this value proves the mock provider answered.
+    expect(result.completenessScore).toBe(87);
+    expect(result.isValid).toBe(true);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('routes completeSWMSSection through the canned mock (returns canned suggestions)', async () => {
+    const mod = await import('../../services/claude.js');
+    const result = await mod.default.completeSWMSSection(
+      'electrician',
+      'general_info',
+      { emergencyPlan: '' },
+      'Commercial fit-out'
+    );
+
+    expect(result).toHaveProperty('emergencyPlan');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// installClaudeMock — direct unit coverage of the mock provider itself
+// ---------------------------------------------------------------------------
+// The mock provider is a rung of the cascade; cover its prompt classifier so
+// every canned branch is exercised, not just the hazard happy-path.
+// ===========================================================================
+
+describe('installClaudeMock — canned response classifier', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let create: (params: any) => Promise<any>;
+
+  beforeEach(async () => {
+    jest.resetModules();
+    jest.unmock('@anthropic-ai/sdk');
+    const { installClaudeMock } = await import('../../services/mocks/claude-mock.js');
+    // Minimal stub client — installClaudeMock only needs a `.messages` object.
+    const client = { messages: {} } as never;
+    installClaudeMock(client);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create = (client as any).messages.create;
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function ask(prompt: string): Promise<any> {
+    const res = await create({ messages: [{ role: 'user', content: prompt }] });
+    return JSON.parse(res.content[0].text);
+  }
+
+  it('returns canned hazards array for a hazard prompt', async () => {
+    const parsed = await ask(
+      'Suggest hazards for a plumber. Return a JSON array of hazard strings. Example format: [...]'
+    );
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed.length).toBeGreaterThan(0);
+  });
+
+  it('returns canned controls object for a hierarchy-of-controls prompt', async () => {
+    const parsed = await ask(
+      'For each hazard provide control measures following the hierarchy of controls. Hazards: ["Falls from height"]'
+    );
+    expect(parsed['Falls from height']).toBeDefined();
+    expect(parsed['Falls from height'].controlType).toBe('elimination');
+  });
+
+  it('returns canned risk-assessment array for a risk-assessment prompt', async () => {
+    const parsed = await ask(
+      'Generate a risk assessment for a builder. Assess likelihood and consequence for each hazard.'
+    );
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed[0]).toHaveProperty('riskRating');
+  });
+
+  it('returns canned validation object for a validate prompt', async () => {
+    const parsed = await ask('Review this SWMS and return completenessScore and issues.');
+    expect(parsed).toHaveProperty('completenessScore');
+    expect(parsed).toHaveProperty('issues');
+  });
+
+  it('returns canned section completion for a section-completion prompt', async () => {
+    const parsed = await ask(
+      'You are helping completing a Safe Work Method Statement. Suggest values for fieldName fields.'
+    );
+    expect(parsed).toHaveProperty('emergencyPlan');
+  });
+
+  it('returns an empty object for an unrecognised prompt shape', async () => {
+    const parsed = await ask('Tell me a joke about scaffolding.');
+    expect(parsed).toEqual({});
+  });
+});
