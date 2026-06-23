@@ -1,0 +1,14 @@
+# gitleaks fingerprint allowlist — accepted HISTORICAL findings only.
+# Each line is a "commit:file:rule:line" fingerprint that the scan will ignore.
+#
+# Adding a fingerprint here is a deliberate, reviewed decision. It does NOT
+# weaken scanning of the current tree — new secrets in new commits still fail.
+
+# Expired test-user JWT access token committed 2026-03-19 in the per-machine
+# local settings file. Decoded payload: 15-minute access token for test user
+# test2@trademate.nz, exp=1770090270 (2026-02-03 03:44 UTC) — DEAD since well
+# before discovery. Not a signing secret; never a production credential.
+# The current tree has been scrubbed (token removed from .claude/settings.local.json).
+# Purging it from history requires a Marc-owned git filter-repo + force-push,
+# which is out of scope for autonomous remediation. Accepted as a dead value.
+9d2a49ebf8b5eaeba177a5c477ad123cf748f1d2:.claude/settings.local.json:jwt:25

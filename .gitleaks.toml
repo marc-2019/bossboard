@@ -1,0 +1,71 @@
+# BossBoard secrets-scanning config (gitleaks)
+# Guardrail: secrets-credentials-hygiene
+#
+# Run locally:   ./scripts/scan-secrets.sh
+# Runs in CI:    .github/workflows/secrets-scan.yml (on push + PR)
+#
+# Philosophy: the scan must FAIL the build on any real committed credential.
+# The allowlist below is deliberately narrow — it covers only:
+#   1. Local/build artifacts that are git-ignored (defence-in-depth for --no-git runs)
+#   2. *.example / *.template files that ship intentional placeholders
+#   3. Test fixtures with well-known fake credentials
+#   4. Confirmed false positives (shell-variable references, not literals)
+# Anything else that looks like a secret is treated as a real finding.
+
+title = "BossBoard gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "BossBoard global allowlist — narrow by design"
+
+# --- Path-based allowlist ---------------------------------------------------
+paths = [
+  # Local / generated artifacts (git-ignored; listed for defence-in-depth on
+  # filesystem `--no-git` scans so local .env / build caches never trip CI).
+  '''(^|/)\.env(\.[^/]+)?$''',
+  '''(^|/)\.next/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)build/''',
+  '''(^|/)coverage/''',
+  '''(^|/)test-results/''',
+  '''(^|/)playwright-report/''',
+  '''(^|/)uploads/''',
+
+  # Intentional placeholder / template files (reviewed: contain no real values).
+  '''\.env\.example$''',
+  '''\.env\.production\.example$''',
+  '''(^|/)apps/api/\.env\.template$''',
+]
+
+# --- Regex-based allowlist (matched against the detected secret) ------------
+regexes = [
+  # Shell / env-var references are not literals, e.g. `-u "$STRIPE_TEST_SECRET_KEY:"`.
+  '''\$\{?[A-Z_][A-Z0-9_]*\}?''',
+  # Well-known fake test credentials used across the e2e / Maestro suites.
+  '''E2eTestPass123!''',
+  '''NewE2eTestPass456!''',
+  '''DemoPass123!''',
+  '''TestPass123''',
+  '''CorrectHorseBatteryStaple1!''',
+  '''New(Secure)?Pass(word)?[0-9]{3}!''',
+  '''WrongPassword999!''',
+  # Stripe/Resend docs use literal `sk_live_...` / `pk_live_...` ellipsis placeholders.
+  '''sk_live_\.\.\.''',
+  '''pk_live_\.\.\.''',
+  '''sk_test_\.\.\.''',
+]
+
+# --- Stopwords: skip findings whose secret contains these tokens ------------
+stopwords = [
+  "example",
+  "placeholder",
+  "changeme",
+  "your-",
+  "your_",
+  "dummy",
+  "sample",
+  "redacted",
+]
