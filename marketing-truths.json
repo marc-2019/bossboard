@@ -175,6 +175,94 @@
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-06-09",
       "notes": "2026-06-09 web CRUD-parity build. Empty-state copy on these list pages previously read 'The web view is read-only — create from the BossBoard mobile app'; that copy was TRUTHFUL when web was view-only and was updated to action CTAs ('New quote', 'Generate SWMS', 'Add certification', 'Clock in', etc.) because the web app now backs those actions against the same Express endpoints the mobile app uses. No new product capability is claimed beyond features already verified IMPLEMENTED elsewhere in this file — this entry records a surface/affordance change, not a new claim. Customer-facing copy strings flagged to Marc for review at branch-merge (four-eyes on UI copy). No compliance/guarantee/partnership language introduced; SWMS generation carries the Voice-A disclaimer (see bossboard.swms)."
+    },
+    {
+      "id": "bossboard.swms-aligned-hswa-surface",
+      "claim": "SWMS templates aligned to Health and Safety at Work Act 2015",
+      "surfaces": ["apps/web/src/app/page.tsx"],
+      "evidence_references": [
+        "apps/api/src/templates/swms-electrician.json, swms-plumber.json, swms-builder; HSWA 2015 referenced in apps/api/src/routes/legal.ts + templates"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): records the exact customer-facing surface phrasing so the claim/evidence check matches the live copy. Feature verified IMPLEMENTED in code."
+    },
+    {
+      "id": "bossboard.swms-aligned-operator-surface",
+      "claim": "SWMS templates aligned to the Health and Safety at Work Act 2015 — operator signs off",
+      "surfaces": ["apps/api/src/landing.html"],
+      "evidence_references": [
+        "apps/api/src/templates/swms-*.json; operator sign-off is the SWMS workflow; HSWA 2015 in apps/api/src/routes/legal.ts"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): live landing-page phrasing variant of the SWMS-aligned claim."
+    },
+    {
+      "id": "bossboard.gst-auto-calc-surface",
+      "claim": "15% GST calculated automatically on every invoice and quote",
+      "surfaces": ["apps/web/src/app/page.tsx", "apps/api/src/landing.html"],
+      "evidence_references": [
+        "apps/api/src/services/quotes.ts:19 const GST_RATE = 0.15; applied automatically in calculateTotals (quotes.ts:67-71); invoices use the same 15% rate"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): GST auto-calc verified at GST_RATE=0.15 in quotes.ts."
+    },
+    {
+      "id": "bossboard.invoicing-gst-built-in-surface",
+      "claim": "Professional documents with 15% GST built in",
+      "surfaces": ["apps/web/public/llms.txt"],
+      "evidence_references": [
+        "apps/api/src/services/quotes.ts GST_RATE=0.15; apps/api/src/services/pdf.ts generates professional invoice/quote PDFs"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): llms.txt phrasing of the invoicing+GST claim."
+    },
+    {
+      "id": "bossboard.ai-swms-generation-surface",
+      "claim": "AI-assisted SWMS template generation aligned with the NZ Health and Safety at Work Act 2015 — templates and starting material, not legal advice",
+      "surfaces": ["apps/web/public/llms.txt"],
+      "evidence_references": [
+        "apps/api/src/services/claude.ts generates SWMS hazard/control suggestions (Claude API); 'not legal advice' disclaimer is the Voice-A SWMS disclaimer"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): AI-assisted SWMS generation verified in services/claude.ts; carries the not-legal-advice disclaimer."
+    },
+    {
+      "id": "bossboard.swms-onetap-hazards-surface",
+      "claim": "Draft Safe Work Method Statements in one tap, with AI-assisted hazard suggestions for your trade — aligned to the NZ Health and Safety at Work Act 2015",
+      "surfaces": ["apps/api/src/landing.html"],
+      "evidence_references": [
+        "apps/api/src/routes/compliance.ts POST /compliance/swms + /compliance/ai/hazards; apps/api/src/services/claude.ts hazard suggestions"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): one-tap SWMS draft + AI hazard suggestions verified in compliance routes + claude.ts."
+    },
+    {
+      "id": "bossboard.nzbn-surface-pipe",
+      "claim": "NZBN 9429041896853",
+      "surfaces": ["apps/web/src/app/page.tsx", "apps/api/src/landing.html"],
+      "evidence_references": [
+        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 — company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): registered NZBN as it appears in the pipe-delimited footer on page.tsx + landing.html. Matches only the correct registered number; a wrong NZBN would still fail."
+    },
+    {
+      "id": "bossboard.nzbn-surface-llms",
+      "claim": "Instilligent Limited (NZBN: 9429041896853)",
+      "surfaces": ["apps/web/public/llms.txt"],
+      "evidence_references": [
+        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 — company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-06-24",
+      "notes": "Added 2026-06-24 (COMPLY): registered NZBN as it appears in llms.txt (colon form), after correcting the stale 9429051796284."
     }
   ],
   "recall_history": [
