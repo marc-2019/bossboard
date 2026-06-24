@@ -204,7 +204,7 @@ export const API_BASE_URL =
 export async function establishWebSession(
   page: Page,
   purpose = 'web',
-): Promise<{ email: string }> {
+): Promise<{ email: string; cleanup: () => Promise<void> }> {
   const email = uniqueAuthEmail(purpose);
   const res = await page.request.post('/api/auth/register', {
     data: { email, password: 'DemoPass123!', name: `${purpose} demo` },
@@ -214,5 +214,22 @@ export async function establishWebSession(
       `establishWebSession: register returned ${res.status()} for ${email}: ${await res.text()}`,
     );
   }
-  return { email };
+
+  // Per cf_standing_directives.e2e-test-data-lifecycle, registering through
+  // the proxy creates a REAL `users` row. The Next proxy strips the tokens
+  // from the response body and only sets them as httpOnly cookies, so recover
+  // the access token from the browser cookie jar to enable per-test teardown.
+  // Callers should `await session.cleanup()` in an afterEach/afterAll (try-
+  // /finally). The global teardown sweep (e2e/global-teardown.ts) is the
+  // backstop for any session whose cleanup is skipped.
+  const cookies = await page.context().cookies();
+  const accessToken = cookies.find((c) => c.name === ACCESS_TOKEN_COOKIE)?.value;
+
+  return {
+    email,
+    cleanup: async () => cleanupUserByEmail(page.request, API_BASE_URL, accessToken),
+  };
 }
+
+/** Mirrors apps/web/src/lib/constants.ts — the httpOnly access-token cookie. */
+const ACCESS_TOKEN_COOKIE = 'bb_access_token';
