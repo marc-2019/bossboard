@@ -147,7 +147,7 @@ NODE_ENV=production                   # development | production
 PORT=29000                            # Dynamic on Railway
 
 # === Database ===
-DATABASE_URL=postgresql://bossboard:pass@host:5432/bossboard
+DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>
 POSTGRES_USER=bossboard
 POSTGRES_PASSWORD=<secure>
 POSTGRES_DB=bossboard
