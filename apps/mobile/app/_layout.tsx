@@ -213,10 +213,26 @@ function RootLayoutNav() {
       />
       {/* Certifications */}
       <Stack.Screen
+        name="certifications/index"
+        options={{
+          headerShown: true,
+          title: 'Certifications',
+          headerTintColor: colors.primary,
+        }}
+      />
+      <Stack.Screen
         name="certifications/add"
         options={{
           headerShown: true,
           title: 'Add Certification',
+          headerTintColor: colors.primary,
+        }}
+      />
+      <Stack.Screen
+        name="certifications/[id]"
+        options={{
+          headerShown: true,
+          title: 'Certification',
           headerTintColor: colors.primary,
         }}
       />
@@ -262,6 +278,14 @@ function RootLayoutNav() {
           headerTintColor: colors.primary,
         }}
       />
+      <Stack.Screen
+        name="products/[id]"
+        options={{
+          headerShown: true,
+          title: 'Product Details',
+          headerTintColor: colors.primary,
+        }}
+      />
       {/* Recurring Invoices */}
       <Stack.Screen
         name="recurring/index"
@@ -301,6 +325,14 @@ function RootLayoutNav() {
         options={{
           headerShown: true,
           title: 'Team',
+          headerTintColor: colors.primary,
+        }}
+      />
+      <Stack.Screen
+        name="teams/[id]"
+        options={{
+          headerShown: true,
+          title: 'Team Member',
           headerTintColor: colors.primary,
         }}
       />
