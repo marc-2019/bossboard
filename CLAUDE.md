@@ -34,7 +34,7 @@ BossBoard is a **mobile-first micro-SaaS platform** for New Zealand tradies and 
 - **Free tier**: 3 invoices/mo, 2 SWMS/mo, basic dashboard ($0)
 - **Tradie tier**: Unlimited everything, single user ($4.99 NZD/week ~ $19.99/mo)
 - **Team tier**: Everything + up to 5 team members ($9.99 NZD/week ~ $39.99/mo)
-- Beta mode is environment-gated via BETA_MODE: when BETA_MODE=false, paid features are enabled via Stripe; when BETA_MODE=true (default), the beta remains free for all users
+- Beta mode is environment-gated via BETA_MODE (default true): when BETA_MODE=true the beta is free for all users (everyone gets tradie-level features); set BETA_MODE=false to enable real paid Stripe checkout for Tradie/Team tiers. Stripe checkout flow and webhook handling are shipped; the flag controls whether payment is actually required.
 
 ### Product Modules
 1. **Compliance + Business Module** (v0.5.0 - COMPLETE) - SWMS, invoicing, quotes, expenses, jobs, teams
@@ -491,7 +491,7 @@ router.post('/', authenticate, attachSubscription, requireFeature('photos'), han
 ```
 
 ### What's Next (Unreleased)
-- [ ] Stripe NZ integration (paid subscriptions - target: ~50 beta users)
+- [ ] Enable paid subscriptions in production (flip BETA_MODE=false once ~50+ validated beta users; Stripe checkout code + webhooks already shipped)
 - [ ] App Store submission (iOS + Android)
 - [ ] Landing page and marketing site
 - [ ] Xero integration (Module 2 - Cashflow Forecasting)
@@ -589,8 +589,8 @@ npm install
 ### Beta Phase (Current)
 - 50 active users target
 - 80% weekly retention
-- Beta free for all users while BETA_MODE=true; paid checkout enabled when BETA_MODE=false
-- Trigger Stripe integration at ~50 users
+- Beta free for all users while BETA_MODE=true (default); paid Stripe checkout enabled when BETA_MODE=false
+- Stripe checkout + webhook integration shipped (see services/stripe.ts, subscriptions routes); flip BETA_MODE=false to activate paid subs after sufficient beta validation
 
 ### Paid Launch Phase
 - 200 paying users in first 3 months
