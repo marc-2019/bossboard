@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { jobLogsClient, ApiError } from '@/lib/api-client';
 import type { JobLog, JobLogStatus } from '@bossboard/shared';
 import { Clock, Plus } from 'lucide-react';
+import { CompletionLinkButton } from '@/components/CompletionLinkButton';
 
 type StatusFilter = JobLogStatus | 'all';
 
@@ -360,6 +361,15 @@ function JobLogsPageContent() {
                       {active ? 'in progress' : `Ended ${formatDateTime(l.endTime)}`}
                     </div>
                   </div>
+                  {!active && (
+                    <div className="shrink-0 ml-2">
+                      <CompletionLinkButton
+                        jobLogId={l.id}
+                        description={l.description}
+                        status={l.status}
+                      />
+                    </div>
+                  )}
                 </li>
               );
             })}

@@ -319,6 +319,7 @@ export default {
   deleteJobLog,
   getJobLogStats,
   getPublicJobCompletion,
+  buildPublicJobCompletionLink,
 };
 
 /**
@@ -337,4 +338,13 @@ export async function getPublicJobCompletion(jobLogId: string): Promise<JobLog |
   }
 
   return mapRowToJobLog(result.rows[0] as Record<string, unknown>);
+}
+
+/**
+ * Build a shareable public URL to the client job completion view.
+ * Does not require a token column (uses id directly for now; links are shared out of band).
+ */
+export function buildPublicJobCompletionLink(jobLogId: string): string {
+  const baseUrl = process.env.API_BASE_URL || 'http://localhost:29000';
+  return `${baseUrl}/api/v1/public/jobs/${jobLogId}`;
 }

@@ -7,7 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, requireFeature } from '../middleware/subscription.js';
-import jobLogsService from '../services/job-logs.js';
+import jobLogsService, { buildPublicJobCompletionLink } from '../services/job-logs.js';
 
 const router = Router();
 
@@ -244,6 +244,37 @@ router.post('/:id/clock-out', authenticate, async (req: Request, res: Response, 
     res.json({
       success: true,
       data: { jobLog },
+    });
+  } catch (error: any) {
+    if (error.statusCode) {
+      res.status(error.statusCode).json({
+        success: false,
+        error: error.code,
+        message: error.message,
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+/**
+ * POST /api/v1/job-logs/:id/completion-link
+ * Returns public client completion view link for a job (completed or not; caller decides).
+ * Reuses build fn. Auth required so only owner can distribute the link.
+ */
+router.post('/:id/completion-link', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const userId = req.user!.userId;
+    // Verify ownership (will throw 404 if not found or not owned)
+    await jobLogsService.getJobLog(userId, id);
+
+    const link = buildPublicJobCompletionLink(id);
+
+    res.json({
+      success: true,
+      data: { link, url: link },
     });
   } catch (error: any) {
     if (error.statusCode) {
