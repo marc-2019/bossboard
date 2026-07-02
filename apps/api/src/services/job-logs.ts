@@ -318,4 +318,23 @@ export default {
   clockOut,
   deleteJobLog,
   getJobLogStats,
+  getPublicJobCompletion,
 };
+
+/**
+ * Get job log for public client view (no user scoping).
+ * Only returns completed jobs to avoid leaking active/internal state.
+ * Used for client-facing completion status page/link.
+ */
+export async function getPublicJobCompletion(jobLogId: string): Promise<JobLog | null> {
+  const result = await db.query(
+    `SELECT * FROM job_logs WHERE id = $1 AND status = 'completed'`,
+    [jobLogId]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return mapRowToJobLog(result.rows[0] as Record<string, unknown>);
+}

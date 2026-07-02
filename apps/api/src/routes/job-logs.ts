@@ -222,6 +222,9 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
 
 /**
  * POST /api/v1/job-logs/:id/clock-out - Clock out of a job
+ *
+ * NOTE (CF): public client completion view added via /api/v1/public/jobs/:id (see public.ts + service).
+ * Completion link endpoint to be added in related task (returns shareable URL to the public view).
  */
 router.post('/:id/clock-out', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {

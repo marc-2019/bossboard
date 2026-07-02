@@ -6,6 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config/index.js';
 import invoicesService from '../services/invoices.js';
+import jobLogsService from '../services/job-logs.js';
 import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
 
 const router = Router();
@@ -62,6 +63,50 @@ router.get('/invoices/:token', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Public invoice error:', error);
     res.status(500).send(renderErrorPage('Error', 'Something went wrong loading this invoice.'));
+  }
+});
+
+/**
+ * GET /api/v1/public/jobs/:id
+ * Public (no-auth) view of a completed job log for client confirmation / status.
+ * Returns read-only completion details only. Only completed jobs are surfaced.
+ * Used together with completion-link endpoint (see job-logs routes + item 3).
+ */
+router.get('/jobs/:id', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    if (!id) {
+      res.status(400).json({ success: false, error: 'INVALID_ID', message: 'Job id required' });
+      return;
+    }
+
+    const jobLog = await jobLogsService.getPublicJobCompletion(id);
+    if (!jobLog) {
+      res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Job completion not found or not completed' });
+      return;
+    }
+
+    // Public shape: omit internal fields (userId, customerId for privacy)
+    const publicView = {
+      id: jobLog.id,
+      description: jobLog.description,
+      siteAddress: jobLog.siteAddress,
+      startTime: jobLog.startTime,
+      endTime: jobLog.endTime,
+      status: jobLog.status,
+      notes: jobLog.notes,
+      durationHours: jobLog.endTime && jobLog.startTime
+        ? Math.round(((new Date(jobLog.endTime).getTime() - new Date(jobLog.startTime).getTime()) / 3600000) * 10) / 10
+        : null,
+    };
+
+    res.json({
+      success: true,
+      data: { jobLog: publicView },
+    });
+  } catch (error) {
+    console.error('Public job completion error:', error);
+    res.status(500).json({ success: false, error: 'INTERNAL_ERROR', message: 'Failed to load job completion' });
   }
 });
 
