@@ -218,6 +218,14 @@ export default function DashboardPage() {
               <CalendarDays size={12} className="inline align-text-bottom mr-1" />
               No jobs on the go yet — your active jobs and stats will appear here as you start logging time.
             </p>
+            <div className="mt-6">
+              <Link
+                href="/job-logs/new"
+                className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+              >
+                Log your first job
+              </Link>
+            </div>
           </div>
         </Card>
       )}

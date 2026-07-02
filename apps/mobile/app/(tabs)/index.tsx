@@ -240,6 +240,22 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* Empty state polish for new users (dashboard has no data yet) */}
+        {stats && stats.swms.total === 0 && (stats.invoices?.total ?? 0) === 0 && (
+          <View style={styles.emptyBanner}>
+            <Ionicons name="rocket-outline" size={28} color="#FF6B35" />
+            <Text style={styles.emptyBannerText}>
+              Kia ora! Ready to get started? Log your first job to track time, invoices and compliance in one place.
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyCtaButton}
+              onPress={() => router.push('/jobs' as any)}
+            >
+              <Text style={styles.emptyCtaText}>Log your first job</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Stats Overview */}
         {stats && (
           <View style={styles.statsCard}>
@@ -819,6 +835,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   emptyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyBanner: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF6B35' + '20',
+  },
+  emptyBannerText: {
+    textAlign: 'center',
+    color: '#374151',
+    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  emptyCtaButton: {
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  emptyCtaText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
