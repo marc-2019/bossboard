@@ -1,4 +1,4 @@
-# TradeMate NZ - App Store Submission Guide
+# BossBoard - App Store Submission Guide (rebranded; legacy TradeMate NZ references updated)
 
 **Version**: 1.0.0 | **Last Updated**: February 2026
 
@@ -30,9 +30,9 @@ Before submitting to either store, ensure the following are in place:
 - [ ] EAS CLI installed: `npm install -g eas-cli`
 - [ ] Logged into EAS: `eas login`
 - [ ] EAS project initialised: `cd apps/mobile && eas init`
-- [ ] Production API deployed at `https://api.trademate.co.nz`
-- [ ] Privacy policy published at `https://trademate.co.nz/privacy`
-- [ ] Support page published at `https://trademate.co.nz/support`
+- [ ] Production API deployed at `https://api.bossboard.co.nz` (or your configured prod domain)
+- [ ] Privacy policy published at `https://bossboard.co.nz/privacy`
+- [ ] Support page published at `https://bossboard.co.nz/support`
 - [ ] All app store listing content prepared (see `apps/mobile/store-listing.json`)
 - [ ] Screenshots captured for all required sizes
 - [ ] App icon finalised (1024x1024 for iOS, 512x512 for Android)
@@ -94,14 +94,14 @@ In App Store Connect, fill in the following fields:
 
 | Field | Value |
 |-------|-------|
-| **Name** | TradeMate NZ |
+| **Name** | BossBoard |
 | **Subtitle** | AI Safety Docs & Invoicing |
 | **Primary Category** | Business |
 | **Secondary Category** | Productivity |
 | **Age Rating** | 4+ (no objectionable content) |
-| **Support URL** | https://trademate.co.nz/support |
-| **Marketing URL** | https://trademate.co.nz |
-| **Privacy Policy URL** | https://trademate.co.nz/privacy |
+| **Support URL** | https://bossboard.co.nz/support |
+| **Marketing URL** | https://bossboard.co.nz |
+| **Privacy Policy URL** | https://bossboard.co.nz/privacy |
 | **Copyright** | 2026 Instilligent Limited |
 
 **Keywords** (100 character limit):
@@ -111,7 +111,7 @@ tradies,SWMS,invoicing,compliance,NZ,WorkSafe,quotes,safety,business,tradesperso
 
 **What's New in This Version**:
 ```
-Welcome to TradeMate NZ! The all-in-one business app built specifically for Kiwi tradies.
+Welcome to BossBoard! The all-in-one business app built specifically for Kiwi tradies.
 
 - AI-powered SWMS document generation
 - Professional invoicing with PDF export
@@ -135,7 +135,7 @@ Provide a demo account for Apple reviewers:
 |-------|-------|
 | **First Name** | App |
 | **Last Name** | Reviewer |
-| **Email** | reviewer@trademate.co.nz |
+| **Email** | reviewer@bossboard.co.nz |
 | **Password** | (create a dedicated test account) |
 | **Phone** | +64 XX XXX XXXX |
 
@@ -377,7 +377,7 @@ Capture these screens in the running app:
 
 ## Privacy Policy Requirements
 
-A privacy policy is required by both stores and must be accessible at `https://trademate.co.nz/privacy`.
+A privacy policy is required by both stores and must be accessible at `https://bossboard.co.nz/privacy`.
 
 ### Must Include (NZ Privacy Act 2020 Compliant)
 
@@ -404,10 +404,10 @@ A privacy policy is required by both stores and must be accessible at `https://t
    - Right to access personal information
    - Right to request correction
    - Right to request deletion
-   - Contact: privacy@trademate.co.nz
+   - Contact: privacy@bossboard.co.nz
 8. **Children's privacy**: Not designed for children under 13
 9. **Changes to policy**: Users notified via email or in-app notification
-10. **Contact**: privacy@trademate.co.nz
+10. **Contact**: privacy@bossboard.co.nz
 
 ---
 

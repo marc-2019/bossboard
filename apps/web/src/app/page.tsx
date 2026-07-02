@@ -13,7 +13,7 @@ import './landing.css';
  *
  * History: this content was originally inlined in the Express API at
  * apps/api/src/landing.html and served from the / route of the
- * trademate-nz Railway service. As of 2026-04-11 it lives here in the
+ * (legacy) Railway service. As of 2026-04-11 it lives here in the
  * Next.js webapp because the webapp is the canonical home for
  * bossboard.instilligent.com.
  *
