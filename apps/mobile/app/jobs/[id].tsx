@@ -42,6 +42,11 @@ export default function JobLogDetailScreen() {
   const [elapsed, setElapsed] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as any);
+  }, [router]);
+
   useFocusEffect(
     useCallback(() => {
       loadJobLog();
@@ -94,7 +99,8 @@ export default function JobLogDetailScreen() {
     } catch (error) {
       console.error('Failed to load job log:', error);
       Alert.alert('Error', 'Failed to load job log');
-      router.back();
+      safeBack();
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +132,7 @@ export default function JobLogDetailScreen() {
           onPress: async () => {
             try {
               await jobLogsApi.delete(id as string);
-              router.back();
+              safeBack();
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete job log');
             }

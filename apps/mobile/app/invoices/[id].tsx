@@ -3,7 +3,7 @@
  * View invoice details with actions to send, mark paid, edit, delete
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -58,11 +58,23 @@ export default function InvoiceDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // safeBack prevents iOS navigation dead-ends (unconditional router.back can trap
+  // if stack is empty or deep-linked). Mirrors pattern in certifications/[id].
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as any);
+  }, [router]);
+
   useEffect(() => {
     loadInvoice();
   }, [id]);
 
   async function loadInvoice() {
+    if (typeof id !== 'string' || !id) {
+      safeBack();
+      setIsLoading(false);
+      return;
+    }
     try {
       const response = await invoicesApi.get(id);
       if (response.data.success) {
@@ -71,6 +83,8 @@ export default function InvoiceDetailScreen() {
     } catch (error) {
       console.error('Failed to load invoice:', error);
       Alert.alert('Error', 'Failed to load invoice');
+      safeBack();
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -187,7 +201,7 @@ export default function InvoiceDetailScreen() {
               const response = await invoicesApi.delete(id);
               if (response.data.success) {
                 Alert.alert('Success', 'Invoice deleted');
-                router.back();
+                safeBack();
               }
             } catch (error) {
               Alert.alert('Error', 'Failed to delete invoice');
@@ -322,7 +336,7 @@ export default function InvoiceDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Invoice not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={safeBack}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -511,14 +525,12 @@ export default function InvoiceDetailScreen() {
               <Text style={styles.primaryButtonText}>Mark as Sent</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => router.push(`/invoices/edit/${id}` as any)}
-              disabled={isProcessing}
-            >
-              <Ionicons name="create-outline" size={20} color="#2563EB" />
-              <Text style={styles.secondaryButtonText}>Edit Invoice</Text>
-            </TouchableOpacity>
+            {/* Edit button intentionally removed/disabled to prevent iOS navigation
+                dead-end trap (no /invoices/edit/[id] or edit route exists yet).
+                Full edit form would duplicate create.tsx logic and increase risk.
+                Drafts can be deleted + recreated as workaround for now.
+                TODO: implement edit screen + route + declare in _layout if needed. */}
+            {/* <TouchableOpacity ... Edit Invoice ... /> */}
           </>
         )}
 

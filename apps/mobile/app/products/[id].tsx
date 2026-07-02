@@ -38,6 +38,11 @@ export default function ProductDetailScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as any);
+  }, [router]);
+
   // Edit form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -61,6 +66,8 @@ export default function ProductDetailScreen() {
     } catch (error) {
       console.error('Failed to load product:', error);
       Alert.alert('Error', 'Failed to load product details');
+      safeBack();
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +138,7 @@ export default function ProductDetailScreen() {
           onPress: async () => {
             try {
               await productsApi.delete(id!);
-              router.back();
+              safeBack();
             } catch (error) {
               Alert.alert('Error', 'Failed to delete product');
             }
@@ -158,7 +165,7 @@ export default function ProductDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Product not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={safeBack}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>

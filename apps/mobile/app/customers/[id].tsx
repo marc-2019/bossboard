@@ -3,7 +3,7 @@
  * Displays customer information with edit and delete actions
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -38,6 +38,11 @@ export default function CustomerDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as any);
+  }, [router]);
+
   useEffect(() => {
     loadCustomer();
   }, [id]);
@@ -51,6 +56,8 @@ export default function CustomerDetailScreen() {
     } catch (error) {
       console.error('Failed to load customer:', error);
       Alert.alert('Error', 'Failed to load customer details');
+      safeBack();
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +87,7 @@ export default function CustomerDetailScreen() {
               const response = await customersApi.delete(id);
               if (response.data.success) {
                 Alert.alert('Success', 'Customer deleted');
-                router.back();
+                safeBack();
               }
             } catch (error) {
               console.error('Failed to delete customer:', error);

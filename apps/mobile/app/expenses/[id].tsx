@@ -47,6 +47,11 @@ export default function ExpenseDetailScreen() {
   const [expense, setExpense] = useState<Expense | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as any);
+  }, [router]);
+
   useFocusEffect(
     useCallback(() => {
       loadExpense();
@@ -54,6 +59,11 @@ export default function ExpenseDetailScreen() {
   );
 
   async function loadExpense() {
+    if (typeof id !== 'string' || !id) {
+      safeBack();
+      setIsLoading(false);
+      return;
+    }
     try {
       const response = await expensesApi.get(id as string);
       if ((response.data as any).success) {
@@ -62,7 +72,8 @@ export default function ExpenseDetailScreen() {
     } catch (error) {
       console.error('Failed to load expense:', error);
       Alert.alert('Error', 'Failed to load expense');
-      router.back();
+      safeBack();
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +91,7 @@ export default function ExpenseDetailScreen() {
           onPress: async () => {
             try {
               await expensesApi.delete(id as string);
-              router.back();
+              safeBack();
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete expense');
             }

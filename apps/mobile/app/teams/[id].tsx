@@ -43,6 +43,11 @@ export default function TeamMemberDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string>('worker');
 
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) safeBack();
+    else router.replace('/(tabs)' as any);
+  }, [router]);
+
   const loadMemberData = useCallback(async () => {
     try {
       const teamResponse = await teamsApi.getMyTeam();
@@ -67,6 +72,8 @@ export default function TeamMemberDetailScreen() {
       }
     } catch (error) {
       console.error('Failed to load member:', error);
+      safeBack();
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +127,7 @@ export default function TeamMemberDetailScreen() {
           onPress: async () => {
             try {
               await teamsApi.removeMember(team.id, member.id);
-              router.back();
+              safeBack();
             } catch (error) {
               Alert.alert('Error', 'Failed to remove team member');
             }
@@ -188,7 +195,7 @@ export default function TeamMemberDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="person-outline" size={48} color="#D1D5DB" />
         <Text style={styles.errorText}>Team member not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack()}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
