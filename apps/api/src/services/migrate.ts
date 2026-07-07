@@ -9,7 +9,37 @@ import { config } from '../config/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const MIGRATIONS_DIR = path.resolve(process.cwd(), 'database');
+/**
+ * Locate the repo's database/ directory (init.sql + migrations/).
+ *
+ * cwd varies by environment: repo root in local dev, but /app/apps/api in the
+ * Docker image (Dockerfile.api sets WORKDIR /app/apps/api last) while database/
+ * is copied to /app/database. Resolving against cwd alone finds nothing in the
+ * image, and the runner then reported "already up to date" having applied
+ * nothing — which is how migration 014 (ai_usage_log) never reached production.
+ * If no candidate exists we throw rather than silently skip; startServer()
+ * catches and logs, so a bad path is loud but non-fatal.
+ *
+ * Exported for tests.
+ */
+export function resolveMigrationsDir(cwd: string = process.cwd()): string {
+  const candidates = [
+    path.resolve(cwd, 'database'),
+    path.resolve(cwd, '..', '..', 'database'),
+  ];
+  for (const dir of candidates) {
+    if (
+      fs.existsSync(path.join(dir, 'init.sql')) ||
+      fs.existsSync(path.join(dir, 'migrations'))
+    ) {
+      return dir;
+    }
+  }
+  throw new Error(
+    `[migrate] database/ directory not found (tried: ${candidates.join(', ')}). ` +
+      'Refusing to silently skip migrations.'
+  );
+}
 
 /**
  * Run all pending migrations against the database.
@@ -24,6 +54,9 @@ export async function runMigrations(): Promise<void> {
 
   try {
     console.log('[migrate] Starting database migration check...');
+
+    const migrationsRoot = resolveMigrationsDir();
+    console.log(`[migrate] Using migrations dir: ${migrationsRoot}`);
 
     // Create migrations tracking table if it doesn't exist
     await pool.query(`
@@ -44,7 +77,7 @@ export async function runMigrations(): Promise<void> {
     const migrationFiles: { name: string; sql: string }[] = [];
 
     // 1. init.sql (always first)
-    const initPath = path.join(MIGRATIONS_DIR, 'init.sql');
+    const initPath = path.join(migrationsRoot, 'init.sql');
     if (fs.existsSync(initPath)) {
       migrationFiles.push({
         name: '000_init',
@@ -53,7 +86,7 @@ export async function runMigrations(): Promise<void> {
     }
 
     // 2. Numbered migrations from migrations/ subfolder
-    const migrationsDir = path.join(MIGRATIONS_DIR, 'migrations');
+    const migrationsDir = path.join(migrationsRoot, 'migrations');
     if (fs.existsSync(migrationsDir)) {
       const files = fs.readdirSync(migrationsDir)
         .filter((f: string) => f.endsWith('.sql'))

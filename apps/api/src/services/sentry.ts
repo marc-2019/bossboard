@@ -105,6 +105,16 @@ export function sentryErrorHandler(): ErrorRequestHandler {
 /**
  * Test-seam: lets jest setup verify the no-DSN no-op contract.
  */
+/**
+ * Capture an exception outside the Express middleware chain (e.g. startup
+ * failures like migrations). No-op when Sentry is not initialized.
+ */
+export function captureException(err: unknown): void {
+  if (initialized) {
+    Sentry.captureException(err);
+  }
+}
+
 export function isSentryInitialized(): boolean {
   return initialized;
 }

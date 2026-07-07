@@ -22,6 +22,7 @@ import {
   sentryRequestHandler,
   sentryTracingHandler,
   sentryErrorHandler,
+  captureException,
 } from './services/sentry.js';
 
 // Load the marketing landing page once at startup so the / route serves it
@@ -255,6 +256,9 @@ async function startServer() {
     } catch (err) {
       console.error('Database migration failed:', err);
       console.error('Server will start but database may be incomplete.');
+      // Startup runs before the Sentry Express middleware chain — capture
+      // explicitly or a failed/skipped migration is only a console line.
+      captureException(err);
     }
   }
 
