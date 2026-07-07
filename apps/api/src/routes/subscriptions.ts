@@ -22,12 +22,14 @@ import db from '../services/database.js';
 
 const router = Router();
 
-// All routes require authentication
-router.use(authenticate);
-
 /**
  * GET /api/v1/subscriptions/tiers
- * Get all available tier definitions (for displaying pricing/features)
+ * Get all available tier definitions (for displaying pricing/features).
+ *
+ * PUBLIC (no auth): registered before the router-level `authenticate` so the
+ * web app's public /pricing page can render live tier data for logged-out
+ * visitors. Returns only static tier definitions + the beta flag — no user
+ * data is read or returned here.
  */
 router.get('/tiers', (_req: Request, res: Response) => {
   const tiers = getAllTiers();
@@ -46,6 +48,9 @@ router.get('/tiers', (_req: Request, res: Response) => {
     },
   });
 });
+
+// All routes below require authentication
+router.use(authenticate);
 
 /**
  * GET /api/v1/subscriptions/me

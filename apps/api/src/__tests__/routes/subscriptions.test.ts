@@ -42,8 +42,16 @@ jest.mock('../../config/index.js', () => ({
   },
 }));
 
+// Controllable auth mock: default authenticates as the test user; set
+// `mockAuthRejects = true` to simulate an unauthenticated request (401).
+// Lets us prove /tiers is public while the other routes stay auth-gated.
+let mockAuthRejects = false;
 jest.mock('../../middleware/auth.js', () => ({
-  authenticate: function (req: any, _res: any, next: any) {
+  authenticate: function (req: any, res: any, next: any) {
+    if (mockAuthRejects) {
+      res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
+      return;
+    }
     req.user = { userId: 'test-user-id', email: 'test@example.com' };
     next();
   },
@@ -63,6 +71,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAuthRejects = false;
 });
 
 describe('Subscription Routes', () => {
@@ -82,6 +91,37 @@ describe('Subscription Routes', () => {
       expect(response.body.data.tiers).toHaveLength(3);
       expect(response.body.data.betaMode).toBe(true);
       expect(response.body.data.pricing.tradie.price).toBe(4.99);
+    });
+
+    it('should be PUBLIC — reachable without authentication', async () => {
+      mockAuthRejects = true;
+      mockGetAllTiers.mockReturnValue([
+        { tier: 'free' },
+        { tier: 'tradie' },
+        { tier: 'team' },
+      ]);
+      mockIsBetaMode.mockReturnValue(true);
+
+      const response = await request(app).get('/api/v1/subscriptions/tiers');
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.tiers).toHaveLength(3);
+    });
+
+    it('other subscription routes stay auth-gated (401 without auth)', async () => {
+      mockAuthRejects = true;
+
+      const me = await request(app).get('/api/v1/subscriptions/me');
+      const usage = await request(app).get('/api/v1/subscriptions/usage');
+      const checkout = await request(app)
+        .post('/api/v1/subscriptions/checkout')
+        .send({ tier: 'tradie' });
+      const portal = await request(app).post('/api/v1/subscriptions/portal');
+
+      expect(me.status).toBe(401);
+      expect(usage.status).toBe(401);
+      expect(checkout.status).toBe(401);
+      expect(portal.status).toBe(401);
     });
   });
 
