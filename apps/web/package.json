@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "check:routes": "node scripts/check-routes.mjs",
+    "test": "npm run test:unit",
+    "test:unit": "node --test \"src/lib/__tests__/*.test.ts\"",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:smoke": "playwright test --config=playwright.smoke.config.ts"

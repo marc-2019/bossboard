@@ -503,13 +503,24 @@ export const statsClient = {
     ),
 };
 
-/** Subscriptions API (read-only).
- *  Plan changes / Stripe checkout still happen in the mobile app. */
+/** Subscriptions API — tiers/me/usage reads plus Stripe checkout + billing
+ *  portal session creation (mirrors the mobile app's flow: fetch tiers →
+ *  create checkout session → redirect the browser to the returned URL). */
 export const subscriptionsClient = {
-  me: () =>
-    clientFetch<{ subscription: import('@bossboard/shared').SubscriptionInfo }>(
-      '/api/subscriptions/me',
+  /** Public: tier definitions + pricing + beta flag. Works logged-out. */
+  tiers: () =>
+    clientFetch<import('./subscription-tiers').TiersPayload>(
+      '/api/subscriptions/tiers',
     ),
+
+  me: () =>
+    clientFetch<{
+      subscription: import('@bossboard/shared').SubscriptionInfo;
+      limits: import('@bossboard/shared').TierLimits;
+      usage: import('@bossboard/shared').TierUsage;
+      betaMode: boolean;
+      betaNote?: string;
+    }>('/api/subscriptions/me'),
 
   usage: () =>
     clientFetch<{ usage: import('@bossboard/shared').TierUsage }>('/api/subscriptions/usage'),
@@ -517,5 +528,25 @@ export const subscriptionsClient = {
   limits: () =>
     clientFetch<{ limits: import('@bossboard/shared').TierLimits }>(
       '/api/subscriptions/limits',
+    ),
+
+  /** Create a Stripe Checkout session for a paid tier. In beta mode the
+   *  backend short-circuits with `{ betaMode: true, message }` instead of
+   *  a session — callers must branch on `isBetaCheckout()`. */
+  checkout: (
+    tier: 'tradie' | 'team',
+    urls?: { successUrl?: string; cancelUrl?: string },
+  ) =>
+    clientFetch<import('./subscription-tiers').CheckoutResponse>(
+      '/api/subscriptions/checkout',
+      { method: 'POST', body: { tier, ...urls } },
+    ),
+
+  /** Create a Stripe Billing Portal session (manage/cancel/change plan).
+   *  Beta mode short-circuits with `{ betaMode: true, message }`. */
+  portal: (returnUrl?: string) =>
+    clientFetch<import('./subscription-tiers').PortalResponse>(
+      '/api/subscriptions/portal',
+      { method: 'POST', body: returnUrl ? { returnUrl } : {} },
     ),
 };

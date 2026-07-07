@@ -6,7 +6,9 @@ import { ACCESS_TOKEN_COOKIE } from './lib/constants';
 // included as an exact match — it can't go in PUBLIC_PATHS because
 // pathname.startsWith('/') would match every URL.
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/invoice', '/klaro/'];
-const PUBLIC_EXACT = new Set<string>(['/', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/llms.txt', '/humans.txt']);
+// `/pricing` is public marketing: logged-out visitors must be able to compare
+// plans before registering. It renders from the (public) tiers endpoint only.
+const PUBLIC_EXACT = new Set<string>(['/', '/pricing', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/llms.txt', '/humans.txt']);
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -25,7 +27,9 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   if (!token) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
+    // Preserve the query string so intent survives the login round-trip
+    // (e.g. /subscription?intent=team from the pricing page's paid CTAs).
+    loginUrl.searchParams.set('redirect', pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 
