@@ -5,18 +5,23 @@
 
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { config } from '../config/index.js';
+import { resolvePoolSsl } from '../utils/database-ssl.js';
+import { redactSecrets } from '../utils/redact.js';
 
-// Create connection pool
+const ssl = resolvePoolSsl(config.databaseUrl, config.nodeEnv);
+
+// Create connection pool — production remote DBs use TLS (see database-ssl.ts).
 const pool = new Pool({
   connectionString: config.databaseUrl,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
+  ...(ssl ? { ssl } : {}),
 });
 
-// Log pool errors
+// Log pool errors (redacted — connection strings can appear in error text)
 pool.on('error', (err) => {
-  console.error('Unexpected database pool error:', err);
+  console.error('Unexpected database pool error:', redactSecrets(err));
 });
 
 /**
@@ -35,7 +40,11 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     }
     return result;
   } catch (error) {
-    console.error('Database query error:', { text: text.substring(0, 50), error });
+    // Never log full SQL params (may contain PII) or raw connection errors with credentials
+    console.error('Database query error:', {
+      text: text.substring(0, 50),
+      error: redactSecrets(error),
+    });
     throw error;
   }
 }

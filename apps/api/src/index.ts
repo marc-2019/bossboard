@@ -77,6 +77,10 @@ import cronService from './services/cron.js';
 
 const app = express();
 
+// Railway (and most PaaS) terminate TLS at a proxy. Required for correct
+// client IPs, secure cookies, and rate-limit fairness.
+app.set('trust proxy', 1);
+
 // =============================================================================
 // SENTRY (must be installed BEFORE any other middleware so it captures
 // every request — see services/sentry.ts. No-op when SENTRY_DSN unset.)
@@ -89,10 +93,14 @@ app.use(sentryTracingHandler());
 // MIDDLEWARE
 // =============================================================================
 
-// Security headers
+// Security headers (helmet defaults + HSTS in production)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginOpenerPolicy: false,
+  hsts: config.isDevelopment
+    ? false
+    : { maxAge: 31536000, includeSubDomains: true, preload: false },
+  referrerPolicy: { policy: 'no-referrer' },
 }));
 
 // CORS configuration

@@ -4,6 +4,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { config } from '../config/index.js';
+import { redactSecrets } from '../utils/redact.js';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -19,16 +20,18 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  console.error('Error:', err);
+  // Redact credentials/tokens that may appear in driver messages or stacks
+  console.error('Error:', redactSecrets(err));
 
   const statusCode = err.statusCode || 500;
-  const message = config.isDevelopment ? err.message : 'An unexpected error occurred';
+  const rawMessage = config.isDevelopment ? err.message : 'An unexpected error occurred';
+  const message = config.isDevelopment ? redactSecrets(rawMessage) : rawMessage;
 
   res.status(statusCode).json({
     success: false,
     error: err.code || 'INTERNAL_ERROR',
     message,
-    ...(config.isDevelopment && { stack: err.stack }),
+    ...(config.isDevelopment && { stack: redactSecrets(err.stack || '') }),
   });
 }
 
