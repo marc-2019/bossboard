@@ -102,3 +102,10 @@ delete-account-page.png
 delete-data-page.png
 .claude/launch.json
 .claude/worktrees/
+
+# CortexForge tooling / cwd-leak pollution (2026-07-10 dirty-tree hygiene)
+.cf-pending-reviews/
+/mcp/
+/scripts/local-llm-tasks/
+data/wip-ledger.jsonl
+
