@@ -397,10 +397,14 @@
       "id": "bossboard.meta-keywords-worksafe",
       "claim": "Meta keywords use HSWA 2015 / health and safety framing, not WorkSafe NZ branding.",
       "surfaces": [
-        "apps/web/src/app/page.tsx"
+        "apps/web/src/app/page.tsx",
+        "apps/api/src/landing.html",
+        "landing/index.html"
       ],
       "evidence_references": [
-        "apps/web/src/app/page.tsx keywords array"
+        "apps/web/src/app/page.tsx keywords array",
+        "apps/api/src/landing.html meta keywords",
+        "landing/index.html meta keywords"
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-07-11",
