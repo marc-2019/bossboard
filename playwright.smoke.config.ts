@@ -37,7 +37,15 @@ export default defineConfig({
   projects: [
     {
       name: 'api',
-      use: {},
+      use: {
+        apiBaseUrl: 'https://api-staging.instilligent.com',
+      },
+    },
+    {
+      name: 'ai-swms',
+      use: {
+        enabled: true,
+      },
     },
   ],
 
