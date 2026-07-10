@@ -139,7 +139,7 @@ export default function Home() {
                 hazard suggestions for your trade — aligned to the NZ Health
                 and Safety at Work Act 2015. Templates and starting material,
                 not legal advice. While you stay accountable as the PCBU,
-                BossBoard turns hours of blank-page paperwork into minutes —
+                BossBoard turns blank-page paperwork into a reviewable draft —
                 so you can get back on the tools.
               </p>
             </div>
@@ -147,9 +147,8 @@ export default function Home() {
               <div className="feature-icon">{'\u{1F4CB}'}</div>
               <h3>Professional Invoicing</h3>
               <p>
-                Create and send invoices on the spot. Track payments, chase
-                overdue invoices, and see your revenue at a glance. GST built
-                in.
+                Create and send invoices on the spot. Track payments and see
+                your revenue at a glance. GST built in.
               </p>
             </div>
             <div className="feature-card">
@@ -165,8 +164,8 @@ export default function Home() {
               <div className="feature-icon">{'\u{1F477}'}</div>
               <h3>Team Management</h3>
               <p>
-                Manage your crew, assign jobs, track who&apos;s where. Invite
-                team members, set roles, and keep everyone on the same page.
+                Manage your crew. Invite team members, set roles, and keep
+                everyone on the same page.
               </p>
             </div>
             <div className="feature-card">
@@ -294,10 +293,10 @@ export default function Home() {
             <div className="nz-item">
               <div className="icon">{'\u{1F3D7}'}</div>
               <div>
-                <h4>Built to WorkSafe NZ standards</h4>
+                <h4>Aligned to HSWA 2015</h4>
                 <p>
-                  SWMS templates aligned to Health and Safety at Work Act 2015
-                  — operator signs off.
+                  SWMS templates aligned to the Health and Safety at Work Act
+                  2015 — you stay the PCBU and sign off.
                 </p>
               </div>
             </div>
@@ -338,7 +337,7 @@ export default function Home() {
       <section className="cta-section">
         <div className="lp-container">
           <h2>Ready to run your business like a boss?</h2>
-          <p>Join early Kiwi tradies in beta who are ditching the paperwork.</p>
+          <p>Built for Kiwi tradies who want less paperwork.</p>
           <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large" data-cf-event="cta_click" data-cf-cta="start_free" data-cf-location="footer">
             Start Free Today
           </Link>

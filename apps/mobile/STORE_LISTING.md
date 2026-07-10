@@ -36,7 +36,7 @@ Run your trade business from your pocket. BossBoard helps electricians, plumbers
 
 **INVOICING & CASHFLOW**
 - Create professional invoices on the spot
-- Track payments and chase overdue invoices
+- Track payments and see revenue at a glance
 - GST calculations built in for NZ businesses
 - Know your cashflow position at a glance
 
