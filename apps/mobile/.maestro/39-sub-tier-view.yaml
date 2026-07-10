@@ -22,7 +22,7 @@
 #
 # TODO(phase5): inject an authenticated session fixture so this flow
 # can run standalone without depending on 02-auth-* completion.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - subscriptions
   - F-SUB-01

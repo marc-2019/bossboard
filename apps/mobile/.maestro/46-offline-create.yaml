@@ -24,7 +24,7 @@
 # Demo realism: amount, client name, and job description match the
 # F-INV-01 fixture style (NZ tradie, realistic dollar values).
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 env:
   AIRPLANE_OFFLINE_DELAY_MS: "2000"
 ---

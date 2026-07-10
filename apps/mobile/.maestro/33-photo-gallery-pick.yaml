@@ -12,7 +12,7 @@
 #
 # Pre-conditions: logged in + at least one entity exists (PhotoAttachments
 # embeds in invoices / quotes / expenses / SWMS / job_logs).
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - photos
   - photo-gallery

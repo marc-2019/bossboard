@@ -18,7 +18,7 @@
 # .maestro/46-offline-create.yaml .maestro/47-online-sync.yaml` OR
 # `maestro test --include-tags=offline-sync` once the tag is added.
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 # Resume the app without clearing state.
 - launchApp:

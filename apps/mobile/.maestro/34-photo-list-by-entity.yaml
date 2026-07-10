@@ -12,7 +12,7 @@
 # logged-in user already has photo attachments from a previous session.
 #
 # Pre-conditions: logged in + an entity with >= 1 attached photo exists.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - photos
   - photo-list

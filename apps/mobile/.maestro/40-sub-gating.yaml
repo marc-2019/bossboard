@@ -22,7 +22,7 @@
 # Beta-mode caveat: in beta the upgrade button shows the "Launch Pricing"
 # alert (apps/mobile/app/subscription.tsx:175). This is the *current*
 # user-visible behaviour. Phase 4 will revisit once BETA_MODE=false.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - subscriptions
   - F-SUB-02

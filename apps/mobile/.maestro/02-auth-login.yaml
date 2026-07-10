@@ -14,7 +14,7 @@
 #
 # Wrong-password / refresh / logout cases live in
 # apps/web/e2e/demos/api/auth.api.spec.ts (API surface).
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 env:
   EMAIL: "e2e-demo-existing@example.test"
   PASSWORD: "E2eTestPass123!"

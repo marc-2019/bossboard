@@ -37,7 +37,7 @@
 #
 # NO EXECUTION: simulator not running. YAML is syntax-verified only.
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - push
   - F-PUSH-01

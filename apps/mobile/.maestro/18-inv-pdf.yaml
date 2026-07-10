@@ -4,7 +4,7 @@
 # (Maestro can't read into the OS PDF viewer, so we screenshot the
 # detail screen with the PDF button highlighted, then take a second
 # screenshot once the OS sheet appears).
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp
 - tapOn:

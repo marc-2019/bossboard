@@ -7,7 +7,7 @@
 # Requires: logged-in user; if launching cold, the test runner must
 # provide credentials via Maestro env. See .maestro/README + ephemeral
 # user pattern used by Playwright.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp
 - tapOn:

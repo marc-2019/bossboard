@@ -17,7 +17,7 @@
 #   - A logged-in user already onboarded (run 02-auth-login flow first)
 #   - Tradie tier (free tier blocked at 2 SWMS/month)
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: false

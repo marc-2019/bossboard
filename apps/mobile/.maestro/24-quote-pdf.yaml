@@ -13,7 +13,7 @@
 #
 # NO EXECUTION: written for syntax-verification only.
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: false

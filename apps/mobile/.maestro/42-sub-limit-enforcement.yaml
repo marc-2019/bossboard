@@ -25,7 +25,7 @@
 #
 # TODO(phase5): introduce a Maestro env var to flip BETA_MODE for the
 # test session, or inject a forced-free-tier fixture user.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 env:
   EXPECTED_LIMIT_BEHAVIOUR: "beta-bypass-or-402"
 tags:

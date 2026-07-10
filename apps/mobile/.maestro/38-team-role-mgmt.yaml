@@ -11,7 +11,7 @@
 # flow taps the row first to drill into a detail view if the inline
 # control fails. If the screen ever splits role-change to a dedicated
 # sheet, update accordingly.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: false

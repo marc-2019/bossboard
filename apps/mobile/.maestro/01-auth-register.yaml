@@ -14,7 +14,7 @@
 #
 # TODO(phase5): replace ${TIMESTAMP} email with a Resend-capture
 # inbox once env-gated stubs land.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 env:
   EMAIL: "e2e-${MAESTRO_RUN_ID:-${TIMESTAMP}}-auth01@example.test"
   PASSWORD: "E2eTestPass123!"

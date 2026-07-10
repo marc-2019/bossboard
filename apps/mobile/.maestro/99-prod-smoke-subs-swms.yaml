@@ -1,0 +1,45 @@
+# Production smoke: logged-in session required (run bb/00_login first).
+appId: nz.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd
+- assertVisible: ".*Quick Actions.*|.*Revenue.*|.*SWMS this month.*|.*BossBoard.*"
+- takeScreenshot: 99-home
+
+- swipe:
+    direction: UP
+- swipe:
+    direction: UP
+- tapOn:
+    id: "bb-home-new-swms"
+    optional: true
+- runFlow:
+    when:
+      notVisible: ".*Trade Type.*|.*Generate SWMS.*"
+    commands:
+      - tapOn:
+          text: ".*New SWMS.*"
+          optional: true
+- extendedWaitUntil:
+    visible: ".*Trade Type.*|.*Generate SWMS.*|.*AI-Powered Generation.*"
+    timeout: 15000
+- takeScreenshot: 99-swms-generate
+- assertVisible: ".*Generate SWMS.*|.*Trade Type.*|.*AI-Powered Generation.*"
+- assertNotVisible: ".*relation does not exist.*"
+
+- tapOn:
+    id: "bb-tab-settings"
+    optional: true
+- tapOn:
+    text: ".*Settings.*|.*Profile.*|.*Account.*"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: ".*Subscription.*|.*Plan.*|.*Billing.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: 99-subscription
+- assertVisible:
+    text: ".*Launch Pricing.*|.*Current Plan.*|.*Subscription.*|.*Tradie.*|.*Team.*"
+    optional: true

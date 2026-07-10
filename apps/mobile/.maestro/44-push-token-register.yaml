@@ -34,7 +34,7 @@
 # `maestro test --no-ansi --list .maestro/44-push-token-register.yaml`
 # (Phase 4 will run live).
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - push
   - F-PUSH-01

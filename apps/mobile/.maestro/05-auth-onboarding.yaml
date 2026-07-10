@@ -13,7 +13,7 @@
 #   3. /auth/me reflects new fields.                            (api spec)
 #   4. Mobile shows 3 steps with progress indicator.            (this)
 #   5. Skipping mid-flow leaves user resumable.                 (api spec)
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 env:
   BUSINESS_NAME: "Sarah Builds Ltd"
   COMPANY_ADDRESS: "47 Queen St, Auckland 1010"

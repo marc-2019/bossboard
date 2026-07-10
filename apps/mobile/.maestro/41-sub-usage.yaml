@@ -22,7 +22,7 @@
 # (apps/mobile/app/subscription.tsx:305). If the API call fails or
 # returns nothing, the section is hidden — that's a graceful failure
 # the demo also documents.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - subscriptions
   - F-SUB-03

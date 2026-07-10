@@ -14,7 +14,7 @@
 #     PhotoAttachments widget — see PhotoAttachments.tsx.
 #
 # Tagged so Phase 4 can group all photo flows: `--include-tags=photos`
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - photos
   - photo-camera

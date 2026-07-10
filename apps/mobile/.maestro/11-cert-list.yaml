@@ -14,7 +14,7 @@
 #         "Expired") is rendered per the expiryState() logic in
 #         apps/mobile/app/certifications/index.tsx.
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: false

@@ -2,7 +2,7 @@
 #
 # Demo flow: open an invoice → tap "Email" → enter recipient
 # (defaults to client email) → submit → success toast.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp
 - tapOn:

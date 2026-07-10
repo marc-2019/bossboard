@@ -1,4 +1,4 @@
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: true

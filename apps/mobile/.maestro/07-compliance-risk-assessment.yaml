@@ -11,7 +11,7 @@
 # Prerequisites:
 #   - Run 06-compliance-swms-create.yaml first OR seed a SWMS via API.
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: false

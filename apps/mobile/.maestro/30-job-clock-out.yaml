@@ -18,7 +18,7 @@
 #
 # NOT-RUNNABLE note: see 29-job-clock-in.yaml header.
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - job-logs
   - F-JOB-02

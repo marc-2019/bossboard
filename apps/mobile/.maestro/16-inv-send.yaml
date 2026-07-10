@@ -3,7 +3,7 @@
 # Demo flow: open a draft invoice, tap "Mark as sent", confirm the status
 # badge changes from "draft" to "sent". The detail page calls
 # POST /api/v1/invoices/:id/send.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp
 - tapOn:

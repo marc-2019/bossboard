@@ -20,7 +20,7 @@
 #
 # TODO(phase5): wire a test hook so CODE can be fetched from a Resend
 # capture endpoint instead of being passed in via env.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 env:
   CODE: "123456"
 ---

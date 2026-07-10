@@ -16,7 +16,7 @@
 # harness should pre-seed an authenticated session — Maestro does not
 # yet support an inline login because the auth-flow contract was
 # defined by Agent 1 in 02-auth-* flows. See coverage/teams.md gap #3.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: false

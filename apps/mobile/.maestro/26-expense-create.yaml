@@ -19,7 +19,7 @@
 # Status: NOT YET RUN. Parent task is syntax-verify only. Validate:
 #   maestro test .maestro/26-expense-create.yaml --include-tags=expenses --debug-output /tmp/maestro
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - expenses
   - F-EXP-01

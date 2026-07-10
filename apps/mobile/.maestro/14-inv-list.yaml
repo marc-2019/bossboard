@@ -3,7 +3,7 @@
 # Demo flow: Money tab → Invoices list shows at least one invoice with a
 # status badge. The list is the entry point for filtering — the demo only
 # proves the list renders + the segmented status filter exists.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp
 - tapOn:

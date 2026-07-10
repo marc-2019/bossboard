@@ -10,7 +10,7 @@
 # NO-EXECUTION caveat: written against UI strings from
 # apps/mobile/app/teams/index.tsx — if those strings drift, tighten the
 # selectors with explicit testIDs in a follow-up.
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 ---
 - launchApp:
     clearState: false

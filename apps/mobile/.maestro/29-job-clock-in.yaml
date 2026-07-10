@@ -18,7 +18,7 @@
 # running when this flow was authored. YAML syntax was verified via
 # `maestro test --include-tags=` parse step. Marc will run on real device.
 
-appId: com.instilligent.bossboard
+appId: nz.instilligent.bossboard
 tags:
   - job-logs
   - F-JOB-01

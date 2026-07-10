@@ -1,0 +1,22 @@
+# Smoke launch without clearing login state
+appId: nz.instilligent.bossboard
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      text: ".*"
+    timeout: 15000
+- takeScreenshot: 00-app-launched-no-clear
+- assertVisible:
+    text: "BossBoard"
+    optional: true
+- assertVisible:
+    text: "Login"
+    optional: true
+- assertVisible:
+    text: "Work"
+    optional: true
+- assertVisible:
+    text: "Settings"
+    optional: true
