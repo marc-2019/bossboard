@@ -36,8 +36,8 @@ export const metadata: Metadata = {
     'trade compliance',
     'invoice app',
     'job management',
-    'WorkSafe NZ',
     'health and safety',
+    'HSWA 2015',
     'BossBoard',
   ],
   alternates: {
