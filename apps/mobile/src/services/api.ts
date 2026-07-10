@@ -820,16 +820,27 @@ export const subscriptionsApi = {
   getLimits: () =>
     api.get('/api/v1/subscriptions/limits'),
 
-  // POST /api/v1/subscriptions/checkout — Stripe Checkout session for paid tier upgrade.
-  // Response shape:
-  //   - Beta on:  { success: true, data: { betaMode: true, message: string } }
-  //   - Beta off: { success: true, data: { sessionId: string, url: string } }
-  // Caller should open `data.url` in a browser/WebView; webhook updates the tier on success.
+  // POST /api/v1/subscriptions/checkout — Stripe Checkout (browser; wallets if Dashboard-enabled).
   createCheckoutSession: (payload: {
     tier: 'tradie' | 'team';
     successUrl?: string;
     cancelUrl?: string;
   }) => api.post('/api/v1/subscriptions/checkout', payload),
+
+  // POST /api/v1/subscriptions/payment-sheet — native PaymentSheet (Phase 2).
+  createPaymentSheetSession: (payload: { tier: 'tradie' | 'team' }) =>
+    api.post('/api/v1/subscriptions/payment-sheet', payload),
+
+  // GET /api/v1/subscriptions/iap/products — store product IDs (Phase 3).
+  getIapProducts: () => api.get('/api/v1/subscriptions/iap/products'),
+
+  // POST /api/v1/subscriptions/iap/verify — verify store purchase (Phase 3).
+  verifyIap: (payload: {
+    platform: 'ios' | 'android';
+    productId: string;
+    transactionId: string;
+    receiptOrToken: string;
+  }) => api.post('/api/v1/subscriptions/iap/verify', payload),
 
   // POST /api/v1/subscriptions/portal — Stripe Billing Portal session (manage existing sub).
   createBillingPortalSession: (payload?: { returnUrl?: string }) =>

@@ -137,6 +137,13 @@
       "expo-router",
       "expo-secure-store",
       [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.nz.instilligent.bossboard",
+          "enableGooglePay": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#1A2A44",

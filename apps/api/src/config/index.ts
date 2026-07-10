@@ -47,11 +47,25 @@ export const config = {
   // Stripe
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',
+    // Publishable key is safe to ship to clients (PaymentSheet). Never put secret in the app.
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     priceIdTradie: process.env.STRIPE_PRICE_ID_TRADIE || '',
     priceIdTeam: process.env.STRIPE_PRICE_ID_TEAM || '',
     // Billing portal return URL (must be the mobile app or a web success page)
     returnUrl: process.env.STRIPE_RETURN_URL || 'http://localhost:19006',
+  },
+
+  // Native store IAP product IDs (must match App Store Connect / Play Console)
+  iap: {
+    appleTradieProductId: process.env.IAP_APPLE_TRADIE_PRODUCT_ID || 'nz.instilligent.bossboard.tradie.weekly',
+    appleTeamProductId: process.env.IAP_APPLE_TEAM_PRODUCT_ID || 'nz.instilligent.bossboard.team.weekly',
+    googleTradieProductId: process.env.IAP_GOOGLE_TRADIE_PRODUCT_ID || 'bossboard_tradie_weekly',
+    googleTeamProductId: process.env.IAP_GOOGLE_TEAM_PRODUCT_ID || 'bossboard_team_weekly',
+    // Shared secret / service account paths set later — verification uses platform APIs
+    appleSharedSecret: process.env.IAP_APPLE_SHARED_SECRET || '',
+    googleServiceAccountJson: process.env.IAP_GOOGLE_SERVICE_ACCOUNT_JSON || '',
+    googlePackageName: process.env.IAP_GOOGLE_PACKAGE_NAME || 'nz.instilligent.bossboard',
   },
 
   // Email (SMTP)

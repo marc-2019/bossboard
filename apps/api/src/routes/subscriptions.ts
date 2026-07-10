@@ -16,7 +16,9 @@ import {
 import {
   createCheckoutSession,
   createPortalSession,
+  createPaymentSheetSession,
 } from '../services/stripe.js';
+import { listIapProductCatalog, verifyAndActivateIap } from '../services/iap.js';
 import { config } from '../config/index.js';
 import db from '../services/database.js';
 
@@ -208,6 +210,117 @@ router.post('/checkout', async (req: Request, res: Response, next: NextFunction)
       success: true,
       data: result,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/v1/subscriptions/payment-sheet
+ * Phase 2: native PaymentSheet (Apple Pay / Google Pay / card in-app).
+ * Returns client secrets for @stripe/stripe-react-native.
+ */
+router.post('/payment-sheet', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (isBetaMode()) {
+      res.json({
+        success: true,
+        data: {
+          message: 'All features are free during beta! No payment required.',
+          betaMode: true,
+        },
+      });
+      return;
+    }
+
+    const parsed = checkoutSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: parsed.error.errors[0]?.message ?? 'Invalid request body',
+      });
+      return;
+    }
+
+    const { tier } = parsed.data;
+    const userId = req.user!.userId;
+    const userResult = await db.query<{ email: string; name: string | null }>(
+      'SELECT email, name FROM users WHERE id = $1',
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      res.status(404).json({ success: false, error: 'USER_NOT_FOUND' });
+      return;
+    }
+    const { email, name } = userResult.rows[0];
+
+    const result = await createPaymentSheetSession({
+      userId,
+      userEmail: email,
+      userName: name,
+      tier,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/subscriptions/iap/products
+ * Catalog of App Store / Play product IDs for native IAP (Phase 3).
+ */
+router.get('/iap/products', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      products: listIapProductCatalog(),
+      note:
+        'IAP requires App Store Connect / Play Console products and server verify credentials. ' +
+        'Until configured, POST /iap/verify returns 503.',
+    },
+  });
+});
+
+const iapVerifySchema = z.object({
+  platform: z.enum(['ios', 'android']),
+  productId: z.string().min(1),
+  transactionId: z.string().min(1),
+  receiptOrToken: z.string().min(1),
+});
+
+/**
+ * POST /api/v1/subscriptions/iap/verify
+ * Phase 3: verify store purchase and activate tier (fail-closed without credentials).
+ */
+router.post('/iap/verify', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (isBetaMode()) {
+      res.json({
+        success: true,
+        data: { betaMode: true, message: 'All features are free during beta!' },
+      });
+      return;
+    }
+
+    const parsed = iapVerifySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: parsed.error.errors[0]?.message ?? 'Invalid request body',
+      });
+      return;
+    }
+
+    const result = await verifyAndActivateIap({
+      userId: req.user!.userId,
+      ...parsed.data,
+    });
+
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

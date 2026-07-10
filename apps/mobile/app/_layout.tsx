@@ -357,11 +357,36 @@ function RootLayoutNav() {
   );
 }
 
+function StripeMaybeProvider({ children }: { children: React.ReactNode }) {
+  // Publishable key only (safe in client). PaymentSheet no-ops until this is set.
+  const pk = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  if (!pk) {
+    return <>{children}</>;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { StripeProvider } = require('@stripe/stripe-react-native');
+    return (
+      <StripeProvider
+        publishableKey={pk}
+        merchantIdentifier="merchant.nz.instilligent.bossboard"
+        urlScheme="bossboard"
+      >
+        {children}
+      </StripeProvider>
+    );
+  } catch {
+    return <>{children}</>;
+  }
+}
+
 export default Sentry.wrap(function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
-      <RootLayoutNav />
+      <StripeMaybeProvider>
+        <StatusBar style="dark" />
+        <RootLayoutNav />
+      </StripeMaybeProvider>
     </AuthProvider>
   );
 });

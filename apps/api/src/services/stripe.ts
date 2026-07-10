@@ -190,6 +190,8 @@ export async function createCheckoutSession(
     input.userName
   );
 
+  // Phase 1 wallets: omit payment_method_types so Stripe Checkout can offer
+  // card + Apple Pay / Google Pay / Link when those are enabled in the Dashboard.
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
@@ -202,8 +204,8 @@ export async function createCheckoutSession(
         tier: input.tier,
       },
     },
-    // Allow promo codes
     allow_promotion_codes: true,
+    billing_address_collection: 'auto',
     metadata: {
       bossboard_user_id: input.userId,
       tier: input.tier,
@@ -215,6 +217,102 @@ export async function createCheckoutSession(
   }
 
   return { sessionId: session.id, url: session.url };
+}
+
+// ---------------------------------------------------------------------------
+// PaymentSheet (Phase 2 — native in-app sheet + Apple Pay / Google Pay)
+// ---------------------------------------------------------------------------
+
+export interface PaymentSheetSessionInput {
+  userId: string;
+  userEmail: string;
+  userName: string | null;
+  tier: 'tradie' | 'team';
+}
+
+export interface PaymentSheetSessionResult {
+  /** Stripe publishable key for the mobile SDK (safe for clients). */
+  publishableKey: string;
+  customerId: string;
+  ephemeralKeySecret: string;
+  /** PaymentIntent client secret for the incomplete subscription invoice. */
+  paymentIntentClientSecret: string;
+  subscriptionId: string;
+  tier: 'tradie' | 'team';
+}
+
+/**
+ * Create a native PaymentSheet payload: incomplete subscription + PI client secret
+ * + ephemeral key. Mobile confirms payment with @stripe/stripe-react-native;
+ * webhooks remain source of truth for tier activation.
+ */
+export async function createPaymentSheetSession(
+  input: PaymentSheetSessionInput
+): Promise<PaymentSheetSessionResult> {
+  const stripe = getStripe();
+  if (!config.stripe.publishableKey) {
+    throw new Error('STRIPE_PUBLISHABLE_KEY is not configured');
+  }
+
+  const priceId =
+    input.tier === 'tradie'
+      ? config.stripe.priceIdTradie
+      : config.stripe.priceIdTeam;
+
+  if (!priceId) {
+    throw new Error(`STRIPE_PRICE_ID_${input.tier.toUpperCase()} is not configured`);
+  }
+
+  const customerId = await ensureStripeCustomer(
+    input.userId,
+    input.userEmail,
+    input.userName
+  );
+
+  const ephemeralKey = await stripe.ephemeralKeys.create(
+    { customer: customerId },
+    // API version for ephemeral keys must match mobile SDK expectations
+    { apiVersion: '2025-02-24.acacia' }
+  );
+
+  const subscription = await stripe.subscriptions.create({
+    customer: customerId,
+    items: [{ price: priceId }],
+    payment_behavior: 'default_incomplete',
+    payment_settings: {
+      save_default_payment_method: 'on_subscription',
+      payment_method_types: ['card'],
+    },
+    expand: ['latest_invoice.payment_intent'],
+    metadata: {
+      bossboard_user_id: input.userId,
+      tier: input.tier,
+    },
+  });
+
+  const invoice = subscription.latest_invoice;
+  if (!invoice || typeof invoice === 'string') {
+    throw new Error('Stripe subscription missing expanded latest_invoice');
+  }
+  const pi = invoice.payment_intent;
+  if (!pi || typeof pi === 'string') {
+    throw new Error('Stripe subscription invoice missing payment_intent');
+  }
+  if (!pi.client_secret) {
+    throw new Error('Stripe PaymentIntent missing client_secret');
+  }
+  if (!ephemeralKey.secret) {
+    throw new Error('Stripe ephemeral key missing secret');
+  }
+
+  return {
+    publishableKey: config.stripe.publishableKey,
+    customerId,
+    ephemeralKeySecret: ephemeralKey.secret,
+    paymentIntentClientSecret: pi.client_secret,
+    subscriptionId: subscription.id,
+    tier: input.tier,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -282,9 +380,11 @@ export async function createInvoicePaymentLink(
 
   const stripe = getStripe();
 
+  // Allow card + wallets (Apple Pay / Google Pay) when enabled in Stripe Dashboard.
+  // Restricting to ['card'] still permits wallets in many cases; omit types so
+  // automatic payment methods can surface Link/wallets where available.
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
-    payment_method_types: ['card'],
     line_items: [
       {
         price_data: {

@@ -13,12 +13,12 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
+import { startPaidUpgrade } from '../src/services/payments';
 import * as Sentry from '@sentry/react-native';
 
 // ---------------------------------------------------------------------------
@@ -168,40 +168,43 @@ export default function SubscriptionScreen() {
     if (tier !== 'tradie' && tier !== 'team') return; // free tier has no checkout
 
     try {
-      Sentry.addBreadcrumb({ category: 'checkout', message: 'createCheckoutSession start', level: 'info', data: { tier } });
-      const res = await subscriptionsApi.createCheckoutSession({ tier });
-      const data = res.data?.data;
+      Sentry.addBreadcrumb({
+        category: 'checkout',
+        message: 'startPaidUpgrade',
+        level: 'info',
+        data: { tier },
+      });
+      // Phase 2 PaymentSheet (Apple/Google Pay in-app) → Phase 3 IAP if enabled → Phase 1 Checkout
+      const { channel, result } = await startPaidUpgrade(tier as 'tradie' | 'team');
 
-      // Beta mode: backend returned betaMode flag — show launch-pricing message
-      if (data?.betaMode) {
+      if (result === 'beta' || channel === 'beta') {
         Alert.alert(
           'Launch Pricing',
-          data.message ?? 'All features are free during our launch period.',
+          'All features are free during our launch period.',
           [{ text: 'OK' }]
         );
         return;
       }
-
-      // Real checkout: open Stripe Checkout URL in the device's default browser.
-      // After payment Stripe redirects to the API's successUrl; the user returns
-      // to the app manually and the subscription_tier refreshes on next auth-check.
-      if (!data?.url) {
-        Alert.alert('Checkout error', 'No checkout URL returned. Please try again or contact support.');
+      if (result === 'canceled') {
         return;
       }
-
-      const supported = await Linking.canOpenURL(data.url);
-      if (!supported) {
-        Alert.alert(
-          'Could not open browser',
-          'Please copy this URL into your browser to complete checkout:\n\n' + data.url
-        );
+      if (result === 'paid' || result === 'verified') {
+        await refreshUser();
+        Alert.alert('You\'re upgraded', 'Thanks — your plan is now active.');
         return;
       }
-      await Linking.openURL(data.url);
+      if (result === 'opened') {
+        // User finishes in browser; refresh when they return
+        return;
+      }
+      Alert.alert(
+        'Checkout error',
+        'Could not start payment. Check your connection or try again from Settings → Subscription.'
+      );
     } catch (err: any) {
       Sentry.captureException(err);
-      const msg = err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
+      const msg =
+        err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
       Alert.alert('Upgrade failed', msg);
     }
   }
