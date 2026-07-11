@@ -35,7 +35,7 @@ TradeMate NZ is a mobile-first compliance and cashflow platform for NZ tradies. 
 
 | # | Gap | Category | Status | Target | Notes |
 |---|-----|----------|--------|--------|-------|
-| 10 | Xero integration | Feature | Planned | Week 8 | Module 2 |
+| 10 | Xero integration | Feature | Planned | Week 8 | Module 2 | # TODO: Verify Xero API credentials; replace 'Xero Integration: Yes' claim with 'Xero Integration: No (planned)'
 | 11 | Invoice chaser | Feature | Planned | Week 9 | SMS reminders |
 | 12 | Visa tracking | Feature | Planned | Week 10 | Module 3 |
 | 13 | Push notifications | Feature | Planned | Week 10 | Expo Push |
