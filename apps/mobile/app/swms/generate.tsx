@@ -17,10 +17,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { swmsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { safeGoBack } from '../../src/utils/navigation';
+import { BackButton } from '../../src/components/BackButton';
 
 interface Template {
   id: string;
@@ -91,11 +93,32 @@ export default function GenerateSWMSScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardAvoid}
     >
+    {/* Always supply headerLeft — native back can be missing when stack has no history */}
+    <Stack.Screen
+      options={{
+        title: 'Generate SWMS',
+        headerShown: true,
+        headerBackVisible: false,
+        headerLeft: () => <BackButton />,
+      }}
+    />
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
+      {/* In-content fallback if native header is hidden on some navigators */}
+      <View style={styles.inContentNav}>
+        <TouchableOpacity
+          onPress={() => safeGoBack(router)}
+          style={styles.inContentBack}
+          accessibilityLabel="Go back"
+          testID="generate-swms-back"
+        >
+          <Ionicons name="chevron-back" size={22} color="#FF6B35" />
+          <Text style={styles.inContentBackText}>Home</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={styles.sectionTitle}>Trade Type *</Text>
       <View style={styles.tradeGrid}>
         {TRADE_OPTIONS.map((trade) => (
@@ -215,6 +238,22 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 120,
+  },
+  inContentNav: {
+    marginBottom: 4,
+  },
+  inContentBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingRight: 12,
+    gap: 2,
+  },
+  inContentBackText: {
+    fontSize: 16,
+    color: '#FF6B35',
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 14,

@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { View, ActivityIndicator } from 'react-native';
 import * as Sentry from '@sentry/react-native';
+import { withBackHeader } from '../src/navigation/headerOptions';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -89,112 +90,51 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="swms/[id]"
-        options={{
-          headerShown: true,
-          title: 'SWMS Document',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('SWMS Document')}
       />
       <Stack.Screen
         name="swms/generate"
-        options={{
-          headerShown: true,
-          title: 'Generate SWMS',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('Generate SWMS')}
       />
       {/* Invoices */}
       <Stack.Screen
         name="invoices/create"
-        options={{
-          headerShown: true,
-          title: 'New Invoice',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('New Invoice')}
       />
       <Stack.Screen
         name="invoices/[id]"
-        options={{
-          headerShown: true,
-          title: 'Invoice',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('Invoice')}
       />
       {/* Quotes */}
       <Stack.Screen
         name="quotes/index"
-        options={{
-          headerShown: true,
-          title: 'Quotes',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('Quotes')}
       />
       <Stack.Screen
         name="quotes/create"
-        options={{
-          headerShown: true,
-          title: 'New Quote',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('New Quote')}
       />
       <Stack.Screen
         name="quotes/[id]"
-        options={{
-          headerShown: true,
-          title: 'Quote',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('Quote')}
       />
       {/* Expenses */}
       <Stack.Screen
         name="expenses/index"
-        options={{
-          headerShown: true,
-          title: 'Expenses',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('Expenses')}
       />
       <Stack.Screen
         name="expenses/create"
-        options={{
-          headerShown: true,
-          title: 'New Expense',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('New Expense')}
       />
       <Stack.Screen
         name="expenses/[id]"
-        options={{
-          headerShown: true,
-          title: 'Expense',
-          headerTintColor: colors.primary,
-        }}
+        options={withBackHeader('Expense')}
       />
       {/* Jobs */}
-      <Stack.Screen
-        name="jobs/index"
-        options={{
-          headerShown: true,
-          title: 'Job Logs',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="jobs/create"
-        options={{
-          headerShown: true,
-          title: 'New Job',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="jobs/[id]"
-        options={{
-          headerShown: true,
-          title: 'Job Details',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="jobs/index" options={withBackHeader('Job Logs')} />
+      <Stack.Screen name="jobs/create" options={withBackHeader('New Job')} />
+      <Stack.Screen name="jobs/[id]" options={withBackHeader('Job Details')} />
       {/* Settings (group with its own _layout.tsx) */}
       <Stack.Screen
         name="settings"
@@ -203,156 +143,30 @@ function RootLayoutNav() {
         }}
       />
       {/* Subscription */}
-      <Stack.Screen
-        name="subscription"
-        options={{
-          headerShown: true,
-          title: 'Subscription',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="subscription" options={withBackHeader('Subscription')} />
       {/* Certifications */}
-      <Stack.Screen
-        name="certifications/index"
-        options={{
-          headerShown: true,
-          title: 'Certifications',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="certifications/add"
-        options={{
-          headerShown: true,
-          title: 'Add Certification',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="certifications/[id]"
-        options={{
-          headerShown: true,
-          title: 'Certification',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="certifications/index" options={withBackHeader('Certifications')} />
+      <Stack.Screen name="certifications/add" options={withBackHeader('Add Certification')} />
+      <Stack.Screen name="certifications/[id]" options={withBackHeader('Certification')} />
       {/* Customers */}
-      <Stack.Screen
-        name="customers/index"
-        options={{
-          headerShown: true,
-          title: 'Customers',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="customers/create"
-        options={{
-          headerShown: true,
-          title: 'Add Customer',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="customers/[id]"
-        options={{
-          headerShown: true,
-          title: 'Customer Details',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="customers/index" options={withBackHeader('Customers')} />
+      <Stack.Screen name="customers/create" options={withBackHeader('Add Customer')} />
+      <Stack.Screen name="customers/[id]" options={withBackHeader('Customer Details')} />
       {/* Products */}
-      <Stack.Screen
-        name="products/index"
-        options={{
-          headerShown: true,
-          title: 'Products & Services',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="products/create"
-        options={{
-          headerShown: true,
-          title: 'Add Product',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="products/[id]"
-        options={{
-          headerShown: true,
-          title: 'Product Details',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="products/index" options={withBackHeader('Products & Services')} />
+      <Stack.Screen name="products/create" options={withBackHeader('Add Product')} />
+      <Stack.Screen name="products/[id]" options={withBackHeader('Product Details')} />
       {/* Recurring Invoices */}
-      <Stack.Screen
-        name="recurring/index"
-        options={{
-          headerShown: true,
-          title: 'Recurring Invoices',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="recurring/create"
-        options={{
-          headerShown: true,
-          title: 'New Recurring Invoice',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="recurring/[id]"
-        options={{
-          headerShown: true,
-          title: 'Recurring Invoice',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="recurring/generate"
-        options={{
-          headerShown: true,
-          title: 'Generate Invoice',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="recurring/index" options={withBackHeader('Recurring Invoices')} />
+      <Stack.Screen name="recurring/create" options={withBackHeader('New Recurring Invoice')} />
+      <Stack.Screen name="recurring/[id]" options={withBackHeader('Recurring Invoice')} />
+      <Stack.Screen name="recurring/generate" options={withBackHeader('Generate Invoice')} />
       {/* Teams */}
-      <Stack.Screen
-        name="teams/index"
-        options={{
-          headerShown: true,
-          title: 'Team',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="teams/[id]"
-        options={{
-          headerShown: true,
-          title: 'Team Member',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="teams/index" options={withBackHeader('Team')} />
+      <Stack.Screen name="teams/[id]" options={withBackHeader('Team Member')} />
       {/* Bank Reconciliation */}
-      <Stack.Screen
-        name="bank/index"
-        options={{
-          headerShown: true,
-          title: 'Bank Transactions',
-          headerTintColor: colors.primary,
-        }}
-      />
-      <Stack.Screen
-        name="bank/upload"
-        options={{
-          headerShown: true,
-          title: 'Upload CSV',
-          headerTintColor: colors.primary,
-        }}
-      />
+      <Stack.Screen name="bank/index" options={withBackHeader('Bank Transactions')} />
+      <Stack.Screen name="bank/upload" options={withBackHeader('Upload CSV')} />
     </Stack>
   );
 }

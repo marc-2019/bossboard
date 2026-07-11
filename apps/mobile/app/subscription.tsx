@@ -20,6 +20,8 @@ import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
 import { startPaidUpgrade } from '../src/services/payments';
 import * as Sentry from '@sentry/react-native';
+import { BackButton } from '../src/components/BackButton';
+import { safeGoBack } from '../src/utils/navigation';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -243,10 +245,21 @@ export default function SubscriptionScreen() {
   // Render
   // ---------------------------------------------------------------------------
 
+  const subHeader = (
+    <Stack.Screen
+      options={{
+        title: 'Subscription',
+        headerShown: true,
+        headerBackVisible: false,
+        headerLeft: () => <BackButton />,
+      }}
+    />
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Stack.Screen options={{ title: 'Subscription' }} />
+        {subHeader}
         <ActivityIndicator size="large" color="#FF6B35" />
       </View>
     );
@@ -258,7 +271,18 @@ export default function SubscriptionScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Stack.Screen options={{ title: 'Subscription' }} />
+      {subHeader}
+
+      {/* In-content back if stack header is missing */}
+      <TouchableOpacity
+        onPress={() => safeGoBack(router)}
+        style={styles.inContentBack}
+        accessibilityLabel="Go back"
+        testID="subscription-back"
+      >
+        <Ionicons name="chevron-back" size={22} color="#FF6B35" />
+        <Text style={styles.inContentBackText}>Back</Text>
+      </TouchableOpacity>
 
       {/* Launch Banner */}
       <View style={styles.betaBanner}>
@@ -419,6 +443,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
+  },
+  inContentBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingRight: 12,
+    marginBottom: 8,
+    gap: 2,
+  },
+  inContentBackText: {
+    fontSize: 16,
+    color: '#FF6B35',
+    fontWeight: '500',
   },
 
   // Beta Banner
