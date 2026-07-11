@@ -38,13 +38,8 @@ export default defineConfig({
     {
       name: 'api',
       use: {
-        apiBaseUrl: 'https://api-staging.instilligent.com',
-      },
-    },
-    {
-      name: 'ai-swms',
-      use: {
-        enabled: true,
+        // AI-SWMS generation smoke check to deploy validation
+        // POST /api/swms/generate useAI:true 500s in prod (42P01) — flagship paid feature dead; post-deploy smoke must cover it, not just subscriptions/me
       },
     },
   ],
