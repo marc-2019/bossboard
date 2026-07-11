@@ -94,7 +94,7 @@ export default function Home() {
       {/* Hero */}
       <section className="hero" id="top">
         <div className="lp-container">
-          <div className="hero-badge">Built for NZ tradies, by NZ builders</div>
+          <div className="hero-badge">Built for NZ tradies · Made in Aotearoa</div>
           <h1>
             Your whole business.
             <br />
