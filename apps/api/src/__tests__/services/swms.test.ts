@@ -20,6 +20,10 @@
 // Mocks — must appear before any imports that trigger module evaluation
 // ---------------------------------------------------------------------------
 
+jest.mock('uuid', () => ({
+  v4: () => 'mock-uuid-1234',
+}));
+
 const mockDbQuery = jest.fn();
 jest.mock('../../services/database.js', () => ({
   __esModule: true,
@@ -73,6 +77,7 @@ import {
   updateSWMS,
   deleteSWMS,
   signSWMS,
+  buildSWMSTitle,
 } from '../../services/swms.js';
 
 // ---------------------------------------------------------------------------
@@ -315,8 +320,10 @@ describe('generateSWMS — AI enabled (happy path)', () => {
     expect(response.document.expectedDuration).toBe('2 days');
   });
 
-  it('truncates long job descriptions to 50 chars in the title', async () => {
+  it('truncates long continuous job descriptions to 50 chars in the title', async () => {
+    // No spaces → hard cut at 50 (word-boundary fallback)
     const longDesc = 'A'.repeat(100);
+    const expectedTitle = `SWMS - ${'A'.repeat(50)}`;
     mockGenerateHazardSuggestions.mockResolvedValueOnce(['Manual handling injuries']);
     mockGenerateControlMeasures.mockResolvedValueOnce({
       'Manual handling injuries': {
@@ -325,12 +332,66 @@ describe('generateSWMS — AI enabled (happy path)', () => {
         ppeRequired: ['Back support belt'],
       },
     });
-    const insertRow = makeInsertRow({ title: `SWMS - ${'A'.repeat(50)}` });
+    const insertRow = makeInsertRow({ title: expectedTitle });
     mockDbQuery.mockResolvedValueOnce({ rows: [insertRow] });
 
     const response = await generateSWMS('user-1', makeGenerateInput({ jobDescription: longDesc }));
 
+    const [, params] = mockDbQuery.mock.calls[0];
+    expect(params[3]).toBe(expectedTitle);
     expect(response.document.title).toHaveLength(57); // 'SWMS - ' (7) + 50 chars
+  });
+
+  it('truncates title at a word boundary instead of mid-word', async () => {
+    // Hard cut at 50 lands mid-word ("...kitchen comp"); word boundary keeps whole words
+    const jobDescription =
+      'Replace a light switch and rewire the kitchen completely with new fittings';
+    expect(jobDescription.substring(0, 50)).toBe(
+      'Replace a light switch and rewire the kitchen comp'
+    );
+    const expectedTitle = 'SWMS - Replace a light switch and rewire the kitchen';
+
+    mockGenerateHazardSuggestions.mockResolvedValueOnce(['Manual handling injuries']);
+    mockGenerateControlMeasures.mockResolvedValueOnce({
+      'Manual handling injuries': {
+        controlType: 'administrative',
+        primaryControl: 'Use mechanical aids',
+        ppeRequired: ['Back support belt'],
+      },
+    });
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeInsertRow({ title: expectedTitle })] });
+
+    await generateSWMS('user-1', makeGenerateInput({ jobDescription }));
+
+    const [, params] = mockDbQuery.mock.calls[0];
+    expect(params[3]).toBe(expectedTitle);
+    expect(params[3]).not.toMatch(/comp$/); // no mid-word fragment
+  });
+});
+
+// ===========================================================================
+// buildSWMSTitle — word-boundary truncation
+// ===========================================================================
+
+describe('buildSWMSTitle', () => {
+  it('returns full description when under the max length', () => {
+    expect(buildSWMSTitle('Install switchboard')).toBe('SWMS - Install switchboard');
+  });
+
+  it('does not truncate mid-word (live bug: "a light switc")', () => {
+    // 36 filler chars + space + "a light switch..." → hard cut ends "...a light switc"
+    const jobDescription =
+      'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx a light switch and complete the remaining rewire work';
+    expect(jobDescription.substring(0, 50)).toBe(
+      'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx a light switc'
+    );
+    expect(buildSWMSTitle(jobDescription)).toBe(
+      'SWMS - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx a light'
+    );
+  });
+
+  it('hard-cuts when the first 50 chars contain no space', () => {
+    expect(buildSWMSTitle('A'.repeat(60))).toBe(`SWMS - ${'A'.repeat(50)}`);
   });
 });
 
