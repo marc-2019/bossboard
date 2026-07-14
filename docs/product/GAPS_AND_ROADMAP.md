@@ -35,7 +35,7 @@ TradeMate NZ is a mobile-first compliance and cashflow platform for NZ tradies. 
 
 | # | Gap | Category | Status | Target | Notes |
 |---|-----|----------|--------|--------|-------|
-| 10 | Xero integration | Feature | Planned | Week 8 | Module 2 | # TODO: Verify Xero API credentials; replace 'Xero Integration: Yes' claim with 'Xero Integration: No (planned)'
+| 10 | Xero integration | Feature | **Dropped** | — | Module 2 cashflow/Xero **not committed**. Marc decision 2026-07-14: drop. Competitive claim must not say Yes. |
 | 11 | Invoice chaser | Feature | Planned | Week 9 | SMS reminders |
 | 12 | Visa tracking | Feature | Planned | Week 10 | Module 3 |
 | 13 | Push notifications | Feature | Planned | Week 10 | Expo Push |
@@ -94,16 +94,13 @@ TradeMate NZ is a mobile-first compliance and cashflow platform for NZ tradies. 
 - [ ] Risk assessment builder
 - [ ] WorkSafe checklist templates
 
-### Phase 4: Cashflow Module (Weeks 8-10)
-**Goal**: Xero integration + forecasting
+### Phase 4: Cashflow Module — **DROPPED (2026-07-14)**
+~~**Goal**: Xero integration + forecasting~~
 
-- [ ] Xero OAuth2 connection
-- [ ] Invoice sync
-- [ ] Bill sync
-- [ ] Cash position dashboard
-- [ ] 30/60/90 day forecast
-- [ ] Invoice chaser with SMS
-- [ ] GST countdown
+Marc decision: **do not build Module 2 Xero/cashflow** as a near-term commitment. BossBoard is not an accounting suite (see vision). Future re-open would need a new Marc decision.
+
+- [x] ~~Xero OAuth2~~ — not planned
+- [x] ~~Invoice/bill sync / forecast~~ — not planned
 
 ### Phase 5: Launch Prep (Weeks 11-12)
 **Goal**: Production ready
@@ -143,7 +140,7 @@ TradeMate NZ is a mobile-first compliance and cashflow platform for NZ tradies. 
 | NZ Compliance Docs | Yes | Basic | No | No | No |
 | AI-Powered SWMS | Yes | No | No | No | No |
 | Offline-First | Yes | No | No | No | No |
-| Xero Integration | Yes | Yes | Yes | Yes | Yes |
+| Xero Integration | **No** (dropped 2026-07-14) | Yes | Yes | Yes | Yes |
 | Price (NZD/mo) | $15-25 | $30-50 | $53-75 | ~$40 | $50-100 |
 | Mobile App | Yes | Yes | Yes | Yes | Yes |
 | Solo-Friendly | Yes | Yes | No | Yes | No |
