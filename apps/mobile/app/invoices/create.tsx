@@ -27,6 +27,7 @@ import {
   productsApi,
   businessProfileApi,
 } from '../../src/services/api';
+import { safeGoBack } from '../../src/utils/navigation';
 
 interface LineItem {
   id: string;
@@ -365,6 +366,17 @@ export default function CreateInvoiceScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <TouchableOpacity
+          style={styles.inContentBack}
+          onPress={() => safeGoBack(router, '/(tabs)/money')}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          testID="invoice-create-in-content-back"
+        >
+          <Ionicons name="chevron-back" size={20} color="#2563EB" />
+          <Text style={styles.inContentBackText}>Back to invoices</Text>
+        </TouchableOpacity>
+
         {/* Customer Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Customer</Text>
@@ -863,6 +875,18 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
+  },
+  inContentBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  inContentBackText: {
+    color: '#2563EB',
+    fontSize: 15,
+    fontWeight: '500',
+    marginLeft: 2,
   },
   section: {
     marginBottom: 24,

@@ -19,6 +19,7 @@ import {
   Download,
   CheckCircle2,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
@@ -233,6 +234,19 @@ export default function InvoiceDetailPage() {
               <Send size={14} className="mr-2" />
               Mark as sent
             </Button>
+          )}
+          {isDraft && (
+            <Link href={`/invoices/${invoice.id}/edit`}>
+              <Button
+                type="button"
+                disabled={!!actionBusy}
+                variant="secondary"
+                size="md"
+              >
+                <Pencil size={14} className="mr-2" />
+                Edit
+              </Button>
+            </Link>
           )}
           <Button
             onClick={() => setEmailFormOpen((v) => !v)}
