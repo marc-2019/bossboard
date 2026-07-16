@@ -54,6 +54,7 @@ export default function EditInvoiceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notEditable, setNotEditable] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
 
   const [clientName, setClientName] = useState('');
@@ -70,9 +71,12 @@ export default function EditInvoiceScreen() {
   const loadInvoice = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
+    setLoadError(false);
+    setNotEditable(false);
     try {
       const response = await invoicesApi.get(id);
       if (!response.data.success) {
+        setLoadError(true);
         Alert.alert('Error', 'Failed to load invoice');
         return;
       }
@@ -113,6 +117,7 @@ export default function EditInvoiceScreen() {
       );
     } catch (error) {
       console.error('Failed to load invoice for edit:', error);
+      setLoadError(true);
       Alert.alert('Error', 'Failed to load invoice');
     } finally {
       setIsLoading(false);
@@ -215,6 +220,33 @@ export default function EditInvoiceScreen() {
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.loadingText}>Loading invoice…</Text>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+        <Text style={styles.emptyTitle}>Could not load invoice</Text>
+        <Text style={styles.emptySubtitle}>
+          Nothing was changed. Go back and try again — the form is not shown so
+          a bad save cannot wipe a draft.
+        </Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => safeGoBack(router, detailFallback)}
+          testID="edit-invoice-back-load-error"
+        >
+          <Text style={styles.backButtonText}>Back to invoice</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={loadInvoice}
+          testID="edit-invoice-retry-load"
+        >
+          <Text style={styles.cancelButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
