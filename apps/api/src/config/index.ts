@@ -82,6 +82,10 @@ export const config = {
   // Resend HTTP API (preferred over SMTP on cloud platforms)
   resendApiKey: process.env.RESEND_API_KEY || '',
 
+  /** CF product-feedback poller service token (export/ack). Prefer FEEDBACK_SERVICE_TOKEN. */
+  feedbackServiceToken:
+    process.env.FEEDBACK_SERVICE_TOKEN || process.env.SERVICE_TOKEN || '',
+
   // GA4 (Google Analytics 4) — server-side Measurement Protocol.
   // Used to report off-web conversions (Stripe Checkout / mobile / webhook
   // tier upgrades) that the web gtag.js client can't observe. The web stream

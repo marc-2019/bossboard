@@ -847,4 +847,18 @@ export const subscriptionsApi = {
     api.post('/api/v1/subscriptions/portal', payload ?? {}),
 };
 
+// =============================================================================
+// FEEDBACK API (Lane A — universal product feedback)
+// =============================================================================
+
+export const feedbackApi = {
+  submit: (payload: {
+    category: 'bug' | 'idea' | 'other' | 'rating';
+    message: string;
+    rating?: number;
+    pageContext?: string;
+    appVersion?: string;
+  }) => api.post('/api/v1/feedback', payload),
+};
+
 export default api;

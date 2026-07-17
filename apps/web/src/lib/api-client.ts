@@ -519,3 +519,12 @@ export const subscriptionsClient = {
       '/api/subscriptions/limits',
     ),
 };
+
+/** Feedback API — Lane A in-app capture (bug / idea / other). */
+export const feedbackClient = {
+  submit: (data: import('@bossboard/shared').FeedbackCreateInput) =>
+    clientFetch<{ feedback: import('@bossboard/shared').FeedbackItem }>('/api/feedback', {
+      method: 'POST',
+      body: data,
+    }),
+};

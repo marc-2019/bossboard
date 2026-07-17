@@ -109,7 +109,7 @@ function renderPrivacyPolicy(): string {
 
   return page('Privacy Policy', `
       <h1>Privacy Policy</h1>
-      <p class="meta">Effective Date: 24 March 2026 &middot; Last Updated: 24 March 2026</p>
+      <p class="meta">Effective Date: 24 March 2026 &middot; Last Updated: 17 July 2026</p>
 
       <p>
         <strong>Instilligent Limited</strong> (NZBN 9429041896853), trading as <strong>${appName}</strong>
@@ -139,7 +139,7 @@ function renderPrivacyPolicy(): string {
         <li><strong>Device information</strong> &ndash; device type, operating system, unique device identifiers, and mobile network information.</li>
         <li><strong>Usage data</strong> &ndash; features accessed, screens viewed, and interaction patterns to improve the Service.</li>
         <li><strong>Push notification tokens</strong> &ndash; device tokens used to deliver push notifications you have opted into.</li>
-        <li><strong>Approximate location</strong> &ndash; when you explicitly grant permission, for pre-filling site addresses in job logs.</li>
+        <li><strong>Location (approximate and/or precise)</strong> &ndash; when you explicitly grant permission while using the app, for pre-filling site addresses on job logs and SWMS. Location is requested while the app is in use (not continuous background tracking for advertising). You can refuse or revoke permission in system settings; related fields remain manually editable.</li>
       </ul>
 
       <h2>2. How We Use Your Information <small>(IPP 10)</small></h2>
@@ -155,13 +155,14 @@ function renderPrivacyPolicy(): string {
         <li>Comply with legal obligations under New Zealand law.</li>
       </ul>
 
-      <h2>3. AI-Powered Features</h2>
-      <p>${appName} uses the Anthropic Claude API to generate compliance documents such as Safe Work Method Statements. When you use AI-powered features:</p>
+      <h2>3. AI-Powered Features <small>(third-party AI &mdash; limited use)</small></h2>
+      <p>${appName} uses the Anthropic Claude API to generate compliance documents such as Safe Work Method Statements. This is <strong>limited use</strong> only for the document you requested &mdash; not for advertising, not for selling data, and not for training public foundation models under our control.</p>
       <ul>
-        <li>Relevant job details (trade type, job description, site information) are sent to the Anthropic API to generate document content.</li>
-        <li>No personally identifiable information (such as your name or email) is sent to the AI service.</li>
-        <li>AI-generated content is suggestions only and should be reviewed by a qualified professional before use.</li>
-        <li>Anthropic does not use your data to train their models under our commercial agreement.</li>
+        <li>When you enable <strong>AI-Powered Generation</strong> (in-app toggle) and generate a SWMS, relevant job details you entered (trade type, job description, site details) are sent via our API to Anthropic.</li>
+        <li>Turning the toggle <strong>off</strong> uses template hazards only and does <strong>not</strong> call the third-party AI path for that request. Using the feature with the toggle on is your consent to that limited processing.</li>
+        <li>We do not send your password or payment card numbers to the AI service.</li>
+        <li>AI-generated content is suggestions only and must be reviewed and customised by you before use on site.</li>
+        <li>Anthropic processes the request under their commercial API terms as our processor; they do not use your data to train models under our commercial agreement.</li>
       </ul>
 
       <h2>4. Data Sharing and Disclosure <small>(IPP 11)</small></h2>

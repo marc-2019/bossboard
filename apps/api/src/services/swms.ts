@@ -97,6 +97,26 @@ export function getTemplates(): { tradeType: TradeType; name: string; version: s
   ];
 }
 
+/** Max length of the job-description portion of a generated SWMS title. */
+const SWMS_TITLE_DESC_MAX = 50;
+
+/**
+ * Build a display title from the job description.
+ * Caps the description portion at SWMS_TITLE_DESC_MAX, breaking on the last
+ * space so titles never end mid-word (e.g. "a light switc"). Continuous
+ * strings with no space fall back to a hard cut. Column is VARCHAR(255).
+ */
+export function buildSWMSTitle(jobDescription: string, maxLen = SWMS_TITLE_DESC_MAX): string {
+  if (jobDescription.length <= maxLen) {
+    return `SWMS - ${jobDescription}`;
+  }
+
+  const hard = jobDescription.slice(0, maxLen);
+  const lastSpace = hard.lastIndexOf(' ');
+  const desc = lastSpace > 0 ? hard.slice(0, lastSpace).trimEnd() : hard;
+  return `SWMS - ${desc}`;
+}
+
 /**
  * Get template by trade type
  */
@@ -258,7 +278,7 @@ export async function generateSWMS(
       swmsId,
       userId,
       input.tradeType,
-      `SWMS - ${input.jobDescription.substring(0, 50)}`,
+      buildSWMSTitle(input.jobDescription),
       input.jobDescription,
       input.siteAddress || null,
       input.clientName || null,

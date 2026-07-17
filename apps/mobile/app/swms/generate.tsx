@@ -188,7 +188,9 @@ export default function GenerateSWMSScreen() {
           <View style={styles.aiToggleText}>
             <Text style={styles.aiToggleLabel}>AI-Powered Generation</Text>
             <Text style={styles.aiToggleHint}>
-              Get smart hazard suggestions and control measures
+              {useAI
+                ? 'On: trade, job description, and site details you enter are sent to our AI provider (Anthropic) only to suggest hazards and controls for this SWMS. Not used for ads. Turn off to generate without third-party AI.'
+                : 'Off: uses template hazards only — no third-party AI call. Turn on for smart suggestions (limited use as described when enabled).'}
             </Text>
           </View>
         </View>
@@ -197,6 +199,8 @@ export default function GenerateSWMSScreen() {
           onValueChange={setUseAI}
           trackColor={{ false: '#D1D5DB', true: '#C4B5FD' }}
           thumbColor={useAI ? '#8B5CF6' : '#F3F4F6'}
+          accessibilityLabel="AI-powered SWMS generation"
+          accessibilityHint="When on, job details are sent to Anthropic for hazard suggestions only"
         />
       </View>
 

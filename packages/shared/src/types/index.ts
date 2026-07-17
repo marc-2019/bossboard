@@ -945,3 +945,33 @@ export interface TierUsage {
   aiCallsThisMonth: number;
   teamMemberCount: number;
 }
+
+// =============================================================================
+// FEEDBACK TYPES (Lane A — product-feedback-universal-pattern)
+// =============================================================================
+
+/** In-app feedback categories. 'rating' reserved for standalone rating prompts. */
+export type FeedbackCategory = 'bug' | 'idea' | 'other' | 'rating';
+
+/** Lifecycle: new → ingested (CF poller) → closed */
+export type FeedbackStatus = 'new' | 'ingested' | 'closed';
+
+export interface FeedbackItem {
+  id: string;
+  userId: string;
+  category: FeedbackCategory;
+  rating: number | null;
+  message: string;
+  pageContext: string | null;
+  appVersion: string | null;
+  status: FeedbackStatus;
+  createdAt: string;
+}
+
+export interface FeedbackCreateInput {
+  category: FeedbackCategory;
+  message: string;
+  rating?: number;
+  pageContext?: string;
+  appVersion?: string;
+}

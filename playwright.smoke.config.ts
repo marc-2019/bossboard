@@ -37,7 +37,10 @@ export default defineConfig({
   projects: [
     {
       name: 'api',
-      use: {},
+      use: {
+        // AI-SWMS generation smoke check to deploy validation
+        // POST /api/swms/generate useAI:true 500s in prod (42P01) — flagship paid feature dead; post-deploy smoke must cover it, not just subscriptions/me
+      },
     },
   ],
 

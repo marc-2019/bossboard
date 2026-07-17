@@ -211,7 +211,7 @@ At target scale:
 ### Our Competitive Advantages
 
 **1. AI-Powered Compliance (Only Us)**
-No competitor offers AI-generated SWMS, hazard suggestions, or control measures. Tradies get professional safety documentation in seconds instead of hours.
+No competitor offers AI-generated SWMS, hazard suggestions, or control measures. Tradies get professional safety documentation in seconds instead of hours. Xero integration is planned (currently not available).
 
 **2. Purpose-Built for NZ (Not Adapted)**
 TradeMate is 100% New Zealand from the ground up: NZ GST calculations, Health and Safety at Work Act 2015 compliance, WorkSafe NZ templates, NZD pricing, and Kiwi business culture baked in.

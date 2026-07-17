@@ -133,7 +133,7 @@ export default function SettingsScreen() {
       title: 'Support',
       items: [
         { id: 'help', icon: 'help-circle-outline', label: 'Help Centre', showChevron: true, onPress: () => Alert.alert('Help Centre', 'Visit our website for help and FAQs.') },
-        { id: 'feedback', icon: 'chatbubble-outline', label: 'Send Feedback', showChevron: true, onPress: () => Alert.alert('Send Feedback', 'Email us at support@instilligent.com with your feedback.') },
+        { id: 'feedback', icon: 'chatbubble-outline', label: 'Send Feedback', showChevron: true, onPress: () => router.push('/settings/feedback' as any) },
         { id: 'about', icon: 'information-circle-outline', label: 'About', showChevron: true, onPress: () => Alert.alert('About', 'BossBoard v0.5.0\nBuilt by Instilligent Limited\n\nYour whole business. One screen.\nCompliance, cashflow & operations for NZ tradies.') },
         { id: 'legal', icon: 'shield-checkmark-outline', label: 'Legal & Disclaimer', showChevron: true, onPress: () => Alert.alert('Legal & Disclaimer', 'BossBoard is not affiliated with, endorsed by, or officially connected to WorkSafe New Zealand, any New Zealand government agency, or any regulatory body.\n\nCompliance information and templates provided are for guidance only and should not be considered legal or professional advice.\n\nUsers should verify all safety documentation meets their specific requirements.\n\nFor official compliance guidance, visit worksafe.govt.nz\n\nPrivacy Policy: https://api.instilligent.com/legal/privacy') },
       ],
