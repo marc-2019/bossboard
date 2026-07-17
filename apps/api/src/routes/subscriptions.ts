@@ -270,7 +270,7 @@ router.post('/payment-sheet', async (req: Request, res: Response, next: NextFunc
 
 /**
  * GET /api/v1/subscriptions/iap/products
- * Catalog of App Store / Play product IDs for native IAP (Phase 3).
+ * Catalog of App Store / Play product IDs for native IAP (store dual-rail).
  */
 router.get('/iap/products', (_req: Request, res: Response) => {
   res.json({
@@ -278,8 +278,9 @@ router.get('/iap/products', (_req: Request, res: Response) => {
     data: {
       products: listIapProductCatalog(),
       note:
-        'IAP requires App Store Connect / Play Console products and server verify credentials. ' +
-        'Until configured, POST /iap/verify returns 503.',
+        'Native mobile upgrades use IAP only (no Stripe openURL). ' +
+        'POST /iap/verify is fail-closed until IAP_APPLE_SHARED_SECRET / ' +
+        'IAP_GOOGLE_SERVICE_ACCOUNT_JSON are set. See docs/product/native-iap-dual-rail.md',
     },
   });
 });
@@ -293,7 +294,7 @@ const iapVerifySchema = z.object({
 
 /**
  * POST /api/v1/subscriptions/iap/verify
- * Phase 3: verify store purchase and activate tier (fail-closed without credentials).
+ * Verify store purchase and activate tier (fail-closed without credentials).
  */
 router.post('/iap/verify', async (req: Request, res: Response, next: NextFunction) => {
   try {
