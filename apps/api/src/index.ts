@@ -53,6 +53,7 @@ import { runMigrations } from './services/migrate.js';
 // Route imports
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
+import feedbackRoutes from './routes/feedback.js';
 import swmsRoutes from './routes/swms.js';
 import invoicesRoutes from './routes/invoices.js';
 import certificationsRoutes from './routes/certifications.js';
@@ -190,6 +191,7 @@ app.use('/api/v1/notifications', apiLimiter, notificationsRoutes);
 app.use('/api/v1/teams', apiLimiter, teamsRoutes);
 app.use('/api/v1/subscriptions', apiLimiter, subscriptionsRoutes);
 app.use('/api/v1/sync', apiLimiter, syncRoutes);
+app.use('/api/v1/feedback', apiLimiter, feedbackRoutes);
 
 // Public routes (no auth required)
 app.use('/api/v1/public', apiLimiter, publicRoutes);

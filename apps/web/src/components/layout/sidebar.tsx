@@ -16,6 +16,7 @@ import {
   Menu,
   X,
 } from 'lucide-react';
+import { FeedbackButton } from './feedback-button';
 
 // Sidebar lists ONLY routes that have a corresponding page.tsx in this
 // app. The check-routes script (npm run check:routes) enforces this at
@@ -66,6 +67,9 @@ export function Sidebar() {
         </Link>
       ))}
 
+      <div className="mt-auto pt-4 border-t border-white/10">
+        <FeedbackButton />
+      </div>
     </nav>
   );
 
