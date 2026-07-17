@@ -36,7 +36,7 @@ Run your trade business from your pocket. BossBoard helps electricians, plumbers
 
 **INVOICING & CASHFLOW**
 - Create professional invoices on the spot
-- Track payments and chase overdue invoices
+- Track payments and see revenue at a glance
 - GST calculations built in for NZ businesses
 - Know your cashflow position at a glance
 
@@ -85,17 +85,67 @@ tradies, jobs, scheduling, SWMS, compliance, invoicing, NZ, team, dispatch, safe
 
 ## Age Rating
 - 4+ (iOS)
-- Everyone (Android)
-- No objectionable content
+- Everyone (Android) — complete **IARC content rating** in Play Console (do not leave unrated)
+- **Not designed for children** / not Families Policy program
+- No objectionable content; multi-user within a business, not anonymous chat
 
 ## Privacy Policy URL
-https://api.instilligent.com/legal/privacy
+https://api.instilligent.com/legal/privacy  
+(Source of truth for store + in-app: also `apps/mobile/PRIVACY_POLICY.md` — keep in sync)
 
 ## Support URL
 https://api.instilligent.com/legal/support
 
 ## Marketing URL
 https://bossboard.co.nz
+
+## Android package
+`nz.instilligent.bossboard`  
+**Expo SDK 54** defaults `targetSdkVersion` **36** (meets Play requirement for new apps/updates from 31 Aug 2026).
+
+---
+
+## Google Play — Data safety worksheet (copy into Play Console)
+
+**Data shared with third parties for advertising / selling:** No.
+
+| Data type | Collected | Optional | Linked to user | Purpose | Notes |
+|-----------|-----------|----------|----------------|---------|--------|
+| Name | Yes | Yes | Yes | App functionality | Account |
+| Email | Yes | No | Yes | App functionality | Login |
+| Phone | Yes | Yes | Yes | App functionality | Account |
+| User ID | Yes | No | Yes | App functionality, security | |
+| Photos | Yes | Yes | Yes | App functionality | Job / receipt / site photos — user initiated |
+| Approximate location | Yes | Yes | Yes | App functionality | Job site address assist — when permission granted |
+| Precise location | Yes | Yes | Yes | App functionality | Same; `ACCESS_FINE` + when-in-use |
+| App interactions / diagnostics | Yes | — | Yes | Analytics, crash | Not ads |
+| Other user content | Yes | Yes | Yes | App functionality | SWMS text, job descriptions, site/client fields |
+
+### Third-party AI (Play User Data policy — limited use / disclosure / consent)
+
+| Item | Declaration |
+|------|-------------|
+| Provider | Anthropic (commercial API), via BossBoard backend |
+| When | User enables **AI-Powered Generation** on SWMS generate and runs generation |
+| Data sent | Trade type, job description, site details the user entered (not passwords / cards) |
+| Purpose | Hazard and control suggestions for SWMS only |
+| Not used for | Ads, resale, tracking |
+| Consent | In-app toggle; off = no third-party AI call for that request |
+| Privacy | See PRIVACY_POLICY.md §4.1 |
+
+### Permissions declared (app.json) — do not add without policy review
+
+- `CAMERA`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, boot completed, vibrate, internet, network state  
+- **Not** used: `READ_SMS`, `RECEIVE_SMS`, `READ_CALL_LOG`, `CALL_LOG`
+
+### Play Console operator checklist (Marc)
+
+- [ ] Android Developer Verification — package registered  
+- [ ] Content rating completed (not unrated)  
+- [ ] Data safety form matches this worksheet  
+- [ ] Privacy policy URL live and includes AI limited-use section  
+- [ ] Target audience not “children”  
+- [ ] Before paid Android launch: native Play Billing (see CF `app-store-native-iap-requirement-2026-06-30.md`)
 
 ---
 
