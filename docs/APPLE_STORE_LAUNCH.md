@@ -126,3 +126,22 @@ Expect product IDs for ios.tradie / ios.team.
 - `docs/STORE_SUBMISSION_REVERIFY.md`  
 - `docs/LAUNCH_DUAL_TRACK.md`  
 - `apps/mobile/STORE_LISTING.md`  
+
+---
+
+## DPLA (Developer Program License Agreement) — accepted 2026-07-18
+
+Full CF mapping: `cortexforge/docs/governance/apple-dpla-2026-07-18-bossboard-cf-checklist.md`  
+Archived PDF: `cortexforge/audit/legal/Apple_Developer_Program_License_Agreement_6AX82WT38B_2026-07-18.pdf`
+
+### Must complete for paid IAP (from DPLA + Attachment 2)
+
+- [ ] **Schedule 2** accepted (paid apps / fee-based IAP — separate from free Schedule 1)
+- [ ] IAP products submitted with Submission Description (name, price, product id)
+- [ ] Weekly auto-renewable subscriptions (not “rental” of digital access)
+- [ ] **Server verifies Apple receipt before unlocking** paid tier (`IAP_APPLE_SHARED_SECRET` + verify)
+- [ ] Restore path for non-consumable/subscription entitlements
+- [ ] No Stripe (or other) unlock of the same digital features as primary path on iOS
+- [ ] Privacy labels + camera/location/AI disclosures accurate
+- [ ] Apple handles billing refunds (support directs users to Apple; don’t invent IAP refund UX that conflicts)
+
