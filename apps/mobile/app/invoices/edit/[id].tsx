@@ -178,20 +178,28 @@ export default function EditInvoiceScreen() {
       return;
     }
 
+    const trimmedDue = dueDate.trim();
+    if (trimmedDue && !/^\d{4}-\d{2}-\d{2}$/.test(trimmedDue)) {
+      Alert.alert('Error', 'Due date must be YYYY-MM-DD or left blank');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      // Always send optional keys so clearing a field persists (undefined is
+      // dropped by JSON and the API only updates present fields).
       const response = await invoicesApi.update(id, {
         clientName: clientName.trim(),
-        clientEmail: clientEmail.trim() || '',
-        clientPhone: clientPhone.trim() || undefined,
-        jobDescription: jobDescription.trim() || undefined,
+        clientEmail: clientEmail.trim(),
+        clientPhone: clientPhone.trim(),
+        jobDescription: jobDescription.trim(),
         lineItems: validLineItems.map((item) => ({
           description: item.description.trim(),
           amount: parseAmount(item.amount),
         })),
         includeGst,
-        dueDate: dueDate || undefined,
-        notes: notes.trim() || undefined,
+        dueDate: trimmedDue || null,
+        notes: notes.trim(),
       });
 
       if (response.data.success) {

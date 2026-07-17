@@ -154,16 +154,18 @@ export default function EditInvoicePage() {
       return;
     }
 
+    // Always send optional keys so clearing a field persists (undefined is
+    // dropped by JSON.stringify and the API only updates present fields).
     const payload: Partial<CreateInvoiceInput> = {
       clientName: trimmedClient,
       lineItems: cleanedItems,
       includeGst,
-      clientEmail: clientEmail.trim() || '',
-      clientPhone: clientPhone.trim() || undefined,
-      jobDescription: jobDescription.trim() || undefined,
-      dueDate: dueDate || undefined,
-      notes: notes.trim() || undefined,
-    };
+      clientEmail: clientEmail.trim(),
+      clientPhone: clientPhone.trim(),
+      jobDescription: jobDescription.trim(),
+      dueDate: dueDate || null,
+      notes: notes.trim(),
+    } as Partial<CreateInvoiceInput>;
 
     setSubmitting(true);
     try {
