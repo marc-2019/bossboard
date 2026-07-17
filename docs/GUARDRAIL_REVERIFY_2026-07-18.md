@@ -32,3 +32,15 @@ npm audit --workspace=apps/api
 npm audit --workspace=apps/web
 npm audit --workspace=apps/mobile
 ```
+
+## Also flipped (evidence pre-existed)
+
+From `cortexforge/audit/security/2026-07-17-bossboard-security-review-pass1.md` (verdict already said passing; CF rows still waived):
+
+| Directive | Status now | Evidence |
+|-----------|------------|----------|
+| tenant-isolation-write-paths | **passing** | user_id ownership + tests |
+| secure-user-input-import | **passing** | public HTML escape; no unsafe paste path |
+| security-review-quarterly | **passing** | pass-1 dated 2026-07-17 |
+
+`privileged-promote-gates` remains **waived** with reason + expiry 2027-01-13.
