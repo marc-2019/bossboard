@@ -37,6 +37,14 @@
 | Maestro XCTest | **BLOCKED** | Soft — does not block open or launch flags |
 | Bug hunt free month | **PROCESS READY** | Manual grant; see `BUG_HUNT_FREE_MONTH.md` |
 
+## Guardrail re-verify (2026-07-18)
+
+| Directive | Status |
+|-----------|--------|
+| secrets-credentials-hygiene | **passing** (agent-evidence) |
+| dependency-vulnerability-hygiene | **passing** (agent-evidence) |
+| store-submission-readiness | still waived — use `STORE_SUBMISSION_REVERIFY.md` |
+
 ## Ship train (active)
 
 1. [ ] Merge PR #55 feedback → master → Railway deploy  
