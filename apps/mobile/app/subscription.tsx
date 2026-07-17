@@ -13,12 +13,13 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
-import { startPaidUpgrade } from '../src/services/payments';
+import { startPaidUpgrade, restoreStorePurchases } from '../src/services/payments';
 import * as Sentry from '@sentry/react-native';
 import { BackButton } from '../src/components/BackButton';
 import { safeGoBack } from '../src/utils/navigation';
@@ -147,11 +148,7 @@ export default function SubscriptionScreen() {
   }, [loadUsage]);
 
   // Refresh user + usage every time this screen regains focus.
-  // Critical for the post-Stripe-checkout return flow: user pays in the
-  // device's default browser then comes back to the app — without this
-  // they'd still see subscription_tier='free' until they manually pull-to-
-  // refresh or restart the app. AuthContext.refreshUser pulls the latest
-  // tier from /auth/me which the Stripe webhook updates.
+  // After IAP verify (or web Stripe webhook), /auth/me reflects the new tier.
   useFocusEffect(
     useCallback(() => {
       refreshUser();
@@ -174,9 +171,9 @@ export default function SubscriptionScreen() {
         category: 'checkout',
         message: 'startPaidUpgrade',
         level: 'info',
-        data: { tier },
+        data: { tier, platform: Platform.OS },
       });
-      // Phase 2 PaymentSheet (Apple/Google Pay in-app) → Phase 3 IAP if enabled → Phase 1 Checkout
+      // Native: App Store / Play IAP only. Web: Stripe. See payments.ts dual-rail.
       const { channel, result } = await startPaidUpgrade(tier as 'tradie' | 'team');
 
       if (result === 'beta' || channel === 'beta') {
@@ -192,22 +189,75 @@ export default function SubscriptionScreen() {
       }
       if (result === 'paid' || result === 'verified') {
         await refreshUser();
-        Alert.alert('You\'re upgraded', 'Thanks — your plan is now active.');
+        Alert.alert("You're upgraded", 'Thanks — your plan is now active.');
         return;
       }
       if (result === 'opened') {
-        // User finishes in browser; refresh when they return
+        // Web Stripe Checkout; refresh when they return
+        return;
+      }
+      if (result === 'unavailable') {
+        Alert.alert(
+          'Purchases unavailable',
+          Platform.OS === 'ios' || Platform.OS === 'android'
+            ? 'In-app purchases are not available in this build. Use a store build (TestFlight / Play internal testing) or restore purchases if you already subscribed.'
+            : 'Could not start payment. Try again from a browser at bossboard.app.'
+        );
         return;
       }
       Alert.alert(
-        'Checkout error',
-        'Could not start payment. Check your connection or try again from Settings → Subscription.'
+        'Purchase error',
+        Platform.OS === 'ios' || Platform.OS === 'android'
+          ? 'Could not complete the App Store / Play purchase. Check your connection, try Restore Purchases, or contact support.'
+          : 'Could not start payment. Check your connection or try again from Settings → Subscription.'
       );
     } catch (err: any) {
       Sentry.captureException(err);
       const msg =
         err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
       Alert.alert('Upgrade failed', msg);
+    }
+  }
+
+  async function handleRestorePurchases() {
+    try {
+      Sentry.addBreadcrumb({
+        category: 'checkout',
+        message: 'restoreStorePurchases',
+        level: 'info',
+      });
+      const result = await restoreStorePurchases();
+      if (result === 'beta') {
+        Alert.alert(
+          'Launch Pricing',
+          'All features are free during our launch period.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      if (result === 'restored') {
+        await refreshUser();
+        Alert.alert('Restored', 'Your previous subscription is active again.');
+        return;
+      }
+      if (result === 'none') {
+        Alert.alert(
+          'Nothing to restore',
+          'No previous BossBoard subscription was found for this Apple / Google account.'
+        );
+        return;
+      }
+      if (result === 'unavailable') {
+        Alert.alert(
+          'Restore unavailable',
+          'Restore Purchases works on the iOS and Android store builds only.'
+        );
+        return;
+      }
+      Alert.alert('Restore failed', 'Could not restore purchases. Try again later.');
+    } catch (err: any) {
+      Sentry.captureException(err);
+      Alert.alert('Restore failed', err?.message || 'Could not restore purchases.');
     }
   }
 
@@ -416,10 +466,25 @@ export default function SubscriptionScreen() {
         );
       })}
 
+      {/* Restore — required by App Store / Play for auto-renewable subscriptions */}
+      {(Platform.OS === 'ios' || Platform.OS === 'android') && (
+        <TouchableOpacity
+          style={styles.restoreButton}
+          onPress={handleRestorePurchases}
+          testID="subscription-restore"
+          accessibilityLabel="Restore purchases"
+        >
+          <Ionicons name="refresh-outline" size={18} color="#1D4ED8" />
+          <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Footer Note */}
       <Text style={styles.footerNote}>
         Less than a coffee a week. Cancel anytime.{'\n'}
         Prices in NZD. GST inclusive.
+        {(Platform.OS === 'ios' || Platform.OS === 'android') &&
+          '\nSubscriptions are billed through the App Store / Google Play.'}
       </Text>
     </ScrollView>
   );
@@ -659,6 +724,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  restoreButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1D4ED8',
   },
 
   // Footer
