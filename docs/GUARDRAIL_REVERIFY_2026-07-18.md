@@ -43,4 +43,8 @@ From `cortexforge/audit/security/2026-07-17-bossboard-security-review-pass1.md` 
 | secure-user-input-import | **passing** | public HTML escape; no unsafe paste path |
 | security-review-quarterly | **passing** | pass-1 dated 2026-07-17 |
 
-`privileged-promote-gates` remains **waived** with reason + expiry 2027-01-13.
+`privileged-promote-gates` remains **waived** (expiry 2027-01-13) with **explicit** reason:
+
+> BossBoard **HAS** AI-driven SWMS (`generateSWMS` → Claude → owner `draft` → same user may `signed`). That is **not** privileged promote (elevated role publishing AI/draft for the org). Waive = no admin promote surface; **not** “no AI.” Re-open if team/admin AI publish is added.
+
+CF glossary: `privileged-promote-gates`, `AI-assisted SWMS vs privileged promote`, `waived (guardrail status)`.
