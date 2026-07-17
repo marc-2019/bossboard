@@ -37,7 +37,8 @@
       },
       "env": {
         "APP_ENV": "preview",
-        "EXPO_PUBLIC_API_URL": "https://api.instilligent.com"
+        "EXPO_PUBLIC_API_URL": "https://api.instilligent.com",
+        "EXPO_PUBLIC_IAP_ENABLED": "true"
       },
       "channel": "preview"
     },
@@ -55,7 +56,8 @@
       },
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_API_URL": "https://api.instilligent.com"
+        "EXPO_PUBLIC_API_URL": "https://api.instilligent.com",
+        "EXPO_PUBLIC_IAP_ENABLED": "true"
       },
       "channel": "production"
     }
