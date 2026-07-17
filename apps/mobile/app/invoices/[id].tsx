@@ -20,6 +20,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { invoicesApi, getAuthToken } from '../../src/services/api';
 import PhotoAttachments from '../../src/components/PhotoAttachments';
+import { safeGoBack } from '../../src/utils/navigation';
 
 interface Invoice {
   id: string;
@@ -322,7 +323,11 @@ export default function InvoiceDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Invoice not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => safeGoBack(router, '/(tabs)/money')}
+          testID="invoice-detail-not-found-back"
+        >
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -331,6 +336,17 @@ export default function InvoiceDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TouchableOpacity
+        style={styles.inContentBack}
+        onPress={() => safeGoBack(router, '/(tabs)/money')}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        testID="invoice-detail-in-content-back"
+      >
+        <Ionicons name="chevron-back" size={20} color="#2563EB" />
+        <Text style={styles.inContentBackText}>Back to invoices</Text>
+      </TouchableOpacity>
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -582,6 +598,18 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
+  },
+  inContentBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  inContentBackText: {
+    color: '#2563EB',
+    fontSize: 15,
+    fontWeight: '500',
+    marginLeft: 2,
   },
   loadingContainer: {
     flex: 1,

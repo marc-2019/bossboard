@@ -99,11 +99,15 @@ function RootLayoutNav() {
       {/* Invoices */}
       <Stack.Screen
         name="invoices/create"
-        options={withBackHeader('New Invoice')}
+        options={withBackHeader('New Invoice', { fallback: '/(tabs)/money' })}
       />
       <Stack.Screen
         name="invoices/[id]"
-        options={withBackHeader('Invoice')}
+        options={withBackHeader('Invoice', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="invoices/edit/[id]"
+        options={withBackHeader('Edit Invoice', { fallback: '/(tabs)/money' })}
       />
       {/* Quotes */}
       <Stack.Screen
