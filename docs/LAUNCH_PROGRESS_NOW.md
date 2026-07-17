@@ -45,6 +45,16 @@
 | dependency-vulnerability-hygiene | **passing** (agent-evidence) |
 | store-submission-readiness | still waived — use `STORE_SUBMISSION_REVERIFY.md` |
 
+## Apple (2026-07-18)
+
+| Item | Status |
+|------|--------|
+| IAP dual-rail on master | **yes** `cd1d93b` |
+| ASC app id | **6760329559** (eas.json) |
+| Public App Store | **no** (lookup 0) |
+| Marc next | Shared secret + weekly products + `eas build --platform ios --profile production` |
+| Runbook | `docs/APPLE_STORE_LAUNCH.md` |
+
 ## Ship train (active)
 
 1. [ ] Merge PR #55 feedback → master → Railway deploy  
