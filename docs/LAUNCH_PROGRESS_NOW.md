@@ -1,6 +1,6 @@
 # BossBoard launch progress (dual-track)
 
-**Updated:** 2026-07-18  
+**Updated:** 2026-07-18 (feedback live)  
 **Policy:** `docs/LAUNCH_DUAL_TRACK.md`  
 **Card:** `ec01e123`
 
@@ -8,11 +8,11 @@
 
 | Flag | Value | Evidence |
 |------|--------|----------|
-| **web_open** | **pending** | Needs feedback live on prod |
+| **web_open** | **true** | Feedback live 2026-07-18 (API 401 on /feedback without JWT) |
 | **web_launched_at** | **null** | No real paid Stripe client yet |
 | **app_open** | **pending** | Needs feedback + store/TestFlight billing path |
 | **app_launched_at** | **null** | No real IAP paid client yet |
-| **feedback_live** | **false** | PR #55 open (not on master) |
+| **feedback_live** | **true** | Migrated 017; token set; railway up API+web |
 | **bug_hunt_live** | **false** | Process written; wait for feedback prod |
 
 ## Gate 0 (preflight) — last probe 2026-07-18
