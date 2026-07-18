@@ -14,8 +14,12 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { swmsApi, statsApi, recurringInvoicesApi, jobLogsApi } from '../../src/services/api';
+
+/** Pilot / early-adopter: dismissible home prompt → Settings Send Feedback */
+const FEEDBACK_CARD_DISMISSED_KEY = 'bb_pilot_feedback_card_dismissed_v1';
 
 // Insights types
 interface RevenueComparison {
@@ -101,6 +105,22 @@ export default function HomeScreen() {
   const [pendingCount, setPendingCount] = useState({ auto: 0, review: 0 });
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showFeedbackCard, setShowFeedbackCard] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(FEEDBACK_CARD_DISMISSED_KEY)
+      .then((v) => setShowFeedbackCard(v !== '1'))
+      .catch(() => setShowFeedbackCard(true));
+  }, []);
+
+  async function dismissFeedbackCard() {
+    setShowFeedbackCard(false);
+    try {
+      await AsyncStorage.setItem(FEEDBACK_CARD_DISMISSED_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -239,6 +259,35 @@ export default function HomeScreen() {
             {user?.businessName || 'Your Business'}
           </Text>
         </View>
+
+        {/* Pilot: make feedback front-of-mind (dismissible) */}
+        {showFeedbackCard && (
+          <View style={styles.feedbackCard} testID="home-feedback-card">
+            <View style={styles.feedbackCardText}>
+              <Text style={styles.feedbackCardTitle}>Help shape BossBoard</Text>
+              <Text style={styles.feedbackCardBody}>
+                You&apos;re an early user — 30 seconds of feedback goes a long way.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.feedbackCardCta}
+              onPress={() => router.push('/settings/feedback' as any)}
+              accessibilityRole="button"
+              accessibilityLabel="Send feedback"
+            >
+              <Text style={styles.feedbackCardCtaText}>Send feedback</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={dismissFeedbackCard}
+              style={styles.feedbackCardDismiss}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss feedback prompt"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Stats Overview */}
         {stats && (
@@ -659,6 +708,47 @@ const styles = StyleSheet.create({
     color: '#BFDBFE',
     fontSize: 14,
     marginTop: 4,
+  },
+  feedbackCard: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    position: 'relative',
+  },
+  feedbackCardText: {
+    paddingRight: 28,
+    marginBottom: 12,
+  },
+  feedbackCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#9A3412',
+    marginBottom: 4,
+  },
+  feedbackCardBody: {
+    fontSize: 14,
+    color: '#9A3412',
+    lineHeight: 20,
+  },
+  feedbackCardCta: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  feedbackCardCtaText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  feedbackCardDismiss: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
   },
   statsCard: {
     backgroundColor: '#fff',

@@ -13,13 +13,14 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
+import { startPaidUpgrade } from '../src/services/payments';
 import * as Sentry from '@sentry/react-native';
+import { BackButton } from '../src/components/BackButton';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,6 +47,10 @@ interface UsageData {
 }
 
 // ... (TIERS constant)
+
+const IOS_BILLING_NOTE =
+  'On iPhone, paid plans are billed through the App Store (Apple In-App Purchase). ' +
+  'Web and Android may use other payment methods.';
 
 const TIERS: TierInfo[] = [
   {
@@ -168,40 +173,45 @@ export default function SubscriptionScreen() {
     if (tier !== 'tradie' && tier !== 'team') return; // free tier has no checkout
 
     try {
-      Sentry.addBreadcrumb({ category: 'checkout', message: 'createCheckoutSession start', level: 'info', data: { tier } });
-      const res = await subscriptionsApi.createCheckoutSession({ tier });
-      const data = res.data?.data;
+      Sentry.addBreadcrumb({
+        category: 'checkout',
+        message: 'startPaidUpgrade',
+        level: 'info',
+        data: { tier },
+      });
+      // iOS: App Store IAP only. Android: Play IAP or Stripe.
+      const { channel, result, message } = await startPaidUpgrade(tier as 'tradie' | 'team');
 
-      // Beta mode: backend returned betaMode flag — show launch-pricing message
-      if (data?.betaMode) {
+      if (result === 'beta' || channel === 'beta') {
         Alert.alert(
           'Launch Pricing',
-          data.message ?? 'All features are free during our launch period.',
+          'All features are free during our launch period.',
           [{ text: 'OK' }]
         );
         return;
       }
-
-      // Real checkout: open Stripe Checkout URL in the device's default browser.
-      // After payment Stripe redirects to the API's successUrl; the user returns
-      // to the app manually and the subscription_tier refreshes on next auth-check.
-      if (!data?.url) {
-        Alert.alert('Checkout error', 'No checkout URL returned. Please try again or contact support.');
+      if (result === 'canceled') {
         return;
       }
-
-      const supported = await Linking.canOpenURL(data.url);
-      if (!supported) {
-        Alert.alert(
-          'Could not open browser',
-          'Please copy this URL into your browser to complete checkout:\n\n' + data.url
-        );
+      if (result === 'paid' || result === 'verified') {
+        await refreshUser();
+        Alert.alert('You\'re upgraded', 'Thanks — your plan is now active.');
         return;
       }
-      await Linking.openURL(data.url);
+      if (result === 'opened') {
+        // User finishes in browser (Android/web fallback); refresh when they return
+        return;
+      }
+      Alert.alert(
+        'Checkout error',
+        message ||
+          'Could not start payment. On iPhone, plans are billed through the App Store. ' +
+            'Check your connection or try again from Settings → Manage Plan.'
+      );
     } catch (err: any) {
       Sentry.captureException(err);
-      const msg = err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
+      const msg =
+        err?.response?.data?.message || err?.message || 'Could not start checkout. Please try again.';
       Alert.alert('Upgrade failed', msg);
     }
   }
@@ -240,10 +250,21 @@ export default function SubscriptionScreen() {
   // Render
   // ---------------------------------------------------------------------------
 
+  const subHeader = (
+    <Stack.Screen
+      options={{
+        title: 'Subscription',
+        headerShown: true,
+        headerBackVisible: false,
+        headerLeft: () => <BackButton />,
+      }}
+    />
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Stack.Screen options={{ title: 'Subscription' }} />
+        {subHeader}
         <ActivityIndicator size="large" color="#FF6B35" />
       </View>
     );
@@ -255,7 +276,7 @@ export default function SubscriptionScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Stack.Screen options={{ title: 'Subscription' }} />
+      {subHeader}
 
       {/* Launch Banner */}
       <View style={styles.betaBanner}>
@@ -267,6 +288,10 @@ export default function SubscriptionScreen() {
           </Text>
         </View>
       </View>
+
+      <Text style={styles.billingNote} testID="subscription-billing-note">
+        {IOS_BILLING_NOTE}
+      </Text>
 
       {/* Current Plan Card */}
       <View
@@ -416,6 +441,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
+  },
+  billingNote: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 18,
+    marginBottom: 16,
   },
 
   // Beta Banner
