@@ -1,18 +1,17 @@
 /**
  * Multi-rail payments for subscription upgrades.
  *
- * App Store / Play ship policy (digital feature unlock):
- *  - iOS: StoreKit IAP is the primary (and only) paid rail inside the app.
- *  - Android: Play Billing when enabled; otherwise Stripe.
- *  - Web / Stripe Checkout: not used as the iOS primary path (Guideline 3.1.1).
+ * Dual-rail (store-compliant — Guideline 3.1.1 / Play Billing):
+ *  - iOS / Android: native StoreKit / Play Billing only (react-native-iap).
+ *    Never open Stripe Checkout or PaymentSheet from the mobile binary —
+ *    that is a guaranteed App Store / Play reject on the NZ storefront.
+ *  - Web / non-store: Stripe PaymentSheet → Checkout browser.
  *
- * Rails:
- *  Phase 3 — StoreKit / Play Billing (IAP)
- *  Phase 2 — Stripe PaymentSheet (Android / non-store fallback)
- *  Phase 1 — Stripe Checkout browser (explicit non-iOS fallback only)
+ * Entitlements are cross-honoured server-side via users.subscription_tier
+ * (web Stripe webhook and POST /subscriptions/iap/verify both write the same field).
  *
- * IAP: enabled on iOS by default; set EXPO_PUBLIC_IAP_ENABLED=false to disable.
- * Android IAP: set EXPO_PUBLIC_IAP_ENABLED=true when Play products are live.
+ * Kill-switch: EXPO_PUBLIC_IAP_ENABLED=false disables native IAP (dev only).
+ * Default is enabled on native so store builds do not require a secret flag.
  */
 
 import { Platform, Linking } from 'react-native';
@@ -24,15 +23,19 @@ export type PaidTier = 'tradie' | 'team';
 const DEEP_LINK_SUCCESS = 'bossboard://subscription/success';
 const DEEP_LINK_CANCEL = 'bossboard://subscription/cancel';
 
-export function isIapEnabledForPlatform(): boolean {
-  const flag = process.env.EXPO_PUBLIC_IAP_ENABLED;
-  if (flag === 'false') return false;
-  if (flag === 'true') return true;
-  // Ship default: iOS uses App Store billing; Android opt-in via flag
-  return Platform.OS === 'ios';
+function isNativeStorePlatform(): boolean {
+  return Platform.OS === 'ios' || Platform.OS === 'android';
 }
 
-/** Phase 1: open Stripe-hosted Checkout (not used as iOS primary). */
+/** IAP is on by default on native; set EXPO_PUBLIC_IAP_ENABLED=false to force-disable. */
+function isIapEnabled(): boolean {
+  if (process.env.EXPO_PUBLIC_IAP_ENABLED === 'false') return false;
+  // Explicit true always on; default true on native store platforms
+  if (process.env.EXPO_PUBLIC_IAP_ENABLED === 'true') return true;
+  return isNativeStorePlatform();
+}
+
+/** Phase 1: open Stripe-hosted Checkout (web / non-store only). */
 export async function openStripeCheckout(tier: PaidTier): Promise<'opened' | 'beta' | 'error'> {
   const res = await subscriptionsApi.createCheckoutSession({
     tier,
@@ -55,7 +58,8 @@ export async function openStripeCheckout(tier: PaidTier): Promise<'opened' | 'be
 
 /**
  * Phase 2: PaymentSheet via @stripe/stripe-react-native.
- * Used on Android / when store IAP is unavailable — not the iOS App Store path.
+ * Dynamic import so Expo Go without native module still loads the app.
+ * Used on web / non-store only — never as the primary native upgrade path.
  */
 export async function presentStripePaymentSheet(
   tier: PaidTier
@@ -72,17 +76,10 @@ export async function presentStripePaymentSheet(
   }
 
   const res = await subscriptionsApi.createPaymentSheetSession({ tier });
-  const data = res.data?.data as
-    | {
-        betaMode?: boolean;
-        paymentIntentClientSecret?: string;
-        customerId?: string;
-        ephemeralKeySecret?: string;
-      }
-    | undefined;
+  const data = res.data?.data;
   if (data?.betaMode) return 'beta';
-  if (!data?.paymentIntentClientSecret || !data?.customerId || !data?.ephemeralKeySecret) {
-    return 'unavailable';
+  if (!data?.paymentIntentClientSecret || !data?.ephemeralKeySecret) {
+    return 'error';
   }
 
   const { error: initError } = await initPaymentSheet({
@@ -92,15 +89,15 @@ export async function presentStripePaymentSheet(
     paymentIntentClientSecret: data.paymentIntentClientSecret,
     allowsDelayedPaymentMethods: false,
     applePay: Platform.OS === 'ios' ? { merchantCountryCode: 'NZ' } : undefined,
-    googlePay:
-      Platform.OS === 'android'
-        ? { merchantCountryCode: 'NZ', testEnv: __DEV__ }
-        : undefined,
+    googlePay: Platform.OS === 'android'
+      ? { merchantCountryCode: 'NZ', testEnv: false, currencyCode: 'NZD' }
+      : undefined,
     returnURL: DEEP_LINK_SUCCESS,
   });
+
   if (initError) {
     console.warn('[payments] initPaymentSheet', initError.message);
-    return 'unavailable';
+    return 'error';
   }
 
   const { error: presentError } = await presentPaymentSheet();
@@ -112,14 +109,51 @@ export async function presentStripePaymentSheet(
   return 'paid';
 }
 
+type IapOutcome = 'verified' | 'beta' | 'unavailable' | 'canceled' | 'error';
+
+function extractPurchaseFields(purchase: any): {
+  transactionId: string;
+  receiptOrToken: string;
+  productId?: string;
+} {
+  const transactionId = String(
+    purchase?.transactionId ||
+      purchase?.id ||
+      purchase?.orderId ||
+      purchase?.purchaseToken ||
+      ''
+  );
+  const receiptOrToken = String(
+    purchase?.transactionReceipt || purchase?.purchaseToken || purchase?.transactionId || ''
+  );
+  const productId = purchase?.productId || purchase?.productIds?.[0] || purchase?.id;
+  return { transactionId, receiptOrToken, productId };
+}
+
+async function verifyPurchaseWithServer(
+  productId: string,
+  purchase: any
+): Promise<'verified' | 'beta' | 'error'> {
+  const { transactionId, receiptOrToken } = extractPurchaseFields(purchase);
+  if (!transactionId || !receiptOrToken) return 'error';
+
+  const verify = await subscriptionsApi.verifyIap({
+    platform: Platform.OS === 'ios' ? 'ios' : 'android',
+    productId,
+    transactionId,
+    receiptOrToken,
+  });
+  if (verify.data?.data?.betaMode) return 'beta';
+  if (verify.data?.data?.verified) return 'verified';
+  return 'error';
+}
+
 /**
- * Phase 3: native IAP (StoreKit / Play).
- * Requires react-native-iap, store products, and server verify (IAP_APPLE_SHARED_SECRET on API).
+ * Native IAP via react-native-iap + server verify.
+ * Default-on for iOS/Android store builds.
  */
-export async function purchaseWithStoreIap(
-  tier: PaidTier
-): Promise<'verified' | 'beta' | 'unavailable' | 'error'> {
-  if (!isIapEnabledForPlatform()) {
+export async function purchaseWithStoreIap(tier: PaidTier): Promise<IapOutcome> {
+  if (!isIapEnabled()) {
     return 'unavailable';
   }
 
@@ -140,50 +174,50 @@ export async function purchaseWithStoreIap(
 
     await RNIap.initConnection();
 
-    // Ensure product is known to the store before purchase
+    // Ensure product is known to the store before requesting
     try {
-      if (RNIap.getSubscriptions) {
+      if (typeof RNIap.getSubscriptions === 'function') {
         await RNIap.getSubscriptions({ skus: [productId] });
-      } else if (RNIap.getProducts) {
-        await RNIap.getProducts({ skus: [productId] });
+      } else if (typeof RNIap.fetchProducts === 'function') {
+        await RNIap.fetchProducts({ skus: [productId], type: 'subs' });
       }
     } catch (e) {
       console.warn('[payments] IAP product fetch', e);
     }
 
-    const purchase = await RNIap.requestSubscription({
-      sku: productId,
-      ...(Platform.OS === 'android' ? { subscriptionOffers: undefined } : {}),
-    });
-
-    const purchaseObj = Array.isArray(purchase) ? purchase[0] : purchase;
-    const transactionId =
-      purchaseObj?.transactionId ||
-      purchaseObj?.purchaseToken ||
-      purchaseObj?.transactionReceipt;
-    const receiptOrToken =
-      purchaseObj?.transactionReceipt || purchaseObj?.purchaseToken || '';
-
-    if (!transactionId || !receiptOrToken) {
-      return 'error';
+    let purchase: any;
+    try {
+      purchase = await RNIap.requestSubscription({
+        sku: productId,
+        // Android Play Billing Library 5+ may need offer tokens from getSubscriptions;
+        // when present on the SKU response, RNIap attaches them. sku-only works for
+        // single-base-plan subscriptions configured in Play Console.
+        andDangerouslyFinishTransactionAutomaticallyIOS: false,
+      });
+    } catch (e: any) {
+      const code = e?.code || e?.message || '';
+      if (
+        String(code).includes('E_USER_CANCELLED') ||
+        String(code).toLowerCase().includes('cancel')
+      ) {
+        return 'canceled';
+      }
+      throw e;
     }
 
-    const verify = await subscriptionsApi.verifyIap({
-      platform: Platform.OS === 'ios' ? 'ios' : 'android',
-      productId,
-      transactionId: String(transactionId),
-      receiptOrToken: String(receiptOrToken),
-    });
-    if (verify.data?.data?.betaMode) return 'beta';
-    if (verify.data?.data?.verified) {
+    // requestSubscription can return an array on some Android paths
+    const purchaseObj = Array.isArray(purchase) ? purchase[0] : purchase;
+    if (!purchaseObj) return 'error';
+
+    const result = await verifyPurchaseWithServer(productId, purchaseObj);
+    if (result === 'verified') {
       try {
         await RNIap.finishTransaction({ purchase: purchaseObj, isConsumable: false });
       } catch {
-        /* ignore finish errors */
+        /* ignore finish errors — server already activated */
       }
-      return 'verified';
     }
-    return 'error';
+    return result;
   } catch (e) {
     console.warn('[payments] IAP', e);
     return 'error';
@@ -197,42 +231,92 @@ export async function purchaseWithStoreIap(
 }
 
 /**
- * Platform-aware upgrade entry.
- * iOS → IAP only (App Store). Android → IAP if enabled, else Stripe.
+ * Restore previous store purchases (App Store / Play requirement).
+ * Verifies each available purchase with the API and activates the best tier.
+ */
+export async function restoreStorePurchases(): Promise<
+  'restored' | 'none' | 'beta' | 'unavailable' | 'error'
+> {
+  if (!isIapEnabled() || !isNativeStorePlatform()) {
+    return 'unavailable';
+  }
+
+  let RNIap: any;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    RNIap = require('react-native-iap');
+  } catch {
+    return 'unavailable';
+  }
+
+  try {
+    const cat = await subscriptionsApi.getIapProducts();
+    const products = cat.data?.data?.products;
+    const known = new Set(
+      Platform.OS === 'ios'
+        ? [products?.ios?.tradie, products?.ios?.team].filter(Boolean)
+        : [products?.android?.tradie, products?.android?.team].filter(Boolean)
+    );
+
+    await RNIap.initConnection();
+    const available: any[] =
+      (await RNIap.getAvailablePurchases?.()) ||
+      (await RNIap.getPurchaseHistory?.()) ||
+      [];
+
+    let anyVerified = false;
+    for (const purchase of available) {
+      const productId =
+        purchase?.productId || purchase?.productIds?.[0] || purchase?.id;
+      if (!productId || !known.has(productId)) continue;
+      const result = await verifyPurchaseWithServer(String(productId), purchase);
+      if (result === 'beta') return 'beta';
+      if (result === 'verified') {
+        anyVerified = true;
+        try {
+          await RNIap.finishTransaction?.({ purchase, isConsumable: false });
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    return anyVerified ? 'restored' : 'none';
+  } catch (e) {
+    console.warn('[payments] restore', e);
+    return 'error';
+  } finally {
+    try {
+      await RNIap?.endConnection?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * Start paid upgrade using the store-compliant rail for this platform.
+ *
+ * Native → IAP only (no Stripe fallback).
+ * Web → PaymentSheet then Checkout.
  */
 export async function startPaidUpgrade(tier: PaidTier): Promise<{
   channel: 'payment_sheet' | 'iap' | 'checkout' | 'beta' | 'none';
   result: string;
-  message?: string;
 }> {
-  // --- iOS: App Store IAP is the production path for digital subscriptions ---
-  if (Platform.OS === 'ios') {
+  // ── App Store / Play: IAP only ──────────────────────────────────────────
+  if (isNativeStorePlatform()) {
     const iap = await purchaseWithStoreIap(tier);
     if (iap === 'beta') return { channel: 'beta', result: 'beta' };
     if (iap === 'verified') return { channel: 'iap', result: 'verified' };
-    if (iap === 'unavailable') {
-      return {
-        channel: 'none',
-        result: 'error',
-        message:
-          'App Store subscriptions are not available on this build yet. ' +
-          'Install a store build with In-App Purchases configured, or try again later.',
-      };
-    }
+    if (iap === 'canceled') return { channel: 'iap', result: 'canceled' };
+    // Do not open Stripe from the binary — 3.1.1 / Play Billing policy.
     return {
       channel: 'iap',
-      result: 'error',
-      message:
-        'Could not complete App Store purchase. Check you are signed into the App Store, ' +
-        'that subscription products are available, and try again.',
+      result: iap === 'unavailable' ? 'unavailable' : 'error',
     };
   }
 
-  // --- Android / other: prefer Play IAP when enabled, else Stripe ---
-  const iap = await purchaseWithStoreIap(tier);
-  if (iap === 'beta') return { channel: 'beta', result: 'beta' };
-  if (iap === 'verified') return { channel: 'iap', result: 'verified' };
-
+  // ── Web / other: Stripe rails ───────────────────────────────────────────
   const sheet = await presentStripePaymentSheet(tier);
   if (sheet === 'beta') return { channel: 'beta', result: 'beta' };
   if (sheet === 'paid') return { channel: 'payment_sheet', result: 'paid' };
@@ -249,6 +333,6 @@ export default {
   openStripeCheckout,
   presentStripePaymentSheet,
   purchaseWithStoreIap,
+  restoreStorePurchases,
   startPaidUpgrade,
-  isIapEnabledForPlatform,
 };
