@@ -1,6 +1,7 @@
 /**
- * SWMS detail always exposes an in-content Back control (no recording needed).
- * Regression: App Review walk trapped on SWMS Details with no chevron.
+ * SWMS detail production nav: header Back only (BackButton + safeGoBack).
+ * No duplicate in-content Back on happy path.
+ * Error/missing may show "Back to Home".
  */
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
@@ -36,6 +37,7 @@ jest.mock('react-native', () => {
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 
+/** Render Stack.Screen headerLeft so BackButton is in the tree under test */
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'swms-1' }),
   useRouter: () => ({
@@ -43,7 +45,12 @@ jest.mock('expo-router', () => ({
     back: mockBack,
     replace: mockReplace,
   }),
-  Stack: { Screen: () => null },
+  Stack: {
+    Screen: ({ options }: { options?: { headerLeft?: () => React.ReactNode } }) => {
+      const Left = options?.headerLeft;
+      return Left ? <>{Left()}</> : null;
+    },
+  },
 }));
 
 jest.mock('../services/api', () => ({
@@ -82,25 +89,26 @@ const sampleDoc = {
   updated_at: '2026-07-18T09:00:00Z',
 };
 
-describe('SWMSDetailScreen back escape', () => {
+describe('SWMSDetailScreen production back nav', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCanGoBack.mockReturnValue(false);
     mockGet.mockResolvedValue({ data: { success: true, data: { document: sampleDoc } } });
   });
 
-  it('renders in-content Back control with testID after load', async () => {
+  it('shows document and single header Back (screen-back-button), not in-content Back', async () => {
     const screen = render(<SWMSDetailScreen />);
-    await waitFor(() => expect(screen.getByTestId('swms-detail-back')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Demo residential kitchen/i)).toBeTruthy());
+    expect(screen.getByTestId('screen-back-button')).toBeTruthy();
     expect(screen.getByLabelText('Go back')).toBeTruthy();
-    expect(screen.getByText(/Demo residential kitchen/i)).toBeTruthy();
+    expect(screen.queryByTestId('swms-detail-back')).toBeNull();
   });
 
-  it('Back uses safeGoBack fallback to tabs when no history', async () => {
+  it('header Back uses safeGoBack fallback to tabs when no history', async () => {
     const screen = render(<SWMSDetailScreen />);
-    await waitFor(() => expect(screen.getByTestId('swms-detail-back')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('screen-back-button')).toBeTruthy());
     await act(async () => {
-      fireEvent.press(screen.getByTestId('swms-detail-back'));
+      fireEvent.press(screen.getByTestId('screen-back-button'));
     });
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     expect(mockBack).not.toHaveBeenCalled();
@@ -109,9 +117,7 @@ describe('SWMSDetailScreen back escape', () => {
   it('shows Back to Home when document missing after failed load', async () => {
     mockGet.mockRejectedValueOnce(new Error('fail'));
     const screen = render(<SWMSDetailScreen />);
-    // load fails → safeGoBack may fire; also not-found UI
     await waitFor(() => {
-      // either navigated away via replace, or not-found back button
       const missing = screen.queryByTestId('swms-detail-back-missing');
       const replaced = mockReplace.mock.calls.length > 0;
       expect(missing || replaced).toBeTruthy();

@@ -14,7 +14,7 @@
 |---------|-----------|
 | Onboarding 3-step + Setup Error + Skip | ✅ onboarding-screen |
 | Validation email/bank | ✅ onboardingValidation |
-| SWMS detail back escape | ✅ swms-detail-back + BackButton |
+| SWMS detail back escape (header only in production) | ✅ swms-detail-back + BackButton |
 | All [id] detail escape static | ✅ detail-screen-escape.static |
 | Invoice safeGoBack | ✅ invoice-detail-escape |
 | withBackHeader | ✅ withBackHeader |

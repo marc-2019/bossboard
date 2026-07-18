@@ -28,7 +28,7 @@ Found pre-Apple via physical Screen Recordings + Marc driving the app.
 
 | Change | Path |
 |--------|------|
-| Always-visible header Back + in-content Back | `swms/[id].tsx`, `BackButton`, `withBackHeader` |
+| Always-visible header Back (`BackButton` + `safeGoBack`); no dual body Back on happy path | `swms/[id].tsx`, `BackButton`, `withBackHeader` |
 | `safeGoBack` fallback to tabs | `navigation.ts` |
 | Generate uses `push` not `replace` | `swms/generate.tsx` |
 

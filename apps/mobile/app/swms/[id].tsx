@@ -2,9 +2,9 @@
  * SWMS Detail Screen
  * View and sign SWMS document
  *
- * Navigation: always provide an escape hatch. iOS native header back is missing
- * when canGoBack() is false (e.g. open via replace after generate, or deep link).
- * Marc report 2026-07-18 App Review walk: trapped on SWMS details.
+ * Production nav: single header Back (BackButton + safeGoBack). No duplicate
+ * in-content Back on the happy path. Error/missing states may show "Back to Home".
+ * App Review 2026-07-18: native header alone was missing when canGoBack() was false.
  */
 
 import { useState, useEffect } from 'react';
@@ -207,17 +207,6 @@ export default function SWMSDetailScreen() {
           headerLeft: () => <BackButton fallback={SWMS_FALLBACK} />,
         }}
       />
-      {/* In-content escape if stack header is missing (nested navigator / replace) */}
-      <TouchableOpacity
-        onPress={() => safeGoBack(router, SWMS_FALLBACK)}
-        style={styles.inContentBack}
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        testID="swms-detail-back"
-      >
-        <Ionicons name="chevron-back" size={22} color="#FF6B35" />
-        <Text style={styles.inContentBackText}>Back</Text>
-      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={styles.title}>{document.title}</Text>
         <View style={styles.metaRow}>
