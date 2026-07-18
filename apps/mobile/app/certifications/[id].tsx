@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { certificationsApi } from '../../src/services/api';
 
@@ -104,9 +105,9 @@ export default function CertificationDetailScreen() {
 
   // Always have a guaranteed way out: if there is nothing to go back to
   // (deep link, empty stack, navigation not yet settled), fall back to the
-  // People tab instead of a no-op router.back() that would re-trap the user.
+  // People tab instead of a no-op safeGoBack(router, '/(tabs)') that would re-trap the user.
   const safeBack = useCallback(() => {
-    if (router.canGoBack()) router.back();
+    if (router.canGoBack()) safeGoBack(router, '/(tabs)');
     else router.replace('/(tabs)/people' as any);
   }, [router]);
 

@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { productsApi } from '../../src/services/api';
 
@@ -131,7 +132,7 @@ export default function ProductDetailScreen() {
           onPress: async () => {
             try {
               await productsApi.delete(id!);
-              router.back();
+              safeGoBack(router, '/(tabs)');
             } catch (error) {
               Alert.alert('Error', 'Failed to delete product');
             }
@@ -158,7 +159,7 @@ export default function ProductDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Product not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeGoBack(router, '/(tabs)')}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>

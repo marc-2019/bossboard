@@ -15,6 +15,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
 
@@ -94,7 +95,7 @@ export default function JobLogDetailScreen() {
     } catch (error) {
       console.error('Failed to load job log:', error);
       Alert.alert('Error', 'Failed to load job log');
-      router.back();
+      safeGoBack(router, '/(tabs)');
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +127,7 @@ export default function JobLogDetailScreen() {
           onPress: async () => {
             try {
               await jobLogsApi.delete(id as string);
-              router.back();
+              safeGoBack(router, '/(tabs)');
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete job log');
             }

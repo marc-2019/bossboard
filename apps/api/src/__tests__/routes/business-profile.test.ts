@@ -150,6 +150,31 @@ describe('Business Profile Routes', () => {
       expect(response.body.error).toBe('VALIDATION_ERROR');
     });
 
+    // Regression 2026-07-18: empty/whitespace email must not 400 — coerce to omitted.
+    it('should accept empty-string companyEmail as omitted', async () => {
+      mockUpsertBusinessProfile.mockResolvedValue({ id: 'bp-1' });
+      const response = await request(app)
+        .put('/api/v1/business-profile')
+        .send({ companyEmail: '', companyName: 'Test Co' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(mockUpsertBusinessProfile).toHaveBeenCalledWith(
+        'test-user-id',
+        expect.objectContaining({ companyName: 'Test Co', companyEmail: undefined })
+      );
+    });
+
+    it('should accept whitespace-only companyEmail as omitted', async () => {
+      mockUpsertBusinessProfile.mockResolvedValue({ id: 'bp-1' });
+      const response = await request(app)
+        .put('/api/v1/business-profile')
+        .send({ companyEmail: '   ' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
     it('should reject invoicePrefix longer than 10 characters', async () => {
       const response = await request(app)
         .put('/api/v1/business-profile')

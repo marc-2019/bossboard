@@ -73,10 +73,18 @@ export default function GenerateSWMSScreen() {
 
       if (response.data.success) {
         const docId = response.data.data.document.id;
+        // Use push (not replace) so the stack keeps Generate → Detail history.
+        // replace left canGoBack() false and trapped users on detail with no native back
+        // (App Review walk 2026-07-18). safeGoBack still falls back to tabs if needed.
         Alert.alert('Success', 'SWMS document generated!', [
           {
             text: 'View Document',
-            onPress: () => router.replace(`/swms/${docId}` as any),
+            onPress: () => router.push(`/swms/${docId}` as any),
+          },
+          {
+            text: 'Done',
+            style: 'cancel',
+            onPress: () => safeGoBack(router, '/(tabs)'),
           },
         ]);
       }

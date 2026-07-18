@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { teamsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -120,7 +121,7 @@ export default function TeamMemberDetailScreen() {
           onPress: async () => {
             try {
               await teamsApi.removeMember(team.id, member.id);
-              router.back();
+              safeGoBack(router, '/(tabs)');
             } catch (error) {
               Alert.alert('Error', 'Failed to remove team member');
             }
@@ -188,7 +189,7 @@ export default function TeamMemberDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="person-outline" size={48} color="#D1D5DB" />
         <Text style={styles.errorText}>Team member not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeGoBack(router, '/(tabs)')}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>

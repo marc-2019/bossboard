@@ -1,6 +1,10 @@
 /**
  * SWMS Detail Screen
  * View and sign SWMS document
+ *
+ * Navigation: always provide an escape hatch. iOS native header back is missing
+ * when canGoBack() is false (e.g. open via replace after generate, or deep link).
+ * Marc report 2026-07-18 App Review walk: trapped on SWMS details.
  */
 
 import { useState, useEffect } from 'react';
@@ -13,10 +17,14 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { swmsApi } from '../../src/services/api';
 import PhotoAttachments from '../../src/components/PhotoAttachments';
+import { BackButton } from '../../src/components/BackButton';
+import { safeGoBack } from '../../src/utils/navigation';
+
+const SWMS_FALLBACK = '/(tabs)';
 
 interface Hazard {
   id: string;
@@ -65,7 +73,7 @@ export default function SWMSDetailScreen() {
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to load document');
-      router.back();
+      safeGoBack(router, SWMS_FALLBACK);
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +124,7 @@ export default function SWMSDetailScreen() {
           onPress: async () => {
             try {
               await swmsApi.delete(id as string);
-              router.back();
+              safeGoBack(router, SWMS_FALLBACK);
             } catch (error) {
               Alert.alert('Error', 'Failed to delete document');
             }
@@ -152,17 +160,64 @@ export default function SWMSDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen
+          options={{
+            title: 'SWMS Details',
+            headerShown: true,
+            headerBackVisible: false,
+            headerLeft: () => <BackButton fallback={SWMS_FALLBACK} />,
+          }}
+        />
         <ActivityIndicator size="large" color="#2563EB" />
       </View>
     );
   }
 
   if (!document) {
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <Stack.Screen
+          options={{
+            title: 'SWMS Details',
+            headerShown: true,
+            headerBackVisible: false,
+            headerLeft: () => <BackButton fallback={SWMS_FALLBACK} />,
+          }}
+        />
+        <Text style={styles.metaText}>Document not found</Text>
+        <TouchableOpacity
+          onPress={() => safeGoBack(router, SWMS_FALLBACK)}
+          style={styles.inContentBack}
+          testID="swms-detail-back-missing"
+        >
+          <Ionicons name="chevron-back" size={22} color="#FF6B35" />
+          <Text style={styles.inContentBackText}>Back to Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Stack.Screen
+        options={{
+          title: 'SWMS Details',
+          headerShown: true,
+          headerBackVisible: false,
+          headerLeft: () => <BackButton fallback={SWMS_FALLBACK} />,
+        }}
+      />
+      {/* In-content escape if stack header is missing (nested navigator / replace) */}
+      <TouchableOpacity
+        onPress={() => safeGoBack(router, SWMS_FALLBACK)}
+        style={styles.inContentBack}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        testID="swms-detail-back"
+      >
+        <Ionicons name="chevron-back" size={22} color="#FF6B35" />
+        <Text style={styles.inContentBackText}>Back</Text>
+      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={styles.title}>{document.title}</Text>
         <View style={styles.metaRow}>
@@ -348,6 +403,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  inContentBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginBottom: 12,
+    paddingVertical: 4,
+    paddingRight: 12,
+  },
+  inContentBackText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF6B35',
   },
   header: {
     marginBottom: 24,

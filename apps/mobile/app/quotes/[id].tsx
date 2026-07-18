@@ -16,6 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -215,7 +216,7 @@ export default function QuoteDetailScreen() {
         onPress: async () => {
           try {
             await quotesApi.delete(quote.id);
-            router.back();
+            safeGoBack(router, '/(tabs)');
           } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to delete quote');
           }
@@ -288,7 +289,7 @@ export default function QuoteDetailScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => safeGoBack(router, '/(tabs)')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>

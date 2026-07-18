@@ -14,27 +14,37 @@ const router = Router();
 // VALIDATION SCHEMAS
 // =============================================================================
 
+/** Empty / whitespace strings → undefined so optional fields don't fail Zod .email() etc. */
+const emptyToUndef = (v: unknown) =>
+  typeof v === 'string' && v.trim() === '' ? undefined : v;
+
+const optionalText = z.preprocess(emptyToUndef, z.string().optional());
+const optionalEmail = z.preprocess(
+  emptyToUndef,
+  z.string().email('Invalid email format').optional()
+);
+
 const upsertSchema = z.object({
-  companyName: z.string().optional(),
-  tradingAs: z.string().optional(),
-  irdNumber: z.string().optional(),
-  gstNumber: z.string().optional(),
+  companyName: optionalText,
+  tradingAs: optionalText,
+  irdNumber: optionalText,
+  gstNumber: optionalText,
   isGstRegistered: z.boolean().optional(),
-  companyAddress: z.string().optional(),
-  companyPhone: z.string().optional(),
-  companyEmail: z.string().email('Invalid email format').optional(),
-  bankAccountName: z.string().optional(),
-  bankAccountNumber: z.string().optional(),
-  bankName: z.string().optional(),
-  intlBankAccountName: z.string().optional(),
-  intlIban: z.string().optional(),
-  intlSwiftBic: z.string().optional(),
-  intlBankName: z.string().optional(),
-  intlBankAddress: z.string().optional(),
-  intlRoutingNumber: z.string().optional(),
+  companyAddress: optionalText,
+  companyPhone: optionalText,
+  companyEmail: optionalEmail,
+  bankAccountName: optionalText,
+  bankAccountNumber: optionalText,
+  bankName: optionalText,
+  intlBankAccountName: optionalText,
+  intlIban: optionalText,
+  intlSwiftBic: optionalText,
+  intlBankName: optionalText,
+  intlBankAddress: optionalText,
+  intlRoutingNumber: optionalText,
   defaultPaymentTerms: z.number().int().min(1).max(365).optional(),
-  defaultNotes: z.string().optional(),
-  invoicePrefix: z.string().max(10).optional(),
+  defaultNotes: optionalText,
+  invoicePrefix: z.preprocess(emptyToUndef, z.string().max(10).optional()),
 });
 
 // =============================================================================

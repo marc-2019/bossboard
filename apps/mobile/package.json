@@ -17,7 +17,9 @@
     "export:web": "expo export --platform web",
     "e2e:install-maestro": "curl -Ls 'https://get.maestro.mobile.dev' | bash",
     "e2e:mobile": "maestro test .maestro/",
-    "e2e:mobile:single": "maestro test"
+    "e2e:mobile:single": "maestro test",
+    "test:app-review-regressions": "jest --testPathPattern='onboarding|navigation|BackButton|swms-detail|detail-screen-escape|withBackHeader|invoice-detail' --coverage=false",
+    "test:critical-journeys": "jest --testPathPattern='onboarding|navigation|BackButton|swms-detail|detail-screen-escape|withBackHeader|invoice-detail' --coverage=false"
   },
   "dependencies": {
     "@bossboard/shared": "*",

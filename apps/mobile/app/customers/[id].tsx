@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { customersApi } from '../../src/services/api';
 
@@ -80,7 +81,7 @@ export default function CustomerDetailScreen() {
               const response = await customersApi.delete(id);
               if (response.data.success) {
                 Alert.alert('Success', 'Customer deleted');
-                router.back();
+                safeGoBack(router, '/(tabs)');
               }
             } catch (error) {
               console.error('Failed to delete customer:', error);
@@ -107,7 +108,7 @@ export default function CustomerDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Customer not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeGoBack(router, '/(tabs)')}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>

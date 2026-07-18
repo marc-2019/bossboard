@@ -20,7 +20,13 @@ import {
   Alert,
 } from 'react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { businessProfileApi } from '../../src/services/api';
+import { businessProfileApi, api, ApiError } from '../../src/services/api';
+import {
+  validateOnboardingFields,
+  formatApiStepError,
+  normalizeNzBankAccountNumber,
+  type OnboardingFieldErrors,
+} from '../../src/utils/onboardingValidation';
 
 const TRADE_TYPES = [
   { id: 'electrician', label: '⚡ Electrician' },
@@ -37,6 +43,7 @@ export default function OnboardingScreen() {
   const { user, completeOnboarding, refreshUser } = useAuth();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<OnboardingFieldErrors>({});
 
   // Step 1: Trade & Business
   const [tradeType, setTradeType] = useState(user?.tradeType || '');
@@ -65,58 +72,117 @@ export default function OnboardingScreen() {
     }
   }
 
+  async function finishWithoutProfile() {
+    await completeOnboarding();
+    await refreshUser();
+  }
+
+  function showSetupError(detail: string) {
+    Alert.alert(
+      'Setup Error',
+      `${detail}\n\nYou can update company details later in Settings, or skip setup to use the app now.`,
+      [
+        { text: 'Try Again', style: 'cancel' },
+        {
+          text: 'Skip for Now',
+          onPress: async () => {
+            try {
+              await finishWithoutProfile();
+            } catch (e) {
+              Alert.alert(
+                'Error',
+                formatApiStepError(e, 'Complete setup')
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
   async function handleNext() {
     if (step < TOTAL_STEPS) {
+      // Validate company email when leaving step 2
+      if (step === 2) {
+        const errs = validateOnboardingFields({
+          companyEmail,
+          bankAccountNumber: '',
+        });
+        if (errs.companyEmail) {
+          setFieldErrors(errs);
+          return;
+        }
+        setFieldErrors({});
+      }
       setStep(step + 1);
       return;
     }
 
-    // Final step - save profile and complete onboarding
-    setIsSubmitting(true);
-    try {
-      // Save business profile with all collected data
-      await businessProfileApi.update({
-        companyName: businessName.trim() || undefined,
-        companyAddress: companyAddress.trim() || undefined,
-        companyPhone: companyPhone.trim() || undefined,
-        companyEmail: companyEmail.trim() || undefined,
-        bankAccountName: bankAccountName.trim() || undefined,
-        bankAccountNumber: bankAccountNumber.trim() || undefined,
-        bankName: bankName.trim() || undefined,
-      });
+    // Final step — client validation first (App Review recording 2026-07-18)
+    const errs = validateOnboardingFields({ companyEmail, bankAccountNumber });
+    if (errs.companyEmail || errs.bankAccountNumber) {
+      setFieldErrors(errs);
+      const msg = [errs.companyEmail, errs.bankAccountNumber].filter(Boolean).join('\n');
+      Alert.alert('Check your details', msg);
+      return;
+    }
+    setFieldErrors({});
 
-      // Update user profile with trade type if changed
-      if (tradeType) {
-        const { api } = await import('../../src/services/api');
-        await api.put('/api/v1/auth/me', {
-          tradeType,
-          businessName: businessName.trim() || undefined,
+    setIsSubmitting(true);
+    const bankNumber = bankAccountNumber.trim()
+      ? normalizeNzBankAccountNumber(bankAccountNumber)
+      : undefined;
+
+    try {
+      // Step A — business profile (may fail independently)
+      try {
+        const profileRes = await businessProfileApi.update({
+          companyName: businessName.trim() || undefined,
+          companyAddress: companyAddress.trim() || undefined,
+          companyPhone: companyPhone.trim() || undefined,
+          companyEmail: companyEmail.trim() || undefined,
+          bankAccountName: bankAccountName.trim() || undefined,
+          bankAccountNumber: bankNumber,
+          bankName: bankName.trim() || undefined,
         });
+        if (profileRes.data && profileRes.data.success === false) {
+          throw new ApiError(
+            profileRes.data.message || 'Business profile save failed',
+            profileRes.status || 400,
+            profileRes.data.error || 'PROFILE_SAVE_FAILED'
+          );
+        }
+      } catch (e) {
+        console.error('Onboarding profile step:', e);
+        showSetupError(formatApiStepError(e, 'Business profile'));
+        return;
       }
 
-      // Mark onboarding complete
-      await completeOnboarding();
-      await refreshUser();
-    } catch (error) {
-      console.error('Onboarding error:', error);
-      Alert.alert(
-        'Setup Error',
-        'There was an issue saving your details. You can update them later in Settings.',
-        [
-          { text: 'Try Again', style: 'cancel' },
-          {
-            text: 'Skip for Now',
-            onPress: async () => {
-              try {
-                await completeOnboarding();
-                await refreshUser();
-              } catch {
-                Alert.alert('Error', 'Failed to complete setup. Please try again.');
-              }
-            },
-          },
-        ]
-      );
+      // Step B — trade / business name on user
+      if (tradeType) {
+        try {
+          const meRes = await api.put('/api/v1/auth/me', {
+            tradeType,
+            businessName: businessName.trim() || undefined,
+          });
+          if (meRes.data && meRes.data.success === false) {
+            throw new Error(meRes.data.message || 'Profile update failed');
+          }
+        } catch (e) {
+          console.error('Onboarding auth/me step:', e);
+          showSetupError(formatApiStepError(e, 'Trade / business name'));
+          return;
+        }
+      }
+
+      // Step C — mark onboarding complete
+      try {
+        await completeOnboarding();
+        await refreshUser();
+      } catch (e) {
+        console.error('Onboarding complete step:', e);
+        showSetupError(formatApiStepError(e, 'Finish setup'));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -246,15 +312,24 @@ export default function OnboardingScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Business Email</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, fieldErrors.companyEmail ? styles.inputError : null]}
                   value={companyEmail}
-                  onChangeText={setCompanyEmail}
+                  onChangeText={(t) => {
+                    setCompanyEmail(t);
+                    if (fieldErrors.companyEmail) {
+                      setFieldErrors((e) => ({ ...e, companyEmail: undefined }));
+                    }
+                  }}
                   placeholder="accounts@yourbusiness.co.nz"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
-                <Text style={styles.hint}>Used as the reply-to on emailed invoices</Text>
+                {fieldErrors.companyEmail ? (
+                  <Text style={styles.fieldError}>{fieldErrors.companyEmail}</Text>
+                ) : (
+                  <Text style={styles.hint}>Used as the reply-to on emailed invoices</Text>
+                )}
               </View>
             </>
           )}
@@ -280,14 +355,23 @@ export default function OnboardingScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Account Number</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, fieldErrors.bankAccountNumber ? styles.inputError : null]}
                   value={bankAccountNumber}
-                  onChangeText={setBankAccountNumber}
+                  onChangeText={(t) => {
+                    setBankAccountNumber(t);
+                    if (fieldErrors.bankAccountNumber) {
+                      setFieldErrors((e) => ({ ...e, bankAccountNumber: undefined }));
+                    }
+                  }}
                   placeholder="00-0000-0000000-00"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="number-pad"
                 />
-                <Text style={styles.hint}>NZ bank account format</Text>
+                {fieldErrors.bankAccountNumber ? (
+                  <Text style={styles.fieldError}>{fieldErrors.bankAccountNumber}</Text>
+                ) : (
+                  <Text style={styles.hint}>NZ format: 01-1234-5678901-00 (or leave blank)</Text>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -316,6 +400,24 @@ export default function OnboardingScreen() {
             {step > 1 && step < TOTAL_STEPS && (
               <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
                 <Text style={styles.skipButtonText}>Skip</Text>
+              </TouchableOpacity>
+            )}
+            {/* Final step: allow finishing without saving profile (App Review / flaky network) */}
+            {step === TOTAL_STEPS && !isSubmitting && (
+              <TouchableOpacity
+                style={styles.skipButton}
+                onPress={async () => {
+                  try {
+                    setIsSubmitting(true);
+                    await finishWithoutProfile();
+                  } catch (e) {
+                    Alert.alert('Error', formatApiStepError(e, 'Complete setup'));
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+              >
+                <Text style={styles.skipButtonText}>Skip setup</Text>
               </TouchableOpacity>
             )}
 
@@ -444,6 +546,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#374151',
     marginBottom: 6,
+  },
+  inputError: {
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+  },
+  fieldError: {
+    fontSize: 13,
+    color: '#DC2626',
+    marginTop: 6,
   },
   input: {
     backgroundColor: '#F9FAFB',

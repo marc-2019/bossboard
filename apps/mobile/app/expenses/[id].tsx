@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { expensesApi } from '../../src/services/api';
 
@@ -62,7 +63,7 @@ export default function ExpenseDetailScreen() {
     } catch (error) {
       console.error('Failed to load expense:', error);
       Alert.alert('Error', 'Failed to load expense');
-      router.back();
+      safeGoBack(router, '/(tabs)');
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +81,7 @@ export default function ExpenseDetailScreen() {
           onPress: async () => {
             try {
               await expensesApi.delete(id as string);
-              router.back();
+              safeGoBack(router, '/(tabs)');
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete expense');
             }

@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function SwmsLayout() {
   return (
@@ -10,8 +11,14 @@ export default function SwmsLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="generate" options={{ title: 'Generate SWMS' }} />
-      <Stack.Screen name="[id]" options={{ title: 'SWMS Details' }} />
+      <Stack.Screen
+        name="generate"
+        options={withBackHeader('Generate SWMS', { fallback: '/(tabs)' })}
+      />
+      <Stack.Screen
+        name="[id]"
+        options={withBackHeader('SWMS Details', { fallback: '/(tabs)' })}
+      />
     </Stack>
   );
 }

@@ -15,6 +15,7 @@ import {
   Share,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeGoBack } from '../../src/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -187,7 +188,7 @@ export default function InvoiceDetailScreen() {
               const response = await invoicesApi.delete(id);
               if (response.data.success) {
                 Alert.alert('Success', 'Invoice deleted');
-                router.back();
+                safeGoBack(router, '/(tabs)');
               }
             } catch (error) {
               Alert.alert('Error', 'Failed to delete invoice');
@@ -322,7 +323,7 @@ export default function InvoiceDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Invoice not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeGoBack(router, '/(tabs)')}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
