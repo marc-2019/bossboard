@@ -687,9 +687,10 @@ export async function attachStripePaymentLink(params: {
  */
 export async function getInvoiceByShareToken(token: string): Promise<Record<string, unknown> | null> {
   const result = await db.query<Record<string, unknown>>(
+    // Q3 2026 pen-test: business_profiles has no logo_url — selecting it 500'd every public share lookup.
     `SELECT i.*,
             bp.company_name, bp.company_address, bp.company_phone, bp.company_email,
-            bp.ird_number, bp.gst_number, bp.logo_url,
+            bp.ird_number, bp.gst_number,
             bp.intl_bank_account_name, bp.intl_iban, bp.intl_swift_bic, bp.intl_bank_name
      FROM invoices i
      LEFT JOIN business_profiles bp ON bp.user_id = i.user_id

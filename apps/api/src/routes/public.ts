@@ -58,6 +58,13 @@ router.get('/invoices/:token', async (req: Request, res: Response) => {
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    // Q3 2026 pen-test: defence-in-depth headers on server-rendered public HTML
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; frame-ancestors 'none'; base-uri 'none'"
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
     res.send(renderInvoicePage(invoice, paymentLinkUrl));
   } catch (error) {
     console.error('Public invoice error:', error);
@@ -123,7 +130,8 @@ function renderInvoicePage(
 ): string {
   const lineItems = (inv.line_items as Array<{ description: string; amount: number }>) || [];
   const statusClass = inv.status === 'paid' ? 'status-paid' : inv.status === 'overdue' ? 'status-overdue' : 'status-sent';
-  const statusLabel = String(inv.status || 'draft').toUpperCase();
+  // escapeHtml even for enum status — never raw-insert into HTML (Q3 2026 pen-test)
+  const statusLabel = escapeHtml(String(inv.status || 'draft').toUpperCase());
 
   let lineItemsHtml = '';
   for (const item of lineItems) {
