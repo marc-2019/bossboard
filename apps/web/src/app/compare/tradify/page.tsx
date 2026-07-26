@@ -31,14 +31,17 @@ const UPDATED = '2026-07-26';
 export default function CompareTradifyPage() {
   return (
     <div className="landing-page compare-page">
-      <nav className="lp-nav">
-        <div className="lp-container lp-nav-inner">
-          <Link href="/" className="lp-logo">
-            BossBoard
+      <nav className="nav">
+        <div className="nav-inner">
+          <Link href="/" className="nav-logo">
+            Boss<span>Board</span>
           </Link>
-          <div className="lp-nav-links">
+          <div className="nav-links">
             <Link href="/#features">Features</Link>
             <Link href="/#pricing">Pricing</Link>
+            <Link href="/login" className="nav-signin">
+              Sign in
+            </Link>
             <Link href="/register" className="lp-btn lp-btn-primary">
               Get started
             </Link>
@@ -46,7 +49,7 @@ export default function CompareTradifyPage() {
         </div>
       </nav>
 
-      <main className="lp-container" style={{ paddingTop: '2.5rem', paddingBottom: '3rem', maxWidth: 860 }}>
+      <main className="lp-container" style={{ paddingTop: '6rem', paddingBottom: '3rem', maxWidth: 860 }}>
         <p className="compare-meta">
           Comparison · New Zealand tradies · Last updated {UPDATED} ·{' '}
           <span>Author: Instilligent Limited</span>
@@ -139,8 +142,8 @@ export default function CompareTradifyPage() {
                   <a href="/#pricing">pricing</a>
                 </td>
                 <td>
-                  Higher monthly price class than solo-first apps (historically ~$30–50/mo range —
-                  <em> re-verify dated</em>)
+                  Typically higher monthly price class than solo-first apps —{' '}
+                  <em>verify current pricing on Tradify&apos;s site</em>
                 </td>
               </tr>
               <tr>

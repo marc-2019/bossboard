@@ -407,18 +407,19 @@
   color: white;
 }
 
-/* Compare / answer-component pages */
+/* Compare / answer-component pages (dark theme — match landing tokens) */
 .landing-page.compare-page .compare-meta {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--lp-text-muted);
   margin-bottom: 0.75rem;
 }
 .landing-page.compare-page .compare-answer {
-  background: rgba(124, 58, 237, 0.06);
+  background: rgba(124, 58, 237, 0.12);
   border-left: 3px solid #7c3aed;
   padding: 1rem 1.15rem;
   margin: 1.25rem 0 1.75rem;
   border-radius: 0 8px 8px 0;
+  color: var(--lp-text);
 }
 .landing-page.compare-page .compare-answer p {
   margin: 0 0 0.75rem;
@@ -428,7 +429,7 @@
 }
 .landing-page.compare-page .compare-note {
   font-size: 0.9rem;
-  color: #4b5563;
+  color: var(--lp-text-muted);
 }
 .landing-page.compare-page .compare-table-wrap {
   overflow-x: auto;
@@ -440,32 +441,36 @@
   border-collapse: collapse;
   font-size: 0.92rem;
   min-width: 520px;
+  color: var(--lp-text);
 }
 .landing-page.compare-page .compare-table th,
 .landing-page.compare-page .compare-table td {
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(124, 58, 237, 0.28);
   padding: 0.65rem 0.75rem;
   text-align: left;
   vertical-align: top;
 }
 .landing-page.compare-page .compare-table th {
-  background: #f5f3ff;
+  background: rgba(124, 58, 237, 0.22);
   font-weight: 600;
+  color: var(--lp-text);
 }
 .landing-page.compare-page .compare-callout {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 8px;
   padding: 1rem 1.15rem;
   margin: 0.75rem 0 1.5rem;
+  color: var(--lp-text);
 }
 .landing-page.compare-page .compare-faq dt {
   font-weight: 600;
   margin-top: 1rem;
+  color: var(--lp-text);
 }
 .landing-page.compare-page .compare-faq dd {
   margin: 0.35rem 0 0;
-  color: #374151;
+  color: var(--lp-text-muted);
 }
 
 .landing-page .footer-links {

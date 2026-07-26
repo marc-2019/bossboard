@@ -9,13 +9,13 @@ BossBoard streamlines the "paperwork" of running a trade business. It provides A
 - **AI SWMS**: AI-assisted SWMS template generation aligned with the NZ Health and Safety at Work Act 2015 — templates and starting material, not legal advice. While the operator stays accountable as the PCBU, the first draft is done in seconds, not hours.
 - **Invoicing & Quotes**: Professional documents with 15% GST built in.
 - **Job Tracking**: Real-time logging of hours, site photos (GPS-tagged), and expenses.
-- **Team Management**: Coordinate crew, assign jobs, and manage roles.
+- **Team Management**: Coordinate crew, invite members, and manage roles.
 - **Offline Sync**: Works without signal; syncs automatically when back online.
 
 ## Key Pages
 - [Homepage](https://bossboard.instilligent.com) - Main landing page and feature overview.
 - [BossBoard vs Tradify](https://bossboard.instilligent.com/compare/tradify) - Same-criteria comparison for NZ solo tradies (SWMS, GST, offline, honest limits).
-- [Sign Up](https://bossboard.instilligent.com/auth/signup) - User registration.
+- [Sign Up](https://bossboard.instilligent.com/register) - User registration.
 - [Pricing](https://bossboard.instilligent.com#pricing) - Subscription tiers (Free, Tradie, Team).
 - [Privacy Policy](https://api.instilligent.com/legal/privacy) - Privacy and data handling.
 - [Terms of Service](https://api.instilligent.com/legal/terms) - Usage terms.

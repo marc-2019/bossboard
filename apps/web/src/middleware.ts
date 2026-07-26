@@ -5,16 +5,21 @@ import { ACCESS_TOKEN_COOKIE } from './lib/constants';
 // Routes anyone (logged-in or not) can hit. Marketing landing at `/` is
 // included as an exact match — it can't go in PUBLIC_PATHS because
 // pathname.startsWith('/') would match every URL.
-const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/invoice', '/klaro/', '/compare'];
+const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/invoice', '/klaro/'];
 const PUBLIC_EXACT = new Set<string>(['/', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/llms.txt', '/humans.txt']);
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_EXACT.has(pathname)) return true;
+  if (pathname === '/compare' || pathname.startsWith('/compare/')) return true;
+  return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths, API routes, and static assets
   if (
-    PUBLIC_EXACT.has(pathname) ||
-    PUBLIC_PATHS.some(p => pathname.startsWith(p)) ||
+    isPublicPath(pathname) ||
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/')
   ) {
