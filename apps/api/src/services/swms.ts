@@ -232,17 +232,11 @@ export async function generateSWMS(
     }
   }
 
-  // Ensure we always have hazards and controls (use defaults if AI failed or was disabled)
+  // Ensure we always have hazards and controls (static defaults only — never re-call AI here;
+  // generateHazardSuggestions already falls back internally, and useAI=false must not hit the model)
   if (suggestedHazards.length === 0) {
-    console.log(`[SWMS] No hazards generated, using defaults for ${input.tradeType}`);
-    const defaultHazardStrings = await claudeService.generateHazardSuggestions(
-      input.tradeType,
-      input.jobDescription,
-      input.siteAddress || ''
-    ).catch(() => []);
-
-    // If even defaults failed, use hardcoded fallbacks
-    const hazardStrings = defaultHazardStrings.length > 0 ? defaultHazardStrings : getTradeHazards(input.tradeType);
+    console.log(`[SWMS] No hazards generated, using static defaults for ${input.tradeType}`);
+    const hazardStrings = getTradeHazards(input.tradeType);
 
     suggestedHazards = hazardStrings.map((description, index) => ({
       id: `hazard-${index}`,

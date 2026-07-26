@@ -10,6 +10,7 @@ import pdfService, { SWMSPdfInput } from '../services/pdf.js';
 import auditLog from '../services/audit-log.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, checkLimit, requireFeature } from '../middleware/subscription.js';
+import { aiBurstLimit } from '../middleware/aiBurstLimit.js';
 
 // App error type for error handling
 interface AppError extends Error {
@@ -102,10 +103,15 @@ router.post(
   authenticate,
   attachSubscription,
   checkLimit('swms'),
-  // Add AI call limit check if useAI is enabled (default is true)
+  // Monthly tier AI cap + per-user burst when AI is enabled (default true)
   async (req, res, next) => {
     if (req.body.useAI !== false) {
-      return checkLimit('aiCall')(req, res, next);
+      return checkLimit('aiCall')(req, res, (err?: unknown) => {
+        if (err) return next(err);
+        // If monthly check already responded (LIMIT_REACHED), do not continue
+        if (res.headersSent) return;
+        return aiBurstLimit(req, res, next);
+      });
     }
     next();
   },

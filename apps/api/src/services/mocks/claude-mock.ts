@@ -181,6 +181,9 @@ function detectTrade(promptText: string): string {
 }
 
 function isHazardPrompt(p: string): boolean {
+  // Current claude.ts: "suggest SWMS hazards" + "JSON array of hazard strings"
+  // Legacy: "JSON array" + hazard without control-measures framing
+  if (/suggest SWMS hazards/i.test(p)) return true;
   return /hazard/i.test(p) && /json array/i.test(p) && !/control/i.test(p.split('Example')[0] ?? p);
 }
 
@@ -193,30 +196,35 @@ function isRiskAssessmentPrompt(p: string): boolean {
 }
 
 function isValidatePrompt(p: string): boolean {
-  return /completenessScore/i.test(p) || /Validate.*SWMS/i.test(p);
+  return /completenessScore/i.test(p) || /Validate.*SWMS/i.test(p) || /review a SWMS document/i.test(p);
 }
 
 function isSectionCompletionPrompt(p: string): boolean {
-  // claude.ts builds this prompt as "...helping complete a Safe Work Method
-  // Statement." — match "complete a Safe Work Method Statement" so the real
-  // wording is detected (the earlier "completing a" form never matched).
+  // Current: "suggest completions for empty/incomplete fields in a SWMS section"
+  // Legacy: "complete a Safe Work Method Statement" + fieldName example
+  if (/SWMS section/i.test(p) && /suggest completions/i.test(p)) return true;
   return /complet(?:e|ing) a Safe Work Method Statement/i.test(p) && /fieldName/i.test(p);
 }
 
-// Extract hazard list from a controls prompt — services/claude.ts builds the
-// prompt with `Hazards: ${JSON.stringify(hazards)}`. Best-effort regex parse
-// so the mock returns controls keyed on the actual hazards the caller asked
-// about (the parser in claude.ts requires this exact match).
+// Extract hazard list from a controls prompt. Current claude.ts wraps the
+// JSON array in <untrusted_user_data label="hazards_json">…</…>.
+// Legacy used `Hazards: ${JSON.stringify(hazards)}`.
 function extractHazardsFromControlsPrompt(p: string): string[] {
-  const match = p.match(/Hazards:\s*(\[[\s\S]*?\])/);
-  if (!match) return [];
-  try {
-    const parsed = JSON.parse(match[1]);
-    if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'string')) {
-      return parsed as string[];
+  const patterns = [
+    /label="hazards_json">\s*(\[[\s\S]*?\])\s*<\/untrusted_user_data>/,
+    /Hazards:\s*(\[[\s\S]*?\])/,
+  ];
+  for (const re of patterns) {
+    const match = p.match(re);
+    if (!match) continue;
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'string')) {
+        return parsed as string[];
+      }
+    } catch {
+      // try next pattern
     }
-  } catch {
-    // fall through to []
   }
   return [];
 }
