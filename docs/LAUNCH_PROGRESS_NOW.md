@@ -1,8 +1,31 @@
 # BossBoard launch progress (dual-track)
 
-**Updated:** 2026-07-18 (feedback live)  
+**Updated:** 2026-07-26 (paid-KR ops pass)  
 **Policy:** `docs/LAUNCH_DUAL_TRACK.md`  
-**Card:** `ec01e123`
+**Card:** dual-track is a **company KR** (not task) — residual card `ec01e123` cancelled earlier
+
+## Paid KR status (2026-07-26 probe)
+
+| Item | Status | Evidence |
+|------|--------|----------|
+| API health | **PASS** | `api.instilligent.com/health` 200, db+redis, version 0.5.0 |
+| Marketing web | **PASS** | bossboard.instilligent.com 200 |
+| Feedback endpoint | **PASS** (auth-gated) | GET `/api/v1/feedback` → 401 without JWT (endpoint live) |
+| Subscriptions plans | **PASS** (auth-gated) | GET `/api/v1/subscriptions/plans` → 401 without JWT |
+| **web_launched_at** | **null** | No real paid Stripe client recorded |
+| **BETA_MODE** | **still free-beta default** | Code: paid only when `BETA_MODE=false` exact; Railway flip = Marc EXTERNAL |
+| Paid-client detector | **not built** | Listed in LAUNCH_DUAL_TRACK automation table |
+
+### Paid KR — what advances “3/4 → 4/4”
+
+1. **Marc EXTERNAL:** Confirm live Stripe keys + non-localhost `STRIPE_RETURN_URL` + webhook secret on Railway.  
+2. **Marc DECIDE:** Flip `BETA_MODE=false` (re-deploy API). Boot fails closed if Stripe incomplete.  
+3. **One real paid Tradie sub** (money charged) → set `web_launched_at` + evidence id (no secrets in git).  
+4. App IAP track remains independent (Console EXTERNAL).
+
+**Not agent-shippable alone:** BETA flip + first paid customer require Marc/Stripe Dashboard.
+
+---
 
 ## Dual-track scoreboard
 
