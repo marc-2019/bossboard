@@ -29,19 +29,19 @@
       "id": "bossboard.compare-tradify-page",
       "claim": "BossBoard vs Tradify comparison page for NZ solo tradies: same-criteria table; AI SWMS is draft/template only (PCBU remains responsible); BossBoard may still be beta/not charging \u2014 verify pricing on site; Tradify pricing/features marked verify where not re-sourced.",
       "surfaces": [
-        "apps/web/src/app/compare/tradify/page.tsx",
-        "apps/web/src/app/page.tsx",
-        "apps/web/public/llms.txt",
-        "apps/web/public/sitemap.xml"
+        "docs/content/archive/compare-tradify-page-2026-07-26.tsx",
+        "docs/content/answer-component-bb-vs-tradify-brief-2026-07-26.md"
       ],
       "evidence_references": [
         "docs/content/answer-component-bb-vs-tradify-brief-2026-07-26.md",
         "apps/web/public/llms.txt AI SWMS + PCBU framing",
         "LAUNCH_PROGRESS_NOW paid KR / BETA_MODE EXTERNAL"
       ],
-      "verdict": "IMPLEMENTED",
-      "last_verified": "2026-07-26",
-      "previous_overclaim": "None \u2014 page deliberately avoids #1 claims, fabricated reviews, and fixed Tradify prices without dated re-verify."
+      "verdict": "PARKED",
+      "last_verified": "2026-07-27",
+      "previous_overclaim": "None \u2014 page deliberately avoids #1 claims, fabricated reviews, and fixed Tradify prices without dated re-verify.",
+      "decision": "park_public",
+      "decision_notes": "Marc 2026-07-27: remove from public site for now; keep archive for later. Archive: docs/content/archive/compare-tradify-page-2026-07-26.tsx; brief: docs/content/answer-component-bb-vs-tradify-brief-2026-07-26.md. CF: docs/ops/OUTSTANDING-ITEMS + decision note."
     },
     {
       "id": "bossboard.hero-origin-framing",
@@ -81,8 +81,7 @@
         "landing/index.html",
         "apps/web/src/app/page.tsx",
         "apps/web/public/llms.txt",
-        "llms.txt",
-        "apps/web/src/app/compare/tradify/page.tsx"
+        "llms.txt"
       ],
       "evidence_references": [
         "reference_copy_library_bossboard.md: operator stays accountable, never 'compliant with'",

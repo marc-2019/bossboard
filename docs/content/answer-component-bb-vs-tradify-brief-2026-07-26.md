@@ -1,11 +1,13 @@
 # Answer component brief — BossBoard vs Tradify (NZ solo tradie)
 
 **Type:** Citation Gap **decision + evidence** page (not a generic blog).  
-**Frozen prompts closed (target):** BB-03, BB-04 (supports BB-01, BB-06).  
+**Status (2026-07-27):** **PARKED — not public.** Marc: remove from site for now; keep archive.  
+**Archive:** `archive/compare-tradify-page-2026-07-26.tsx` · CF: `cortexforge/docs/ops/decision-bb-park-compare-tradify-2026-07-27.md`  
+**Frozen prompts closed (target when un-parked):** BB-03, BB-04 (supports BB-01, BB-06).  
 **Primary URL (proposed):** `https://bossboard.instilligent.com/compare/tradify`  
   Fallbacks: `/vs/tradify` or a stable marketing path you already use.  
 **Author:** Marc Armstrong / Instilligent · **Visible update date:** required on page.  
-**Do not publish until:** marketing-truths check + pricing honesty (BETA) + four-eyes if customer-facing.
+**Do not publish until:** Marc-yes + marketing-truths check + pricing honesty (BETA) + four-eyes.
 
 ---
 

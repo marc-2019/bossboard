@@ -359,7 +359,6 @@ export default function Home() {
           <div className="footer-links">
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
-            <Link href="/compare/tradify">vs Tradify</Link>
             <a
               href="https://instilligent.com"
               target="_blank"
