@@ -3,7 +3,7 @@
 **Purpose:** Close the “Security audit (OWASP top 10)” launch-checklist line with
 **evidence**, not a one-shot AI prompt. Update rows when code/tests change.
 
-**Last update:** 2026-07-26  
+**Last update:** 2026-07-26 (second pass — citation page + evidence chip)  
 **Scope:** `apps/api` + `apps/web` (product). Mobile store policies separate.
 
 Status: **PARTIAL** — several items PROVEN via code/tests/live probes; formal
@@ -13,9 +13,9 @@ pass not complete for every route class.
 |-------|-------------------|--------|----------|
 | A01 Broken Access Control | Cross-tenant read/write | PARTIAL | App-level `user_id` on queries/UPSERTs; sync tenant tests. **GAP:** Postgres RLS |
 | A02 Cryptographic Failures | JWT/secrets at rest | PARTIAL | JWT secrets required at boot; Stripe/Anthropic server-only |
-| A03 Injection | SQL / XSS / prompt | PARTIAL | Parameterized SQL; Zod validation; AI untrusted framing + system policy (2026-07-26 `claude.ts`) |
-| A04 Insecure Design | Abuse of AI/billing | PARTIAL | Monthly AI tier caps + per-user burst (`aiBurstLimit`); subscription middleware |
-| A05 Security Misconfiguration | Headers / CORS | PROVEN (API) | Helmet + live CSP/HSTS; CORS allow-list; prod deny-all if unset. Live OPTIONS 2026-07-26 |
+| A03 Injection | SQL / XSS / prompt | PARTIAL→stronger | Parameterized SQL; Zod validation; AI untrusted framing + system policy + output filter (2026-07-26 `claude.ts`); public compare page is static (no user HTML) |
+| A04 Insecure Design | Abuse of AI/billing | PARTIAL→stronger | Monthly AI tier caps + per-user burst (`aiBurstLimit` on SWMS generate); subscription middleware |
+| A05 Security Misconfiguration | Headers / CORS | PROVEN (API) | Helmet + live CSP/HSTS; CORS allow-list; prod deny-all if unset. Live OPTIONS 2026-07-26; middleware public allowlist includes `/compare` |
 | A06 Vulnerable Components | npm CVEs | PARTIAL | Dependabot open on repo — triage ongoing |
 | A07 Auth Failures | Login/reset abuse | PROVEN | Auth rate limit; enumeration-safe forgot; reset/verify lockout tests (`auth-recovery.test.ts`) |
 | A08 Software/Data Integrity | Webhooks | PARTIAL | Stripe raw body + HMAC path |

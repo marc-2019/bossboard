@@ -14,10 +14,11 @@ BossBoard streamlines the "paperwork" of running a trade business. It provides A
 
 ## Key Pages
 - [Homepage](https://bossboard.instilligent.com) - Main landing page and feature overview.
+- [BossBoard vs Tradify](https://bossboard.instilligent.com/compare/tradify) - Same-criteria comparison for NZ solo tradies (SWMS, GST, offline, honest limits).
 - [Sign Up](https://bossboard.instilligent.com/auth/signup) - User registration.
 - [Pricing](https://bossboard.instilligent.com#pricing) - Subscription tiers (Free, Tradie, Team).
-- [Privacy Policy](https://bossboard.instilligent.com/privacy) - Privacy and data handling.
-- [Terms of Service](https://bossboard.instilligent.com/terms) - Usage terms.
+- [Privacy Policy](https://api.instilligent.com/legal/privacy) - Privacy and data handling.
+- [Terms of Service](https://api.instilligent.com/legal/terms) - Usage terms.
 
 ## Contact
 - **Email**: info@instilligent.com

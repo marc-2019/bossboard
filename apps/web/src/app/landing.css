@@ -407,6 +407,67 @@
   color: white;
 }
 
+/* Compare / answer-component pages */
+.landing-page.compare-page .compare-meta {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 0.75rem;
+}
+.landing-page.compare-page .compare-answer {
+  background: rgba(124, 58, 237, 0.06);
+  border-left: 3px solid #7c3aed;
+  padding: 1rem 1.15rem;
+  margin: 1.25rem 0 1.75rem;
+  border-radius: 0 8px 8px 0;
+}
+.landing-page.compare-page .compare-answer p {
+  margin: 0 0 0.75rem;
+}
+.landing-page.compare-page .compare-answer p:last-child {
+  margin-bottom: 0;
+}
+.landing-page.compare-page .compare-note {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+.landing-page.compare-page .compare-table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0 1.75rem;
+  -webkit-overflow-scrolling: touch;
+}
+.landing-page.compare-page .compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  min-width: 520px;
+}
+.landing-page.compare-page .compare-table th,
+.landing-page.compare-page .compare-table td {
+  border: 1px solid #e5e7eb;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.landing-page.compare-page .compare-table th {
+  background: #f5f3ff;
+  font-weight: 600;
+}
+.landing-page.compare-page .compare-callout {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 1rem 1.15rem;
+  margin: 0.75rem 0 1.5rem;
+}
+.landing-page.compare-page .compare-faq dt {
+  font-weight: 600;
+  margin-top: 1rem;
+}
+.landing-page.compare-page .compare-faq dd {
+  margin: 0.35rem 0 0;
+  color: #374151;
+}
+
 .landing-page .footer-links {
   display: flex;
   gap: 24px;

@@ -6,7 +6,7 @@
   "last_full_audit_by": "claude+marc",
   "audit_doc": "~/cf-research/marketing-audits/bossboard-2026-04-30.md",
   "cf_directive": "customer-facing-copy-requires-product-claim-audit",
-  "_note": "Fourth marketing-truths.json in the portfolio. BossBoard had the highest FTA risk fact pattern in the audit (paid Team-tier features that didn't exist in code). Recall PR #2 dropped those; recall PR #3 (2026-05-11) softened residual compliance promises (Compliant → Built to standards), removed remaining Team-tier scheduling/dispatch survivors in legacy landing.html, scrubbed brand-bleed (TradeMate aliases) from llms.txt, and reframed cashflow as revenue.",
+  "_note": "Fourth marketing-truths.json in the portfolio. BossBoard had the highest FTA risk fact pattern in the audit (paid Team-tier features that didn't exist in code). Recall PR #2 dropped those; recall PR #3 (2026-05-11) softened residual compliance promises (Compliant \u2192 Built to standards), removed remaining Team-tier scheduling/dispatch survivors in legacy landing.html, scrubbed brand-bleed (TradeMate aliases) from llms.txt, and reframed cashflow as revenue.",
   "product_claims": [
     {
       "id": "bossboard.legal-entity-nzbn",
@@ -19,22 +19,40 @@
         ".git-hooks/brand-name-dictionary.json"
       ],
       "evidence_references": [
-        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 — company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
+        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 \u2014 company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-06-24",
       "previous_overclaim": "Customer-facing surfaces carried THREE wrong NZBNs (9429051598102 in landings, 9429051796498 in legal.ts, 9429051796284 in the brand-name dictionary). None appeared on any authoritative source. Corrected to the registered 9429041896853 on 2026-06-24 (Marc-approved in-session after reviewing the before/after)."
     },
     {
+      "id": "bossboard.compare-tradify-page",
+      "claim": "BossBoard vs Tradify comparison page for NZ solo tradies: same-criteria table; AI SWMS is draft/template only (PCBU remains responsible); BossBoard may still be beta/not charging \u2014 verify pricing on site; Tradify pricing/features marked verify where not re-sourced.",
+      "surfaces": [
+        "apps/web/src/app/compare/tradify/page.tsx",
+        "apps/web/src/app/page.tsx",
+        "apps/web/public/llms.txt",
+        "apps/web/public/sitemap.xml"
+      ],
+      "evidence_references": [
+        "docs/content/answer-component-bb-vs-tradify-brief-2026-07-26.md",
+        "apps/web/public/llms.txt AI SWMS + PCBU framing",
+        "LAUNCH_PROGRESS_NOW paid KR / BETA_MODE EXTERNAL"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-07-26",
+      "previous_overclaim": "None \u2014 page deliberately avoids #1 claims, fabricated reviews, and fixed Tradify prices without dated re-verify."
+    },
+    {
       "id": "bossboard.hero-origin-framing",
-      "claim": "Built for NZ tradies · Made in Aotearoa",
+      "claim": "Built for NZ tradies \u00b7 Made in Aotearoa",
       "surfaces": [
         "apps/web/src/app/page.tsx",
         "apps/api/src/landing.html",
         "landing/index.html"
       ],
       "evidence_references": [
-        "Positioning only: product targets NZ tradies (package.json description, SWMS/GST/NZ features). Built by Instilligent Limited (NZ company) — NOT by 'NZ builders' as a trade identity. Marc is not a builder; false 'by NZ builders' badge dropped 2026-07-12 after Marc catch on live site."
+        "Positioning only: product targets NZ tradies (package.json description, SWMS/GST/NZ features). Built by Instilligent Limited (NZ company) \u2014 NOT by 'NZ builders' as a trade identity. Marc is not a builder; false 'by NZ builders' badge dropped 2026-07-12 after Marc catch on live site."
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-07-12",
@@ -49,21 +67,22 @@
         "landing/index.html"
       ],
       "evidence_references": [
-        "Positioning claim — no headcount assertion. Softened 2026-07-11 (Marc-approved in-session) after claim-audit B-17 overclaim on implied existing user base."
+        "Positioning claim \u2014 no headcount assertion. Softened 2026-07-11 (Marc-approved in-session) after claim-audit B-17 overclaim on implied existing user base."
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-07-11",
-      "previous_overclaim": "Was 'Join hundreds of Kiwi tradies who've ditched the paperwork' (recalled 2026-04-30). Softened interim: 'Join early Kiwi tradies in beta who are ditching the paperwork' (still implied existing cohort — OVERCLAIM B-17 2026-07-07). Softened 2026-07-11 to audience-only positioning with no user-count implication."
+      "previous_overclaim": "Was 'Join hundreds of Kiwi tradies who've ditched the paperwork' (recalled 2026-04-30). Softened interim: 'Join early Kiwi tradies in beta who are ditching the paperwork' (still implied existing cohort \u2014 OVERCLAIM B-17 2026-07-07). Softened 2026-07-11 to audience-only positioning with no user-count implication."
     },
     {
       "id": "bossboard.compliance-framing",
-      "claim": "SWMS templates aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off.",
+      "claim": "SWMS templates aligned to the Health and Safety at Work Act 2015 \u2014 you stay the PCBU and sign off.",
       "surfaces": [
         "apps/api/src/landing.html",
         "landing/index.html",
         "apps/web/src/app/page.tsx",
         "apps/web/public/llms.txt",
-        "llms.txt"
+        "llms.txt",
+        "apps/web/src/app/compare/tradify/page.tsx"
       ],
       "evidence_references": [
         "reference_copy_library_bossboard.md: operator stays accountable, never 'compliant with'",
@@ -71,7 +90,7 @@
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-07-11",
-      "previous_overclaim": "Was 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'GST-compliant documents'. Recalled 2026-05-11. 2026-07-11: dropped 'Built to WorkSafe NZ standards' / 'WorkSafe NZ aligned' headlines (claim-audit B-13 medium) — keep HSWA-aligned + PCBU sign-off only; no WorkSafe sponsorship implication."
+      "previous_overclaim": "Was 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'GST-compliant documents'. Recalled 2026-05-11. 2026-07-11: dropped 'Built to WorkSafe NZ standards' / 'WorkSafe NZ aligned' headlines (claim-audit B-13 medium) \u2014 keep HSWA-aligned + PCBU sign-off only; no WorkSafe sponsorship implication."
     },
     {
       "id": "bossboard.brand-name",
@@ -91,7 +110,7 @@
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-05-19",
-      "previous_overclaim": "Old llms.txt files described product as 'BossBoard (also known as TradeMate NZ)' / 'BossBoard (TradeMate NZ)'. Aliases scrubbed 2026-05-11. 2026-05-19 verification: grep across customer-facing files (llms.txt, both landings, page.tsx rendered text, README.md) returns no TradeMate aliases in rendered copy. Code comment at page.tsx:16 references historical Railway service name (internal, not customer-facing). Container/path names + Stripe metadata field `trademate_user_id` retained as documented contract surfaces (CLAUDE.md). Two customer-facing legal docs (PRIVACY_NOTICE.md + DATA_RESIDENCY_IMPLEMENTATION_NOTES.md) still carry TradeMate strings — out of scope here, tracked separately."
+      "previous_overclaim": "Old llms.txt files described product as 'BossBoard (also known as TradeMate NZ)' / 'BossBoard (TradeMate NZ)'. Aliases scrubbed 2026-05-11. 2026-05-19 verification: grep across customer-facing files (llms.txt, both landings, page.tsx rendered text, README.md) returns no TradeMate aliases in rendered copy. Code comment at page.tsx:16 references historical Railway service name (internal, not customer-facing). Container/path names + Stripe metadata field `trademate_user_id` retained as documented contract surfaces (CLAUDE.md). Two customer-facing legal docs (PRIVACY_NOTICE.md + DATA_RESIDENCY_IMPLEMENTATION_NOTES.md) still carry TradeMate strings \u2014 out of scope here, tracked separately."
     },
     {
       "id": "bossboard.cashflow-forecasting",
@@ -101,13 +120,13 @@
         "llms.txt#L23"
       ],
       "code_references": [
-        "Module 2 in CLAUDE.md (Q2-Q3 2026 — UNRELEASED)"
+        "Module 2 in CLAUDE.md (Q2-Q3 2026 \u2014 UNRELEASED)"
       ],
       "verdict": "ABSENT",
       "decision": "soften",
-      "decision_notes": "Framed as Coming Q2 2026 (truthful future-tense). Three sub-features all still absent: (a) no Xero OAuth code path — grep 'xero' across apps/api/src/services + routes returns 0 hits; (b) no invoice-chasing workflow — `overdue` is a status enum value in apps/api/src/services/invoices.ts but no automated reminder/chase service exists (only certification reminders in apps/api/src/services/notifications.ts:140); (c) no forecasting endpoint — apps/api/src/routes/stats.ts surfaces revenue history only. 2026-07-11: page.tsx invoicing card no longer says 'chase overdue invoices' (claim-audit B-6).",
+      "decision_notes": "Framed as Coming Q2 2026 (truthful future-tense). Three sub-features all still absent: (a) no Xero OAuth code path \u2014 grep 'xero' across apps/api/src/services + routes returns 0 hits; (b) no invoice-chasing workflow \u2014 `overdue` is a status enum value in apps/api/src/services/invoices.ts but no automated reminder/chase service exists (only certification reminders in apps/api/src/services/notifications.ts:140); (c) no forecasting endpoint \u2014 apps/api/src/routes/stats.ts surfaces revenue history only. 2026-07-11: page.tsx invoicing card no longer says 'chase overdue invoices' (claim-audit B-6).",
       "last_verified": "2026-07-11",
-      "previous_overclaim": "Was framed as available core feature. Reality: Xero integration is Q2-Q3 2026, dashboard shows revenue history only. 2026-05-19 update: today's Phase 1 paid-checkout commit (ba90ce4) wires subscription billing via Stripe but does NOT touch Xero/cashflow/chasing scope — claim remains ABSENT."
+      "previous_overclaim": "Was framed as available core feature. Reality: Xero integration is Q2-Q3 2026, dashboard shows revenue history only. 2026-05-19 update: today's Phase 1 paid-checkout commit (ba90ce4) wires subscription billing via Stripe but does NOT touch Xero/cashflow/chasing scope \u2014 claim remains ABSENT."
     },
     {
       "id": "bossboard.team-tier-features.recalled",
@@ -118,11 +137,11 @@
         "https://github.com/marc-2019/trademate-nz/pull/2 (Team-tier recall)",
         "Legacy landing.html + landing/index.html survivors removed 2026-05-11"
       ],
-      "reason": "No scheduling routes, no assignment routes, no dispatch logic. Not in CLAUDE.md What's Built or What's Next (Unreleased). Highest FTA s9/s13 fact pattern in 2026-04-30 audit. Two legacy landings still listed these features post-PR#2; removed 2026-05-11. 2026-05-19 re-verification: grep '(schedul|dispatch|assign.*job)' across apps/api/src/routes/ + services/ confirms no scheduling or job-assignment endpoints. Team-tier pricing card lists only 'Up to 5 team members' + 'Team roles & permissions'. 2026-07-11: team feature card softened to 'Manage your crew. Invite team members, set roles…' — dropped 'assign jobs, track who's where' (claim-audit B-8)."
+      "reason": "No scheduling routes, no assignment routes, no dispatch logic. Not in CLAUDE.md What's Built or What's Next (Unreleased). Highest FTA s9/s13 fact pattern in 2026-04-30 audit. Two legacy landings still listed these features post-PR#2; removed 2026-05-11. 2026-05-19 re-verification: grep '(schedul|dispatch|assign.*job)' across apps/api/src/routes/ + services/ confirms no scheduling or job-assignment endpoints. Team-tier pricing card lists only 'Up to 5 team members' + 'Team roles & permissions'. 2026-07-11: team feature card softened to 'Manage your crew. Invite team members, set roles\u2026' \u2014 dropped 'assign jobs, track who's where' (claim-audit B-8)."
     },
     {
       "id": "bossboard.swms",
-      "claim": "AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 — operator stays accountable as the PCBU.",
+      "claim": "AI-assisted SWMS generation aligned to the Health and Safety at Work Act 2015 \u2014 operator stays accountable as the PCBU.",
       "surfaces": [
         "apps/web/src/app/page.tsx#L136-142",
         "apps/web/src/app/page.tsx#L295-296",
@@ -137,7 +156,7 @@
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-06-09",
-      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with...' — implied product certifies output. Reframed 2026-05-11 as AI-assisted + operator-accountable. 2026-05-19 re-verification: page.tsx:136-142 carries 'AI-Assisted SWMS Drafts ... hazard suggestions ... aligned to ... not legal advice. While you stay accountable as the PCBU'; page.tsx:295-296 carries 'SWMS templates aligned to Health and Safety at Work Act 2015 — operator signs off.' Voice-A disclaimer pattern intact. 2026-06-09: web CRUD-parity build added an in-app SWMS generation form (swms/new) + detail view (swms/[id]). The generate form carries the Voice-A disclaimer verbatim: 'Generated documents are designed to align with the NZ Health and Safety at Work Act 2015. BossBoard is not affiliated with WorkSafe NZ or any government agency.' — uses 'align with', not 'compliant'; explicit WorkSafe non-affiliation. No certification/guarantee implication."
+      "previous_overclaim": "Was 'AI-powered SWMS generation compliant with...' \u2014 implied product certifies output. Reframed 2026-05-11 as AI-assisted + operator-accountable. 2026-05-19 re-verification: page.tsx:136-142 carries 'AI-Assisted SWMS Drafts ... hazard suggestions ... aligned to ... not legal advice. While you stay accountable as the PCBU'; page.tsx:295-296 carries 'SWMS templates aligned to Health and Safety at Work Act 2015 \u2014 operator signs off.' Voice-A disclaimer pattern intact. 2026-06-09: web CRUD-parity build added an in-app SWMS generation form (swms/new) + detail view (swms/[id]). The generate form carries the Voice-A disclaimer verbatim: 'Generated documents are designed to align with the NZ Health and Safety at Work Act 2015. BossBoard is not affiliated with WorkSafe NZ or any government agency.' \u2014 uses 'align with', not 'compliant'; explicit WorkSafe non-affiliation. No certification/guarantee implication."
     },
     {
       "id": "bossboard.invoicing",
@@ -223,7 +242,7 @@
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-05-11",
-      "previous_overclaim": "Was 'automated expiry alerts'. Reframed 2026-05-11 — 'automated' avoided in compliance context (operator decides what to do with the reminder)."
+      "previous_overclaim": "Was 'automated expiry alerts'. Reframed 2026-05-11 \u2014 'automated' avoided in compliance context (operator decides what to do with the reminder)."
     },
     {
       "id": "bossboard.expenses",
@@ -254,20 +273,20 @@
     },
     {
       "id": "bossboard.pricing-tiers",
-      "claim": "Free $0 (3 invoices/mo, 2 SWMS/mo) · Tradie $4.99/wk · Team $9.99/wk (up to 5 team members + roles)",
+      "claim": "Free $0 (3 invoices/mo, 2 SWMS/mo) \u00b7 Tradie $4.99/wk \u00b7 Team $9.99/wk (up to 5 team members + roles)",
       "surfaces": [
         "apps/web/src/app/page.tsx#L196-274",
         "llms.txt#L30-32"
       ],
       "code_references": [
         "apps/api/src/services/subscriptions.ts (tier definitions + isBetaMode env-driven, post-commit 1b33d93)",
-        "apps/api/src/services/stripe.ts (Stripe Checkout wired — createCheckoutSession at L120)",
+        "apps/api/src/services/stripe.ts (Stripe Checkout wired \u2014 createCheckoutSession at L120)",
         "apps/api/src/routes/subscriptions.ts#L158 (POST /checkout)",
-        "apps/mobile/app/subscription.tsx#L165 (handleUpgrade → real Stripe Checkout URL via Linking.openURL)"
+        "apps/mobile/app/subscription.tsx#L165 (handleUpgrade \u2192 real Stripe Checkout URL via Linking.openURL)"
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-05-19",
-      "notes": "Beta mode currently default-on (BETA_MODE env var defaults to true; explicit BETA_MODE=false enables paid checkout). All users get tradie-tier access in beta. Phase 1 paid-checkout shipped 2026-05-19 (commits ba90ce4 + 1b33d93): Stripe Checkout backend wired, mobile Upgrade button now opens real Stripe URL, prod boot guards refuse to start with BETA_MODE=false absent STRIPE_RETURN_URL/STRIPE_SECRET_KEY/STRIPE_PRICE_ID_TRADIE. Production has NOT flipped to BETA_MODE=false yet — copy still factually reflects current beta posture ('Join the Beta' CTA + 'Tradie features free during beta'). When production flips, page.tsx CTAs + this note must be re-audited (claim text remains accurate as a price-list)."
+      "notes": "Beta mode currently default-on (BETA_MODE env var defaults to true; explicit BETA_MODE=false enables paid checkout). All users get tradie-tier access in beta. Phase 1 paid-checkout shipped 2026-05-19 (commits ba90ce4 + 1b33d93): Stripe Checkout backend wired, mobile Upgrade button now opens real Stripe URL, prod boot guards refuse to start with BETA_MODE=false absent STRIPE_RETURN_URL/STRIPE_SECRET_KEY/STRIPE_PRICE_ID_TRADIE. Production has NOT flipped to BETA_MODE=false yet \u2014 copy still factually reflects current beta posture ('Join the Beta' CTA + 'Tradie features free during beta'). When production flips, page.tsx CTAs + this note must be re-audited (claim text remains accurate as a price-list)."
     },
     {
       "id": "bossboard.privacy-consent-banner",
@@ -281,11 +300,11 @@
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-05-17",
       "owner": "marc",
-      "notes": "GA4 + Klaro v0.7.21 + Consent Mode v2 scaffold (2026-05-17). Banner copy: 'Privacy preferences. We use cookies to understand how this app is used. Choose your preferences below.' Service: 'Google Analytics — Anonymous analytics so we can understand how users navigate BossBoard.' Factual privacy notice; not a product claim. No compliance-promise / partnership / certification implication."
+      "notes": "GA4 + Klaro v0.7.21 + Consent Mode v2 scaffold (2026-05-17). Banner copy: 'Privacy preferences. We use cookies to understand how this app is used. Choose your preferences below.' Service: 'Google Analytics \u2014 Anonymous analytics so we can understand how users navigate BossBoard.' Factual privacy notice; not a product claim. No compliance-promise / partnership / certification implication."
     },
     {
       "id": "bossboard.web-crud-parity",
-      "claim": "The web dashboard now supports creating/editing quotes, expenses, job logs (clock in/out), SWMS (AI generation), certifications, and photo uploads — not just viewing them.",
+      "claim": "The web dashboard now supports creating/editing quotes, expenses, job logs (clock in/out), SWMS (AI generation), certifications, and photo uploads \u2014 not just viewing them.",
       "surfaces": [
         "apps/web/src/app/(dashboard)/quotes/new/page.tsx + quotes/[id]/edit",
         "apps/web/src/app/(dashboard)/expenses/new + expenses/[id]/edit",
@@ -296,11 +315,11 @@
       ],
       "code_references": [
         "apps/web/src/lib/api-client.ts (create/update/generate/upload methods, commit cc9e4a9)",
-        "apps/api/src/routes/{quotes,expenses,job-logs,swms,certifications,photos}.ts (existing Express endpoints — unchanged)"
+        "apps/api/src/routes/{quotes,expenses,job-logs,swms,certifications,photos}.ts (existing Express endpoints \u2014 unchanged)"
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-06-09",
-      "notes": "2026-06-09 web CRUD-parity build. Empty-state copy on these list pages previously read 'The web view is read-only — create from the BossBoard mobile app'; that copy was TRUTHFUL when web was view-only and was updated to action CTAs ('New quote', 'Generate SWMS', 'Add certification', 'Clock in', etc.) because the web app now backs those actions against the same Express endpoints the mobile app uses. No new product capability is claimed beyond features already verified IMPLEMENTED elsewhere in this file — this entry records a surface/affordance change, not a new claim. Customer-facing copy strings flagged to Marc for review at branch-merge (four-eyes on UI copy). No compliance/guarantee/partnership language introduced; SWMS generation carries the Voice-A disclaimer (see bossboard.swms)."
+      "notes": "2026-06-09 web CRUD-parity build. Empty-state copy on these list pages previously read 'The web view is read-only \u2014 create from the BossBoard mobile app'; that copy was TRUTHFUL when web was view-only and was updated to action CTAs ('New quote', 'Generate SWMS', 'Add certification', 'Clock in', etc.) because the web app now backs those actions against the same Express endpoints the mobile app uses. No new product capability is claimed beyond features already verified IMPLEMENTED elsewhere in this file \u2014 this entry records a surface/affordance change, not a new claim. Customer-facing copy strings flagged to Marc for review at branch-merge (four-eyes on UI copy). No compliance/guarantee/partnership language introduced; SWMS generation carries the Voice-A disclaimer (see bossboard.swms)."
     },
     {
       "id": "bossboard.swms-aligned-hswa-surface",
@@ -317,7 +336,7 @@
     },
     {
       "id": "bossboard.swms-aligned-operator-surface",
-      "claim": "SWMS templates aligned to the Health and Safety at Work Act 2015 — operator signs off",
+      "claim": "SWMS templates aligned to the Health and Safety at Work Act 2015 \u2014 operator signs off",
       "surfaces": [
         "apps/api/src/landing.html"
       ],
@@ -357,7 +376,7 @@
     },
     {
       "id": "bossboard.ai-swms-generation-surface",
-      "claim": "AI-assisted SWMS template generation aligned with the NZ Health and Safety at Work Act 2015 — templates and starting material, not legal advice",
+      "claim": "AI-assisted SWMS template generation aligned with the NZ Health and Safety at Work Act 2015 \u2014 templates and starting material, not legal advice",
       "surfaces": [
         "apps/web/public/llms.txt"
       ],
@@ -370,7 +389,7 @@
     },
     {
       "id": "bossboard.swms-onetap-hazards-surface",
-      "claim": "Draft Safe Work Method Statements in one tap, with AI-assisted hazard suggestions for your trade — aligned to the NZ Health and Safety at Work Act 2015",
+      "claim": "Draft Safe Work Method Statements in one tap, with AI-assisted hazard suggestions for your trade \u2014 aligned to the NZ Health and Safety at Work Act 2015",
       "surfaces": [
         "apps/api/src/landing.html"
       ],
@@ -389,7 +408,7 @@
         "apps/api/src/landing.html"
       ],
       "evidence_references": [
-        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 — company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
+        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 \u2014 company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-06-24",
@@ -402,7 +421,7 @@
         "apps/web/public/llms.txt"
       ],
       "evidence_references": [
-        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 — company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
+        "Certificate of Incorporation, NZ Companies Office, 27 Sep 2024 \u2014 company 5775307, NZBN 9429041896853 (~/onedrive/Company Registry Info/CertIncorporation_5775307_27September2024.pdf)"
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-06-24",
@@ -429,33 +448,33 @@
   "recall_history": [
     {
       "date": "2026-05-12",
-      "claim_dropped": "apps/web/index.html (71KB, last touched 2026-05-01 02:38, originally committed b172d56 — 'Boss Board' x4 (2-word brand violation per feedback_brand_names.md) + 'AI-powered compliance' x2 (FTA s13(a) unsubstantiated overclaim) + 'AI-powered, WorkSafe-compliant' x1 (FTA s13(c) sponsorship-implication + Legal Services Act crossover).",
+      "claim_dropped": "apps/web/index.html (71KB, last touched 2026-05-01 02:38, originally committed b172d56 \u2014 'Boss Board' x4 (2-word brand violation per feedback_brand_names.md) + 'AI-powered compliance' x2 (FTA s13(a) unsubstantiated overclaim) + 'AI-powered, WorkSafe-compliant' x1 (FTA s13(c) sponsorship-implication + Legal Services Act crossover).",
       "verdict_at_recall": "DELETED",
-      "reason": "Per audit acb7460126e0101e2 F-3 (2026-05-12) + Marc directive 'we need to fix these now'. Orphan from pre-rebrand era — NOT in Next.js App Router structure (canonical landing is apps/web/src/app/page.tsx), NOT served at runtime (Dockerfile.nextweb runner stage only copies .next/standalone + .next/static + apps/web/public; apps/web/index.html lives in builder stage only and is discarded). Zero references in Dockerfile.api / Dockerfile.web / Dockerfile.nextweb / railway.toml / railway.web.toml / apps/api/src/. Dockerfile.web's nginx sed targets /usr/share/nginx/html/index.html (Expo build output, different artifact). Audit-register coverage gap closed. File removed via git rm — no runtime impact expected."
+      "reason": "Per audit acb7460126e0101e2 F-3 (2026-05-12) + Marc directive 'we need to fix these now'. Orphan from pre-rebrand era \u2014 NOT in Next.js App Router structure (canonical landing is apps/web/src/app/page.tsx), NOT served at runtime (Dockerfile.nextweb runner stage only copies .next/standalone + .next/static + apps/web/public; apps/web/index.html lives in builder stage only and is discarded). Zero references in Dockerfile.api / Dockerfile.web / Dockerfile.nextweb / railway.toml / railway.web.toml / apps/api/src/. Dockerfile.web's nginx sed targets /usr/share/nginx/html/index.html (Expo build output, different artifact). Audit-register coverage gap closed. File removed via git rm \u2014 no runtime impact expected."
     },
     {
       "date": "2026-05-11",
       "claim_dropped": "apps/web/src/app/page.tsx L241 + L260 paid-tier 'Start Free' CTAs on Tradie ($4.99/wk) + Team ($9.99/wk) cards (FTA-B2: routed identically to free-tier /register, creating impression of paid-tier trial that does not exist in beta). PLUS hero upgrade line page.tsx L117 + apps/api/src/landing.html L218 + landing/index.html L218 'Free to start. Upgrade from $4.99/week when you're ready.' (FTA s13.4/s19.3: implies upgrade is purchasable today; Stripe NZ not live).",
       "verdict_at_recall": "RECALLED",
-      "reason": "v3 FTA-compliance audit pass per ~/cf-research/bb-landing-copy-audit-2026-05-11.md (NZ Fair Trading Act 1986 lens added 2026-05-11 evening). Marc decided FTA-B2 Option A (relabel) over Option B (micro-copy). Paid-tier CTAs relabelled to 'Join the Beta' with mailto:support@instilligent.com?subject=BossBoard%20Early%20Access early-access flow (mirrors legacy landing.html pattern — no automated paid-tier signup) + smaller line 'Tradie features free during beta' / 'Team features free during beta'. Hero upgrade line rewritten to future-tense 'Free during beta. Paid tiers from $4.99/week when we launch billing.' (audit s13.4 / s19.3 proposed copy). README.md L8 unchanged — v2 proposed copy is FTA-safe per v3 audit verdict (FTA-B1 closed without further edit). v3 audit BLOCKERs closed: FTA-B1 (README — pre-existing v2 fix sufficient), FTA-B2 (page.tsx paid-tier CTAs — relabelled). bb-recovery-agent Phase 3 v3 corrections."
+      "reason": "v3 FTA-compliance audit pass per ~/cf-research/bb-landing-copy-audit-2026-05-11.md (NZ Fair Trading Act 1986 lens added 2026-05-11 evening). Marc decided FTA-B2 Option A (relabel) over Option B (micro-copy). Paid-tier CTAs relabelled to 'Join the Beta' with mailto:support@instilligent.com?subject=BossBoard%20Early%20Access early-access flow (mirrors legacy landing.html pattern \u2014 no automated paid-tier signup) + smaller line 'Tradie features free during beta' / 'Team features free during beta'. Hero upgrade line rewritten to future-tense 'Free during beta. Paid tiers from $4.99/week when we launch billing.' (audit s13.4 / s19.3 proposed copy). README.md L8 unchanged \u2014 v2 proposed copy is FTA-safe per v3 audit verdict (FTA-B1 closed without further edit). v3 audit BLOCKERs closed: FTA-B1 (README \u2014 pre-existing v2 fix sufficient), FTA-B2 (page.tsx paid-tier CTAs \u2014 relabelled). bb-recovery-agent Phase 3 v3 corrections."
     },
     {
       "date": "2026-05-11",
-      "claim_dropped": "apps/api/src/landing.html L299 + L310 'Start Free Trial' Tradie + Team CTAs (legacy Express landing — actually served at bossboard-api Railway / root) / landing/index.html L299 + L310 'Start Free Trial' (repo-root static mirror). PLUS portfolio-wide audit fixes: 'Compliance Made Easy' h3 → 'AI-Assisted SWMS Drafts' (page.tsx + both landing.htmls) / 'Generate Safe Work Method Statements... AI-powered hazard identification... Built to HSWA standards' SWMS card body → Voice-A disclaimer pattern (page.tsx + both landing.htmls) / 'compliance docs and cashflow' / 'compliance and cashflow' hero copy → 'safety paperwork and revenue insights' (page.tsx + both landing.htmls × meta description + OG description + hero body) / 'AI hazard identification' pricing-bullet → 'AI-assisted hazard suggestions' (page.tsx + both landing.htmls) / 'SWMS templates built to HSWA standards' → 'SWMS templates aligned to HSWA — operator signs off' (both landing.htmls NZ-section, matching page.tsx wording) / llms.txt 'compliance platform' framing → 'with AI-assisted compliance-doc drafting' / llms.txt SWMS bullet + long-prose now carry full Voice-A disclaimer (templates not legal advice) / README.md L8 'AI-powered SWMS, risk assessments, WorkSafe checklists' → AI-assisted with operator-accountable disclaimer.",
+      "claim_dropped": "apps/api/src/landing.html L299 + L310 'Start Free Trial' Tradie + Team CTAs (legacy Express landing \u2014 actually served at bossboard-api Railway / root) / landing/index.html L299 + L310 'Start Free Trial' (repo-root static mirror). PLUS portfolio-wide audit fixes: 'Compliance Made Easy' h3 \u2192 'AI-Assisted SWMS Drafts' (page.tsx + both landing.htmls) / 'Generate Safe Work Method Statements... AI-powered hazard identification... Built to HSWA standards' SWMS card body \u2192 Voice-A disclaimer pattern (page.tsx + both landing.htmls) / 'compliance docs and cashflow' / 'compliance and cashflow' hero copy \u2192 'safety paperwork and revenue insights' (page.tsx + both landing.htmls \u00d7 meta description + OG description + hero body) / 'AI hazard identification' pricing-bullet \u2192 'AI-assisted hazard suggestions' (page.tsx + both landing.htmls) / 'SWMS templates built to HSWA standards' \u2192 'SWMS templates aligned to HSWA \u2014 operator signs off' (both landing.htmls NZ-section, matching page.tsx wording) / llms.txt 'compliance platform' framing \u2192 'with AI-assisted compliance-doc drafting' / llms.txt SWMS bullet + long-prose now carry full Voice-A disclaimer (templates not legal advice) / README.md L8 'AI-powered SWMS, risk assessments, WorkSafe checklists' \u2192 AI-assisted with operator-accountable disclaimer.",
       "verdict_at_recall": "RECALLED",
-      "reason": "v2 audit pass per ~/cf-research/bb-landing-copy-audit-2026-05-11.md. v1 (2026-04-30) was narrowly scoped to page.tsx canonical landing; v2 catches the two legacy static landings + missing AI-disclaimer pattern across SWMS surfaces + cashflow/compliance-platform framing residue. CTAs ACTUALLY removed this pass — post-fix grep -rn 'Start Free Trial' --include=*.html --include=*.tsx --include=*.txt returns NO matches in customer-facing files (only the strings inside this recall_history entry itself). apps/api/src/landing.html and landing/index.html both verified at L299 + L310 reading 'Start Free' (no Trial). bb-recovery-agent Phase 3."
+      "reason": "v2 audit pass per ~/cf-research/bb-landing-copy-audit-2026-05-11.md. v1 (2026-04-30) was narrowly scoped to page.tsx canonical landing; v2 catches the two legacy static landings + missing AI-disclaimer pattern across SWMS surfaces + cashflow/compliance-platform framing residue. CTAs ACTUALLY removed this pass \u2014 post-fix grep -rn 'Start Free Trial' --include=*.html --include=*.tsx --include=*.txt returns NO matches in customer-facing files (only the strings inside this recall_history entry itself). apps/api/src/landing.html and landing/index.html both verified at L299 + L310 reading 'Start Free' (no Trial). bb-recovery-agent Phase 3."
     },
     {
       "date": "2026-05-11",
       "claim_dropped": "landing/index.html: 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'Team scheduling' + 'Job assignment & dispatch' / 'Join hundreds of Kiwi tradies' / 'cashflow position at a glance' / 'forever' price-period / 'Free plan available forever'",
       "verdict_at_recall": "RECALLED",
-      "reason": "Legacy static landing — mirror of the 2026-04-30 portfolio-wide recall on page.tsx; survivors removed 2026-05-11. Auto/bb-copy-audit-fixes-2026-05-11 Group 2."
+      "reason": "Legacy static landing \u2014 mirror of the 2026-04-30 portfolio-wide recall on page.tsx; survivors removed 2026-05-11. Auto/bb-copy-audit-fixes-2026-05-11 Group 2."
     },
     {
       "date": "2026-05-11",
       "claim_dropped": "apps/web/src/app/page.tsx: 'Compliant with the Health and Safety at Work Act 2015' / 'WorkSafe NZ Compliant' / 'know your cashflow position at a glance' / 'compliance and cashflow' / 'Start Free Trial' CTA / 'across New Zealand' (no operator-accountability)",
       "verdict_at_recall": "RECALLED",
-      "reason": "Next.js canonical landing — operator-accountable rewording across hero meta, OG description, feature cards, NZ section, and CTA copy. 'Start Free Trial' → 'Start Free' (Stripe NZ not live; nothing to trial). Auto/bb-copy-audit-fixes-2026-05-11 Group 4."
+      "reason": "Next.js canonical landing \u2014 operator-accountable rewording across hero meta, OG description, feature cards, NZ section, and CTA copy. 'Start Free Trial' \u2192 'Start Free' (Stripe NZ not live; nothing to trial). Auto/bb-copy-audit-fixes-2026-05-11 Group 4."
     },
     {
       "date": "2026-05-11",
@@ -467,17 +486,17 @@
       "date": "2026-05-11",
       "claim_dropped": "README.md L3: 'Mobile-first compliance and invoicing platform' (implied product certifies compliance)",
       "verdict_at_recall": "RECALLED",
-      "reason": "Reframed as 'compliance-doc generation' — narrower factual claim (it generates docs; the operator certifies). Auto/bb-copy-audit-fixes-2026-05-11 Group 5."
+      "reason": "Reframed as 'compliance-doc generation' \u2014 narrower factual claim (it generates docs; the operator certifies). Auto/bb-copy-audit-fixes-2026-05-11 Group 5."
     },
     {
       "date": "2026-05-11",
       "claim_dropped": "llms.txt: 'leverages AI to generate compliant Safe Work Method Statements' / 'Free $0 forever' / apps/web/public/llms.txt: 'AI-powered compliance documents'",
       "verdict_at_recall": "RECALLED",
-      "reason": "Straggler scrub after Group 3 — residual 'compliant SWMS' promise (Rule B: compliance-promise), 'forever' free-tier qualifier (Rule G: free-forever recall per Marc-note in page.tsx:20-22), and 'AI-powered' framing without operator-accountable disclaimer (Rule F: disclaimer pattern miss). Auto/bb-copy-audit-fixes-2026-05-11 Group 6."
+      "reason": "Straggler scrub after Group 3 \u2014 residual 'compliant SWMS' promise (Rule B: compliance-promise), 'forever' free-tier qualifier (Rule G: free-forever recall per Marc-note in page.tsx:20-22), and 'AI-powered' framing without operator-accountable disclaimer (Rule F: disclaimer pattern miss). Auto/bb-copy-audit-fixes-2026-05-11 Group 6."
     }
   ],
   "verified_clean_directives": [
-    "No 'accounting/bookkeeping/ledger/tax filing' language (Marc directive — product is invoicing, not accounting)",
+    "No 'accounting/bookkeeping/ledger/tax filing' language (Marc directive \u2014 product is invoicing, not accounting)",
     "BossBoard spelled as one word (Marc directive)",
     "No Anthropic/Microsoft/AWS Partner claims",
     "No X/Twitter integration claims"
@@ -487,6 +506,6 @@
     "Visa/hiring compliance: Module 3 (Q3-Q4 2026 per CLAUDE.md)",
     "Stripe NZ integration: pending at ~50 paying users target",
     "App Store production submission (iOS): in flight per memory",
-    "Land master branch ahead of origin/master (12 commits) — separate housekeeping concern flagged from PR #2 push"
+    "Land master branch ahead of origin/master (12 commits) \u2014 separate housekeeping concern flagged from PR #2 push"
   ]
 }
