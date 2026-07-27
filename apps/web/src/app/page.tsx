@@ -114,8 +114,8 @@ export default function Home() {
             </a>
           </div>
           <p className="hero-price">
-            Free during beta. Paid tiers from <strong>$4.99/week</strong> when
-            we launch billing.
+            Free tier to get started. Paid plans from{' '}
+            <strong>$4.99/week</strong> — no contracts, cancel anytime.
           </p>
         </div>
       </section>
@@ -236,18 +236,19 @@ export default function Home() {
                 <li>Certification reminders</li>
                 <li>Job logging &amp; time tracking</li>
               </ul>
-              <a
-                href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21"
+              <Link
+                href="/register"
                 className="lp-btn lp-btn-primary"
                 style={{ width: '100%', justifyContent: 'center' }}
                 data-cf-event="cta_click"
-                data-cf-cta="join_beta"
+                data-cf-cta="start_tradie"
                 data-cf-tier="tradie"
+                data-cf-location="pricing"
               >
-                Join the Beta
-              </a>
+                Start Tradie
+              </Link>
               <p style={{ fontSize: '0.85rem', opacity: 0.75, marginTop: '0.5rem', textAlign: 'center' }}>
-                Tradie features free during beta
+                Upgrade in-app via Stripe · cancel anytime
               </p>
             </div>
             <div className="price-card">
@@ -261,18 +262,19 @@ export default function Home() {
                 <li>Up to 5 team members</li>
                 <li>Team roles &amp; permissions</li>
               </ul>
-              <a
-                href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21"
+              <Link
+                href="/register"
                 className="lp-btn lp-btn-outline"
                 style={{ width: '100%', justifyContent: 'center' }}
                 data-cf-event="cta_click"
-                data-cf-cta="join_beta"
+                data-cf-cta="start_team"
                 data-cf-tier="team"
+                data-cf-location="pricing"
               >
-                Join the Beta
-              </a>
+                Start Team
+              </Link>
               <p style={{ fontSize: '0.85rem', opacity: 0.75, marginTop: '0.5rem', textAlign: 'center' }}>
-                Team features free during beta
+                Upgrade in-app via Stripe · cancel anytime
               </p>
             </div>
           </div>

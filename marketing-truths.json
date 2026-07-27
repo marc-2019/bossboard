@@ -266,8 +266,8 @@
         "apps/mobile/app/subscription.tsx#L165 (handleUpgrade → real Stripe Checkout URL via Linking.openURL)"
       ],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-05-19",
-      "notes": "Beta mode currently default-on (BETA_MODE env var defaults to true; explicit BETA_MODE=false enables paid checkout). All users get tradie-tier access in beta. Phase 1 paid-checkout shipped 2026-05-19 (commits ba90ce4 + 1b33d93): Stripe Checkout backend wired, mobile Upgrade button now opens real Stripe URL, prod boot guards refuse to start with BETA_MODE=false absent STRIPE_RETURN_URL/STRIPE_SECRET_KEY/STRIPE_PRICE_ID_TRADIE. Production has NOT flipped to BETA_MODE=false yet — copy still factually reflects current beta posture ('Join the Beta' CTA + 'Tradie features free during beta'). When production flips, page.tsx CTAs + this note must be re-audited (claim text remains accurate as a price-list)."
+      "last_verified": "2026-07-27",
+      "notes": "Production Railway bossboard-api has BETA_MODE=false (live Stripe sk_live_*, price IDs, return URL, webhook secret). Landing copy updated 2026-07-27: hero is free-tier + paid-from $4.99/wk (no 'free during beta' / 'when we launch billing'); Tradie/Team CTAs are Start Tradie/Start Team → /register (no Join the Beta mailto). Free card limits unchanged (3 inv / 2 SWMS). Paid upgrade path is in-app Stripe Checkout after register/login. Claim price-list still accurate. Stamp web_launched_at only after first real paid client."
     },
     {
       "id": "bossboard.privacy-consent-banner",
