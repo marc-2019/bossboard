@@ -23,12 +23,12 @@ Gate0 PASS; `web_launched_at` still null. **E1 BETA_MODE=false already on Railwa
 
 ### Paid KR — what advances “3/4 → 4/4”
 
-1. **Marc EXTERNAL:** Confirm live Stripe keys + non-localhost `STRIPE_RETURN_URL` + webhook secret on Railway.  
-2. **Marc DECIDE:** Flip `BETA_MODE=false` (re-deploy API). Boot fails closed if Stripe incomplete.  
+1. ~~Confirm live Stripe keys + return URL + webhook~~ → **DONE** (Railway probe 2026-07-29).
+2. ~~Flip `BETA_MODE=false`~~ → **DONE** on Railway `bossboard-api` production.
 3. **One real paid Tradie sub** (money charged) → set `web_launched_at` + evidence id (no secrets in git).  
 4. App IAP track remains independent (Console EXTERNAL).
 
-**Not agent-shippable alone:** BETA flip + first paid customer require Marc/Stripe Dashboard.
+**Still Marc-only for E2:** one live Tradie checkout; agent stamps `web_launched_at` after.
 
 ---
 
