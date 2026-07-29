@@ -1,8 +1,13 @@
 # BossBoard launch progress (dual-track)
 
-**Updated:** 2026-07-26 (paid-KR ops pass)  
+**Updated:** 2026-07-29 (Railway env probe + GA4; E1 BETA already false)  
 **Policy:** `docs/LAUNCH_DUAL_TRACK.md`  
 **Card:** dual-track is a **company KR** (not task) — residual card `ec01e123` cancelled earlier
+
+## Paid flip runbook (agent prep 2026-07-29)
+
+**SSOT procedure:** [`PAID_FLIP_RUNBOOK_2026-07-29.md`](./PAID_FLIP_RUNBOOK_2026-07-29.md)  
+Gate0 PASS; `web_launched_at` still null. **E1 BETA_MODE=false already on Railway (2026-07-29 probe).** E2 first paid still OPEN.
 
 ## Paid KR status (2026-07-26 probe)
 
@@ -13,7 +18,7 @@
 | Feedback endpoint | **PASS** (auth-gated) | GET `/api/v1/feedback` → 401 without JWT (endpoint live) |
 | Subscriptions plans | **PASS** (auth-gated) | GET `/api/v1/subscriptions/plans` → 401 without JWT |
 | **web_launched_at** | **null** | No real paid Stripe client recorded |
-| **BETA_MODE** | **still free-beta default** | Code: paid only when `BETA_MODE=false` exact; Railway flip = Marc EXTERNAL |
+| **BETA_MODE** | **`false` on Railway API (E1 DONE)** | Env probe 2026-07-29; live Stripe `sk_live_…` + return URL set |
 | Paid-client detector | **not built** | Listed in LAUNCH_DUAL_TRACK automation table |
 
 ### Paid KR — what advances “3/4 → 4/4”
