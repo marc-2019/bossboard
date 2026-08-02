@@ -28,7 +28,8 @@ Gate0 PASS; `web_launched_at` still null. **E1 BETA_MODE=false already on Railwa
 3. **One real paid Tradie sub** (money charged) → set `web_launched_at` + evidence id (no secrets in git).  
 4. App IAP track remains independent (Console EXTERNAL).
 
-**Still Marc-only for E2:** one live Tradie checkout; agent stamps `web_launched_at` after.
+**E2 first customer paid (2026-08-02):** MARKET→SELL funnel outcome — GTM owns path to pay (publish/CTA/channel).  
+Rails green (E1 done). **Not** standing Marc EXTERNAL “self-checkout.” Agent stamps `web_launched_at` after real charge evidence. Optional Marc rail-smoke only if he chooses.
 
 ---
 
@@ -61,7 +62,7 @@ Gate0 PASS; `web_launched_at` still null. **E1 BETA_MODE=false already on Railwa
 | Subscription UI | **OPEN** | Device or web billing page |
 | Feedback web + mobile | **CODE READY** | Merge #55 + migrate + token |
 | Web Stripe first dollar | **OPEN** | Blocks `web_launched_at` |
-| App IAP first dollar | **OPEN** | Branch `feat/native-iap-store-rail`; Console EXTERNAL |
+| App IAP first dollar | **OPEN** | ASC products **DONE 2026-07-30**; Paid Apps Agreement **SIGNED 2026-07-31**; residual = shared-secret Marc-verify + EAS/TestFlight sandbox |
 | Maestro XCTest | **BLOCKED** | Soft — does not block open or launch flags |
 | Bug hunt free month | **PROCESS READY** | Manual grant; see `BUG_HUNT_FREE_MONTH.md` |
 
@@ -80,7 +81,7 @@ Gate0 PASS; `web_launched_at` still null. **E1 BETA_MODE=false already on Railwa
 | IAP dual-rail on master | **yes** `cd1d93b` |
 | ASC app id | **6760329559** (eas.json) |
 | Public App Store | **no** (lookup 0) |
-| Marc next | Shared secret + weekly products + `eas build --platform ios --profile production` |
+| Marc next | Shared secret verify on Railway (yes/no) + `eas build` → TestFlight sandbox (Paid Apps **signed 2026-07-31**) |
 | Runbook | `docs/APPLE_STORE_LAUNCH.md` |
 
 ## Ship train (active)

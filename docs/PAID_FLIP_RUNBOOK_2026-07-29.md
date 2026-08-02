@@ -8,11 +8,13 @@
 
 | Step | Owner | Done when |
 |------|--------|-----------|
-| **E1** BETA off | Marc | Railway API env `BETA_MODE=false` (exact string) redeployed; health 200 |
-| **E2** First paid | Marc | One real Tradie Stripe subscription charged; not a test-mode ghost |
-| Evidence | Agent+Marc | `web_launched_at` set in progress docs + launch evidence id (no secrets in git) |
+| **E1** BETA off | Agent verify / was Marc | Railway API env `BETA_MODE=false` (exact string) redeployed; health 200 — **DONE 2026-07-29** |
+| **E2** First **customer** paid | **GTM / MARKET→SELL** | A real customer (or trial→paid stranger) completes Tradie Stripe; not a test-mode ghost. **Not** “Marc must charge himself” as standing EXTERNAL (Marc 2026-08-02). |
+| Evidence | Agent | `web_launched_at` set in progress docs + launch evidence id (no secrets in git) |
 
-Agent **cannot** complete E1/E2 alone. This runbook is pre-flight only.
+**Optional rail smoke:** Marc may self-checkout once to prove rails; label as smoke, not first customer / not vision complete.
+
+Agent **cannot** force a customer to buy. Agent **can** run GTM (publish, CTA, channel) and stamp after evidence. This runbook is pre-flight + stamp procedure.
 
 ---
 
