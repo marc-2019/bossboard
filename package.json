@@ -63,7 +63,7 @@
     "brace-expansion": "^2.0.3",
     "@tootallnate/once": "^3.0.1",
     "uuid": "^11.1.1",
-    "postcss": "^8.5.10",
+    "postcss": "8.5.18",
     "@expo/metro-runtime": "6.1.2",
     "qs": "^6.15.2",
     "ws@>=8.0.0 <=8.20.1": "8.21.0",
@@ -72,6 +72,6 @@
     "undici": "^6.27.0",
     "form-data": "^4.0.6",
     "multer": "^2.2.0",
-    "tar": "^7.5.16"
+    "tar": "7.5.19"
   }
 }
