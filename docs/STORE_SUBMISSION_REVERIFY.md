@@ -36,8 +36,8 @@ Mark each row **PASS / FAIL / N/A** with date + evidence path. Agent or Marc.
 
 | # | Check | Pass criteria | Seed |
 |---|--------|---------------|------|
-| S2.1 | App Store Connect | Weekly auto-renewable Tradie + Team product IDs match config defaults | **OPEN** |
-| S2.2 | Apple shared secret | `IAP_APPLE_SHARED_SECRET` on API (Railway) | **OPEN** |
+| S2.1 | App Store Connect | Weekly auto-renewable Tradie + Team product IDs match config defaults | **DONE 2026-07-30** (Claude Chrome: group BossBoard Plans + both product IDs/prices; display Tradie/Team Weekly) |
+| S2.2 | Apple shared secret | `IAP_APPLE_SHARED_SECRET` on API (Railway) | **OPEN** — Marc verify only (do not paste secret). **Also:** Paid Apps Agreement still **unsigned** (blocker for paid IAP). |
 | S2.3 | Play Console | Subscription products + base plans for Tradie/Team | **OPEN** |
 | S2.4 | Play service account | `IAP_GOOGLE_SERVICE_ACCOUNT_JSON` (or base64) + Android Publisher access | **OPEN** |
 | S2.5 | Package name | `IAP_GOOGLE_PACKAGE_NAME=nz.instilligent.bossboard` | **OPEN** |

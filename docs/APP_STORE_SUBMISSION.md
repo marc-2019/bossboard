@@ -54,8 +54,8 @@ Before submitting to either store, ensure the following are in place:
 2. Sign in with your Apple ID (or create one)
 3. Enrol in the Apple Developer Programme ($99 USD/year)
 4. Complete enrolment as **Organisation** (Instilligent Limited)
-   - You will need a D-U-N-S number for your company
-   - If you do not have one, request it free at [dnb.com](https://www.dnb.com/duns-number.html) (takes 5-10 business days)
+   - D-U-N-S for Instilligent Limited: **594912489** (recorded 2026-07-31; SSOT `cortexforge/audit/legal/INSTILLIGENT_LIMITED_IDENTITY_2026-07-31.md`)
+   - If Apple/DnB ever need a new one: free request at [dnb.com](https://www.dnb.com/duns-number.html) (takes 5-10 business days)
 5. Wait for enrolment approval (typically 24-48 hours)
 6. Note your **Team ID** from [developer.apple.com/account](https://developer.apple.com/account) > Membership Details
 

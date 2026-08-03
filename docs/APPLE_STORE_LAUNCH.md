@@ -3,7 +3,8 @@
 **Updated:** 2026-07-18  
 **ASC App ID:** `6760329559` (in `apps/mobile/eas.json`)  
 **Bundle ID:** `nz.instilligent.bossboard`  
-**Team:** `9735SSXD8B` · Apple ID for submit: `marmstrong@instilligent.com`
+**Team:** `9735SSXD8B` · Apple ID for submit: `marmstrong@instilligent.com`  
+**Entity D-U-N-S (Instilligent Limited):** `594912489` (Marc 2026-07-31; SSOT `cortexforge/audit/legal/INSTILLIGENT_LIMITED_IDENTITY_2026-07-31.md`)
 
 Public App Store lookup for this bundle still returns **0 results** — not live yet. This runbook finishes code + Console + TestFlight → submit.
 
@@ -134,9 +135,16 @@ Expect product IDs for ios.tradie / ios.team.
 Full CF mapping: `cortexforge/docs/governance/apple-dpla-2026-07-18-bossboard-cf-checklist.md`  
 Archived PDF: `cortexforge/audit/legal/Apple_Developer_Program_License_Agreement_6AX82WT38B_2026-07-18.pdf`
 
+### Schedule 2 / Paid Apps — signed 2026-07-31
+
+Marc accepted Schedule 2 in ASC (Business → Agreements).  
+Archive (paste of agreement text for audit trail):  
+`cortexforge/audit/legal/Apple_Schedule_2_Paid_Apps_Agreement_BossBoard_2026-07-31.txt`  
+SSOT remains Apple ASC + the live signed contract with Apple (not this file).
+
 ### Must complete for paid IAP (from DPLA + Attachment 2)
 
-- [ ] **Schedule 2** accepted (paid apps / fee-based IAP — separate from free Schedule 1)
+- [x] **Schedule 2** accepted (paid apps / fee-based IAP — separate from free Schedule 1) — **Marc signed 2026-07-31**
 - [ ] IAP products submitted with Submission Description (name, price, product id)
 - [ ] Weekly auto-renewable subscriptions (not “rental” of digital access)
 - [ ] **Server verifies Apple receipt before unlocking** paid tier (`IAP_APPLE_SHARED_SECRET` + verify)

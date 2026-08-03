@@ -120,7 +120,8 @@
 | System | Purpose | Status |
 |--------|---------|--------|
 | **Instilligent Limited** | NZ registered company | Active |
-| **NZBN** | NZ Business Number | Registered |
+| **NZBN** | NZ Business Number | 9429041896853 |
+| **D-U-N-S** | Dun & Bradstreet | 594912489 (2026-07-31) |
 | **IPONZ** | Trademark registry | Not yet filed |
 | **NZ Privacy Act 2020** | Data privacy compliance | Disclosure in emails + legal pages |
 | **Xero (for Instilligent)** | Company accounting | To set up |
