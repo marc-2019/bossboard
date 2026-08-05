@@ -23,12 +23,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "nz.instilligent.bossboard",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
-        "NSCameraUsageDescription": "BossBoard needs camera access to photograph receipts, job sites, and safety documentation for your records.",
-        "NSPhotoLibraryUsageDescription": "BossBoard needs photo library access to attach receipt images, site photos, and documentation to invoices, expenses, and job logs.",
-        "NSPhotoLibraryAddUsageDescription": "BossBoard needs permission to save generated PDF documents and photos to your photo library.",
-        "NSLocationWhenInUseUsageDescription": "BossBoard uses your location to auto-fill site addresses for job logs and SWMS documents.",
+        "NSCameraUsageDescription": "BossBoard uses the camera to photograph receipts, job sites, and safety documentation for your business records \u2014 for example a materials receipt or a site condition for a SWMS.",
+        "NSPhotoLibraryUsageDescription": "BossBoard accesses your photo library so you can attach existing images to invoices, expenses, and job logs \u2014 for example a receipt photo or site photo already on your phone.",
+        "NSPhotoLibraryAddUsageDescription": "BossBoard saves generated PDFs and photos you create in the app to your photo library \u2014 for example an invoice PDF or a SWMS document export.",
+        "NSLocationWhenInUseUsageDescription": "BossBoard uses your location to auto-fill site addresses on job logs and SWMS documents \u2014 for example the street address of the worksite you are currently at.",
         "UIBackgroundModes": [
           "remote-notification"
         ]
@@ -155,14 +155,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "BossBoard needs camera access to photograph receipts, job sites, and safety documentation."
+          "cameraPermission": "BossBoard uses the camera to photograph receipts, job sites, and safety documentation \u2014 for example a materials receipt or site condition for a SWMS."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "BossBoard needs photo library access to attach images to invoices, expenses, and job logs.",
-          "cameraPermission": "BossBoard needs camera access to capture receipt and site photos."
+          "photosPermission": "BossBoard accesses your photo library to attach images to invoices, expenses, and job logs \u2014 for example a receipt photo already on your phone.",
+          "cameraPermission": "BossBoard uses the camera to capture receipt and site photos for your business records."
         }
       ],
       [
@@ -175,7 +175,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "BossBoard uses your location to auto-fill site addresses for job logs and SWMS documents."
+          "locationWhenInUsePermission": "BossBoard uses your location to auto-fill site addresses on job logs and SWMS \u2014 for example the worksite you are currently at."
         }
       ],
       [
