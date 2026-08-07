@@ -306,6 +306,17 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
     </table>
     <div style="margin-top: 16px; text-align: right;">
       <p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">Subtotal: ${formatCurrency(invoice.subtotal)}</p>
+      ${
+        invoice.discountAmount && invoice.discountAmount > 0
+          ? `<p style="margin: 0 0 4px; color: #059669; font-size: 13px;">${
+              invoice.discountLabel || 'Discount'
+            }${
+              invoice.discountType === 'percent' && invoice.discountValue
+                ? ` (${invoice.discountValue}%)`
+                : ''
+            }: -${formatCurrency(invoice.discountAmount)}</p>`
+          : ''
+      }
       ${invoice.includeGst ? `<p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">GST (15%): ${formatCurrency(invoice.gstAmount)}</p>` : ''}
       <p style="margin: 8px 0 0; color: #111827; font-size: 20px; font-weight: 700;">Total: ${formatCurrency(invoice.total)}</p>
     </div>
@@ -329,6 +340,13 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
     ...invoice.lineItems.map(item => `  ${item.description}: ${formatCurrency(item.amount)}`),
     '',
     `Subtotal: ${formatCurrency(invoice.subtotal)}`,
+    invoice.discountAmount && invoice.discountAmount > 0
+      ? `${invoice.discountLabel || 'Discount'}${
+          invoice.discountType === 'percent' && invoice.discountValue
+            ? ` (${invoice.discountValue}%)`
+            : ''
+        }: -${formatCurrency(invoice.discountAmount)}`
+      : '',
     invoice.includeGst ? `GST (15%): ${formatCurrency(invoice.gstAmount)}` : '',
     `Total: ${formatCurrency(invoice.total)}`,
     '',
