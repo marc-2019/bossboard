@@ -123,6 +123,27 @@ describe('Public Routes', () => {
       expect(response.text).toContain('GST');
     });
 
+    it('should show discount row when discount_amount is non-zero', async () => {
+      mockGetInvoiceByShareToken.mockResolvedValue({
+        ...mockInvoice,
+        discount_type: 'percent',
+        discount_value: 10,
+        discount_amount: 1000,
+        discount_label: 'Mate rate',
+        subtotal: 10000,
+        gst_amount: 1350,
+        total: 10350,
+      });
+
+      const response = await request(app).get(
+        '/api/v1/public/invoices/validtoken12345678'
+      );
+
+      expect(response.text).toContain('Mate rate');
+      expect(response.text).toContain('10%');
+      expect(response.text).toMatch(/-.*\$10\.00|-\$10\.00/);
+    });
+
     it('should render PAID status badge for paid invoice', async () => {
       mockGetInvoiceByShareToken.mockResolvedValue({
         ...mockInvoice,
