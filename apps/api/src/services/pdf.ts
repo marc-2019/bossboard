@@ -217,6 +217,21 @@ function drawTotals(doc: InstanceType<typeof PDFDocument>, invoice: Invoice, pag
   doc.font('Helvetica').text('Subtotal:', rightX, doc.y, { continued: false });
   doc.text(formatCurrency(invoice.subtotal), valueX, doc.y - doc.currentLineHeight(), { width: 90, align: 'right' });
 
+  // Discount (before GST)
+  if (invoice.discountAmount && invoice.discountAmount > 0) {
+    let discountLabel = invoice.discountLabel?.trim() || 'Discount';
+    if (invoice.discountType === 'percent' && invoice.discountValue > 0) {
+      discountLabel = `${discountLabel} (${invoice.discountValue}%)`;
+    }
+    doc.text(`${discountLabel}:`, rightX, doc.y, { continued: false });
+    doc.text(
+      `-${formatCurrency(invoice.discountAmount)}`,
+      valueX,
+      doc.y - doc.currentLineHeight(),
+      { width: 90, align: 'right' }
+    );
+  }
+
   // GST
   if (invoice.includeGst) {
     doc.text('GST (15%):', rightX, doc.y, { continued: false });
@@ -301,6 +316,10 @@ export async function generateQuotePDF(quote: Quote): Promise<Buffer> {
     jobDescription: quote.jobDescription,
     lineItems: quote.lineItems,
     subtotal: quote.subtotal,
+    discountType: 'none',
+    discountValue: 0,
+    discountAmount: 0,
+    discountLabel: null,
     gstAmount: quote.gstAmount,
     total: quote.total,
     status: 'draft', // Not relevant for PDF

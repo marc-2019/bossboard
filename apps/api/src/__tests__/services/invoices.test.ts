@@ -18,6 +18,10 @@
 // Mocks — must appear before any imports that trigger module evaluation
 // ---------------------------------------------------------------------------
 
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'test-uuid-line-item'),
+}));
+
 const mockDbQuery = jest.fn();
 const mockDbTransaction = jest.fn();
 jest.mock('../../services/database.js', () => ({
@@ -55,6 +59,7 @@ jest.mock('../../config/index.js', () => ({
 
 import {
   createInvoice,
+  calculateTotals,
   getInvoiceByIdRaw,
   getInvoiceById,
   listInvoices,
@@ -95,6 +100,10 @@ function makeInvoiceRow(overrides: Record<string, unknown> = {}): Record<string,
     customer_id: null,
     recurring_invoice_id: null,
     include_gst: true,
+    discount_type: 'none',
+    discount_value: 0,
+    discount_amount: 0,
+    discount_label: null,
     intl_bank_account_name: null,
     intl_iban: null,
     intl_swift_bic: null,
@@ -132,6 +141,61 @@ beforeEach(() => {
   const mockClientQuery = jest.fn();
   mockDbTransaction.mockImplementation(async (callback: (client: any) => Promise<unknown>) => {
     return callback({ query: mockClientQuery });
+  });
+});
+
+// ===========================================================================
+// calculateTotals (discount before GST)
+// ===========================================================================
+
+describe('calculateTotals', () => {
+  it('applies fixed discount before GST', () => {
+    const t = calculateTotals({
+      lineItems: [{ description: 'Labour', amount: 10000 }],
+      includeGst: true,
+      discountType: 'fixed',
+      discountValue: 1000, // $10
+    });
+    expect(t.subtotal).toBe(10000);
+    expect(t.discountAmount).toBe(1000);
+    expect(t.gstAmount).toBe(1350); // 15% of 9000
+    expect(t.total).toBe(10350);
+  });
+
+  it('applies percent discount before GST', () => {
+    const t = calculateTotals({
+      lineItems: [{ description: 'Labour', amount: 10000 }],
+      includeGst: true,
+      discountType: 'percent',
+      discountValue: 10,
+    });
+    expect(t.discountAmount).toBe(1000);
+    expect(t.gstAmount).toBe(1350);
+    expect(t.total).toBe(10350);
+  });
+
+  it('caps fixed discount at subtotal', () => {
+    const t = calculateTotals({
+      lineItems: [{ description: 'Labour', amount: 500 }],
+      includeGst: false,
+      discountType: 'fixed',
+      discountValue: 9999,
+    });
+    expect(t.discountAmount).toBe(500);
+    expect(t.total).toBe(0);
+  });
+
+  it('treats none / zero as no discount', () => {
+    const t = calculateTotals({
+      lineItems: [{ description: 'Labour', amount: 10000 }],
+      includeGst: true,
+      discountType: 'none',
+      discountValue: 0,
+    });
+    expect(t.discountType).toBe('none');
+    expect(t.discountAmount).toBe(0);
+    expect(t.gstAmount).toBe(1500);
+    expect(t.total).toBe(11500);
   });
 });
 
@@ -177,6 +241,46 @@ describe('createInvoice', () => {
     expect(invoice.includeGst).toBe(false);
     expect(invoice.gstAmount).toBe(0);
     expect(invoice.total).toBe(10000);
+  });
+
+  it('creates invoice with fixed discount before GST', async () => {
+    const mockClientQuery = jest.fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    mockDbTransaction.mockImplementationOnce(async (cb: any) => cb({ query: mockClientQuery }));
+    mockGetBankDetails.mockResolvedValue(null);
+
+    const insertedRow = makeInvoiceRow({
+      subtotal: 10000,
+      discount_type: 'fixed',
+      discount_value: 1000,
+      discount_amount: 1000,
+      discount_label: 'Mate rate',
+      gst_amount: 1350,
+      total: 10350,
+    });
+    mockDbQuery.mockResolvedValueOnce({ rows: [insertedRow] });
+
+    const invoice = await createInvoice(
+      'user-1',
+      makeCreateInput({
+        discountType: 'fixed',
+        discountValue: 1000,
+        discountLabel: 'Mate rate',
+      })
+    );
+
+    expect(invoice.discountType).toBe('fixed');
+    expect(invoice.discountAmount).toBe(1000);
+    expect(invoice.discountLabel).toBe('Mate rate');
+    expect(invoice.gstAmount).toBe(1350);
+    expect(invoice.total).toBe(10350);
+
+    // INSERT includes discount columns
+    const insertArgs = mockDbQuery.mock.calls[0][1] as unknown[];
+    expect(insertArgs).toContain('fixed');
+    expect(insertArgs).toContain(1000);
+    expect(insertArgs).toContain('Mate rate');
   });
 
   it('auto-populates bank details from business profile when not provided', async () => {
@@ -393,7 +497,7 @@ describe('listInvoices', () => {
 describe('updateInvoice', () => {
   it('updates a draft invoice and returns refreshed data', async () => {
     mockDbQuery
-      .mockResolvedValueOnce({ rows: [{ status: 'draft' }] })      // status check
+      .mockResolvedValueOnce({ rows: [makeInvoiceRow()] })      // full row for baseline
       .mockResolvedValueOnce({ rowCount: 1 })                       // UPDATE
       .mockResolvedValueOnce({ rows: [makeInvoiceRow({ client_name: 'Updated Client' })] }); // getInvoiceById re-query
 
@@ -407,7 +511,7 @@ describe('updateInvoice', () => {
   });
 
   it('throws INVOICE_NOT_EDITABLE when trying to update a sent invoice', async () => {
-    mockDbQuery.mockResolvedValueOnce({ rows: [{ status: 'sent' }] });
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeInvoiceRow({ status: 'sent' })] });
 
     await expect(updateInvoice('inv-uuid-1', 'user-1', { clientName: 'X' }))
       .rejects.toMatchObject({ code: 'INVOICE_NOT_EDITABLE', statusCode: 400 });
@@ -422,7 +526,7 @@ describe('updateInvoice', () => {
 
   it('recalculates totals when line items are updated', async () => {
     mockDbQuery
-      .mockResolvedValueOnce({ rows: [{ status: 'draft' }] })
+      .mockResolvedValueOnce({ rows: [makeInvoiceRow()] })
       .mockResolvedValueOnce({ rowCount: 1 })
       .mockResolvedValueOnce({ rows: [makeInvoiceRow({ subtotal: 20000, gst_amount: 3000, total: 23000 })] });
 
@@ -435,17 +539,18 @@ describe('updateInvoice', () => {
     expect(updateCall[0]).toContain('subtotal');
     expect(updateCall[0]).toContain('gst_amount');
     expect(updateCall[0]).toContain('total');
+    expect(updateCall[0]).toContain('discount_amount');
     expect(result).not.toBeNull();
   });
 
   it('returns current invoice unchanged when updates object is empty', async () => {
     mockDbQuery
-      .mockResolvedValueOnce({ rows: [{ status: 'draft' }] }) // status check
+      .mockResolvedValueOnce({ rows: [makeInvoiceRow()] }) // full row
       .mockResolvedValueOnce({ rows: [makeInvoiceRow()] });    // getInvoiceById fallback (no UPDATE)
 
     const result = await updateInvoice('inv-uuid-1', 'user-1', {});
     expect(result).not.toBeNull();
-    // Should only be 2 DB calls (status check + re-read), no UPDATE
+    // Should only be 2 DB calls (load + re-read), no UPDATE
     expect(mockDbQuery).toHaveBeenCalledTimes(2);
   });
 });

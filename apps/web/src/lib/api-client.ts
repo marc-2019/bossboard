@@ -80,6 +80,8 @@ export interface InvoiceLineItemInput {
   amount: number;
 }
 
+export type InvoiceDiscountType = 'none' | 'fixed' | 'percent';
+
 export interface CreateInvoiceInput {
   clientName: string;
   clientEmail?: string;
@@ -87,6 +89,12 @@ export interface CreateInvoiceInput {
   jobDescription?: string;
   lineItems: InvoiceLineItemInput[];
   includeGst?: boolean;
+  /** none | fixed (cents) | percent (0–100) — applied before GST */
+  discountType?: InvoiceDiscountType;
+  /** Cents if fixed; whole percent if percent */
+  discountValue?: number;
+  /** Optional label on PDF / detail */
+  discountLabel?: string | null;
   /** ISO date string (YYYY-MM-DD) */
   dueDate?: string;
   bankAccountName?: string;

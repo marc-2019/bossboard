@@ -31,6 +31,10 @@ interface Invoice {
   job_description: string | null;
   line_items: { id: string; description: string; amount: number }[];
   subtotal: number;
+  discount_type?: string;
+  discount_value?: number;
+  discount_amount?: number;
+  discount_label?: string | null;
   gst_amount: number;
   total: number;
   include_gst: boolean;
@@ -409,6 +413,20 @@ export default function InvoiceDetailScreen() {
           <Text style={styles.totalLabel}>Subtotal</Text>
           <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal)}</Text>
         </View>
+
+        {(invoice.discount_amount ?? 0) > 0 && (
+          <View style={styles.totalRow}>
+            <Text style={[styles.totalLabel, { color: '#059669' }]}>
+              {invoice.discount_label || 'Discount'}
+              {invoice.discount_type === 'percent' && invoice.discount_value
+                ? ` (${invoice.discount_value}%)`
+                : ''}
+            </Text>
+            <Text style={[styles.totalValue, { color: '#059669' }]}>
+              -{formatCurrency(invoice.discount_amount || 0)}
+            </Text>
+          </View>
+        )}
 
         {invoice.gst_amount > 0 && (
           <View style={styles.totalRow}>

@@ -25,6 +25,11 @@ export default function NewInvoicePage() {
   const [jobDescription, setJobDescription] = useState('');
   const [lineItems, setLineItems] = useState<LineItemRow[]>([emptyLine()]);
   const [includeGst, setIncludeGst] = useState(true);
+  /** none | fixed ($) | percent */
+  const [discountType, setDiscountType] = useState<'none' | 'fixed' | 'percent'>('none');
+  /** Dollars string for fixed; whole percent string for percent */
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountLabel, setDiscountLabel] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -41,8 +46,10 @@ export default function NewInvoicePage() {
     const cents = dollarsToCents(r.amountDollars);
     return sum + (cents ?? 0);
   }, 0);
-  const gstCents = includeGst ? Math.round(subtotalCents * 0.15) : 0;
-  const totalCents = subtotalCents + gstCents;
+  const discountCents = computeDiscountCents(discountType, discountInput, subtotalCents);
+  const taxableCents = subtotalCents - discountCents;
+  const gstCents = includeGst ? Math.round(taxableCents * 0.15) : 0;
+  const totalCents = taxableCents + gstCents;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -84,6 +91,29 @@ export default function NewInvoicePage() {
     if (jobDescription.trim()) payload.jobDescription = jobDescription.trim();
     if (dueDate) payload.dueDate = dueDate;
     if (notes.trim()) payload.notes = notes.trim();
+
+    if (discountType !== 'none' && discountCents > 0) {
+      payload.discountType = discountType;
+      if (discountType === 'fixed') {
+        const cents = dollarsToCents(discountInput);
+        if (cents === null || cents <= 0) {
+          setError('Enter a valid discount amount.');
+          return;
+        }
+        payload.discountValue = cents;
+      } else {
+        const pct = Number(discountInput.trim());
+        if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+          setError('Discount percent must be between 1 and 100.');
+          return;
+        }
+        payload.discountValue = Math.round(pct);
+      }
+      if (discountLabel.trim()) payload.discountLabel = discountLabel.trim();
+    } else {
+      payload.discountType = 'none';
+      payload.discountValue = 0;
+    }
 
     setSubmitting(true);
     try {
@@ -224,20 +254,83 @@ export default function NewInvoicePage() {
             Include 15% GST
           </label>
 
-          <div className="mt-4 pt-4 border-t border-border-light space-y-1 text-sm text-gray-700">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>{formatCents(subtotalCents)}</span>
-            </div>
-            {includeGst && (
-              <div className="flex justify-between">
-                <span>GST (15%)</span>
-                <span>{formatCents(gstCents)}</span>
+          <div className="mt-4 pt-4 border-t border-border-light space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Discount (optional)</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="w-36">
+                  <label className="block text-xs text-gray-500 mb-1">Type</label>
+                  <select
+                    value={discountType}
+                    onChange={(e) => {
+                      const next = e.target.value as 'none' | 'fixed' | 'percent';
+                      setDiscountType(next);
+                      if (next === 'none') setDiscountInput('');
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  >
+                    <option value="none">None</option>
+                    <option value="fixed">Fixed $</option>
+                    <option value="percent">Percent %</option>
+                  </select>
+                </div>
+                {discountType !== 'none' && (
+                  <>
+                    <div className="w-28">
+                      <Input
+                        label={discountType === 'fixed' ? 'Amount (NZD)' : 'Percent'}
+                        type="number"
+                        inputMode="decimal"
+                        step={discountType === 'fixed' ? '0.01' : '1'}
+                        min="0"
+                        max={discountType === 'percent' ? '100' : undefined}
+                        value={discountInput}
+                        onChange={(e) => setDiscountInput(e.target.value)}
+                        placeholder={discountType === 'fixed' ? '0.00' : '10'}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[10rem]">
+                      <Input
+                        label="Label (optional)"
+                        value={discountLabel}
+                        onChange={(e) => setDiscountLabel(e.target.value)}
+                        placeholder="e.g. Early payment, Mate rate"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
-            )}
-            <div className="flex justify-between text-base font-semibold text-gray-900 pt-1">
-              <span>Total</span>
-              <span>{formatCents(totalCents)}</span>
+              <p className="mt-1 text-xs text-gray-500">
+                Applied before GST. Fixed amounts are capped at the subtotal.
+              </p>
+            </div>
+
+            <div className="space-y-1 text-sm text-gray-700">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>{formatCents(subtotalCents)}</span>
+              </div>
+              {discountCents > 0 && (
+                <div className="flex justify-between text-green-700">
+                  <span>
+                    {discountLabel.trim() || 'Discount'}
+                    {discountType === 'percent' && discountInput.trim()
+                      ? ` (${discountInput.trim()}%)`
+                      : ''}
+                  </span>
+                  <span>-{formatCents(discountCents)}</span>
+                </div>
+              )}
+              {includeGst && (
+                <div className="flex justify-between">
+                  <span>GST (15%)</span>
+                  <span>{formatCents(gstCents)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-semibold text-gray-900 pt-1">
+                <span>Total</span>
+                <span>{formatCents(totalCents)}</span>
+              </div>
             </div>
           </div>
         </Card>
@@ -282,6 +375,23 @@ function dollarsToCents(value: string): number | null {
   const num = Number(trimmed);
   if (!Number.isFinite(num) || num < 0) return null;
   return Math.round(num * 100);
+}
+
+function computeDiscountCents(
+  type: 'none' | 'fixed' | 'percent',
+  input: string,
+  subtotalCents: number
+): number {
+  if (type === 'none' || !input.trim() || subtotalCents <= 0) return 0;
+  if (type === 'fixed') {
+    const cents = dollarsToCents(input);
+    if (cents === null || cents <= 0) return 0;
+    return Math.min(cents, subtotalCents);
+  }
+  const pct = Number(input.trim());
+  if (!Number.isFinite(pct) || pct <= 0) return 0;
+  const clamped = Math.min(100, pct);
+  return Math.min(Math.round((subtotalCents * clamped) / 100), subtotalCents);
 }
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });

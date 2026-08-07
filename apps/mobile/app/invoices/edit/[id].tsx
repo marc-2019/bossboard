@@ -65,6 +65,9 @@ export default function EditInvoiceScreen() {
     { id: '1', description: '', amount: '' },
   ]);
   const [includeGst, setIncludeGst] = useState(true);
+  const [discountType, setDiscountType] = useState<'none' | 'fixed' | 'percent'>('none');
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountLabel, setDiscountLabel] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -89,6 +92,9 @@ export default function EditInvoiceScreen() {
         job_description?: string | null;
         line_items?: { id?: string; description?: string; amount?: number }[];
         include_gst?: boolean;
+        discount_type?: string;
+        discount_value?: number;
+        discount_label?: string | null;
         due_date?: string | null;
         notes?: string | null;
       };
@@ -106,6 +112,22 @@ export default function EditInvoiceScreen() {
       setIncludeGst(inv.include_gst !== false);
       setDueDate(toDateInput(inv.due_date));
       setNotes(inv.notes || '');
+
+      const dType = inv.discount_type as 'none' | 'fixed' | 'percent' | undefined;
+      if (dType === 'fixed' || dType === 'percent') {
+        setDiscountType(dType);
+        if (dType === 'fixed' && inv.discount_value) {
+          setDiscountInput(centsToDollars(Number(inv.discount_value)));
+        } else if (dType === 'percent' && inv.discount_value) {
+          setDiscountInput(String(inv.discount_value));
+        } else {
+          setDiscountInput('');
+        }
+      } else {
+        setDiscountType('none');
+        setDiscountInput('');
+      }
+      setDiscountLabel(inv.discount_label || '');
 
       const lines = (inv.line_items || []).map((li, idx) => ({
         id: li.id || String(idx + 1),
@@ -149,8 +171,20 @@ export default function EditInvoiceScreen() {
     return lineItems.reduce((sum, item) => sum + parseAmount(item.amount), 0);
   }
 
+  function calculateDiscount(): number {
+    const subtotal = calculateSubtotal();
+    if (discountType === 'none' || subtotal <= 0 || !discountInput.trim()) return 0;
+    if (discountType === 'fixed') {
+      return Math.min(parseAmount(discountInput), subtotal);
+    }
+    const pct = parseFloat(discountInput.replace(/[^0-9.]/g, '')) || 0;
+    if (pct <= 0) return 0;
+    return Math.min(Math.round((subtotal * Math.min(100, pct)) / 100), subtotal);
+  }
+
   function calculateGst(): number {
-    return includeGst ? Math.round(calculateSubtotal() * 0.15) : 0;
+    const taxable = calculateSubtotal() - calculateDiscount();
+    return includeGst ? Math.round(taxable * 0.15) : 0;
   }
 
   function formatCurrency(cents: number): string {
@@ -184,6 +218,33 @@ export default function EditInvoiceScreen() {
       return;
     }
 
+    const discountCents = calculateDiscount();
+    let discountPayload: {
+      discountType: 'none' | 'fixed' | 'percent';
+      discountValue: number;
+      discountLabel: string | null;
+    } = { discountType: 'none', discountValue: 0, discountLabel: null };
+    if (discountType !== 'none' && discountCents > 0) {
+      if (discountType === 'fixed') {
+        discountPayload = {
+          discountType: 'fixed',
+          discountValue: parseAmount(discountInput),
+          discountLabel: discountLabel.trim() || null,
+        };
+      } else {
+        const pct = Math.round(parseFloat(discountInput.replace(/[^0-9.]/g, '')) || 0);
+        if (pct <= 0 || pct > 100) {
+          Alert.alert('Error', 'Discount percent must be between 1 and 100');
+          return;
+        }
+        discountPayload = {
+          discountType: 'percent',
+          discountValue: pct,
+          discountLabel: discountLabel.trim() || null,
+        };
+      }
+    }
+
     setIsSubmitting(true);
     try {
       // Always send optional keys so clearing a field persists (undefined is
@@ -200,7 +261,8 @@ export default function EditInvoiceScreen() {
         includeGst,
         dueDate: trimmedDue || null,
         notes: notes.trim(),
-      });
+        ...discountPayload,
+      } as any);
 
       if (response.data.success) {
         Alert.alert('Saved', 'Invoice updated', [
@@ -410,11 +472,69 @@ export default function EditInvoiceScreen() {
             />
           </View>
 
+          <Text style={[styles.label, { marginTop: 12 }]}>Discount (optional)</Text>
+          <View style={styles.discountTypeRow}>
+            {(['none', 'fixed', 'percent'] as const).map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[
+                  styles.discountTypeChip,
+                  discountType === t && styles.discountTypeChipActive,
+                ]}
+                onPress={() => {
+                  setDiscountType(t);
+                  if (t === 'none') setDiscountInput('');
+                }}
+              >
+                <Text
+                  style={[
+                    styles.discountTypeChipText,
+                    discountType === t && styles.discountTypeChipTextActive,
+                  ]}
+                >
+                  {t === 'none' ? 'None' : t === 'fixed' ? 'Fixed $' : 'Percent %'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {discountType !== 'none' && (
+            <>
+              <TextInput
+                style={styles.input}
+                value={discountInput}
+                onChangeText={setDiscountInput}
+                placeholder={discountType === 'fixed' ? 'Amount e.g. 50.00' : 'Percent e.g. 10'}
+                keyboardType="decimal-pad"
+                placeholderTextColor="#9CA3AF"
+              />
+              <TextInput
+                style={[styles.input, { marginTop: 8 }]}
+                value={discountLabel}
+                onChangeText={setDiscountLabel}
+                placeholder="Label (optional) e.g. Mate rate"
+                placeholderTextColor="#9CA3AF"
+              />
+            </>
+          )}
+
           <View style={styles.totals}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
               <Text style={styles.totalValue}>{formatCurrency(calculateSubtotal())}</Text>
             </View>
+            {calculateDiscount() > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={[styles.totalLabel, { color: '#059669' }]}>
+                  {discountLabel.trim() || 'Discount'}
+                  {discountType === 'percent' && discountInput.trim()
+                    ? ` (${discountInput.trim()}%)`
+                    : ''}
+                </Text>
+                <Text style={[styles.totalValue, { color: '#059669' }]}>
+                  -{formatCurrency(calculateDiscount())}
+                </Text>
+              </View>
+            )}
             {includeGst && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>GST (15%)</Text>
@@ -424,7 +544,7 @@ export default function EditInvoiceScreen() {
             <View style={[styles.totalRow, styles.totalStrong]}>
               <Text style={styles.totalStrongLabel}>Total</Text>
               <Text style={styles.totalStrongValue}>
-                {formatCurrency(calculateSubtotal() + calculateGst())}
+                {formatCurrency(calculateSubtotal() - calculateDiscount() + calculateGst())}
               </Text>
             </View>
           </View>
@@ -476,6 +596,32 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
+  discountTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  discountTypeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+  },
+  discountTypeChipActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  discountTypeChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  discountTypeChipTextActive: {
+    color: '#2563EB',
+  },
   centered: {
     flex: 1,
     alignItems: 'center',

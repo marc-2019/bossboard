@@ -145,6 +145,12 @@ CREATE TABLE IF NOT EXISTS invoices (
 
     -- Amounts (stored in cents to avoid float issues)
     subtotal INTEGER NOT NULL DEFAULT 0,
+    -- Discount applied before GST (see migration 018)
+    discount_type VARCHAR(16) NOT NULL DEFAULT 'none'
+      CHECK (discount_type IN ('none', 'fixed', 'percent')),
+    discount_value INTEGER NOT NULL DEFAULT 0,
+    discount_amount INTEGER NOT NULL DEFAULT 0,
+    discount_label TEXT,
     gst_amount INTEGER NOT NULL DEFAULT 0,
     total INTEGER NOT NULL DEFAULT 0,
 

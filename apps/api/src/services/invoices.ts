@@ -12,11 +12,29 @@ import {
   InvoiceStatus,
   InvoiceCreateInput,
   InvoiceUpdateInput,
+  InvoiceDiscountType,
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
 
 const GST_RATE = 0.15; // NZ GST rate
+
+export interface InvoiceTotalsInput {
+  lineItems: { description: string; amount: number }[];
+  includeGst?: boolean;
+  discountType?: InvoiceDiscountType | null;
+  /** Cents if fixed; whole percent 0–100 if percent */
+  discountValue?: number | null;
+}
+
+export interface InvoiceTotals {
+  subtotal: number;
+  discountType: InvoiceDiscountType;
+  discountValue: number;
+  discountAmount: number;
+  gstAmount: number;
+  total: number;
+}
 
 /**
  * Generate next invoice number for user using business profile prefix
@@ -55,16 +73,50 @@ export async function getNextInvoiceNumber(userId: string): Promise<string> {
 }
 
 /**
- * Calculate invoice totals from line items
+ * Calculate invoice totals from line items + optional discount (before GST).
+ * Discount is capped at subtotal so total never goes negative.
  */
-function calculateTotals(
-  lineItems: { description: string; amount: number }[],
-  includeGst: boolean = true
-): { subtotal: number; gstAmount: number; total: number } {
-  const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
-  const gstAmount = includeGst ? Math.round(subtotal * GST_RATE) : 0;
-  const total = subtotal + gstAmount;
-  return { subtotal, gstAmount, total };
+export function calculateTotals(input: InvoiceTotalsInput): InvoiceTotals {
+  const lineItems = input.lineItems ?? [];
+  const includeGst = input.includeGst !== false;
+  const subtotal = lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+  let discountType: InvoiceDiscountType = input.discountType || 'none';
+  let discountValue = Math.max(0, Math.round(input.discountValue ?? 0));
+  if (discountType !== 'fixed' && discountType !== 'percent') {
+    discountType = 'none';
+    discountValue = 0;
+  }
+  if (discountType === 'percent') {
+    discountValue = Math.min(100, discountValue);
+  }
+
+  let discountAmount = 0;
+  if (discountType === 'fixed' && discountValue > 0) {
+    discountAmount = Math.min(discountValue, subtotal);
+  } else if (discountType === 'percent' && discountValue > 0) {
+    discountAmount = Math.min(
+      Math.round((subtotal * discountValue) / 100),
+      subtotal
+    );
+  } else {
+    discountType = 'none';
+    discountValue = 0;
+    discountAmount = 0;
+  }
+
+  const taxable = subtotal - discountAmount;
+  const gstAmount = includeGst ? Math.round(taxable * GST_RATE) : 0;
+  const total = taxable + gstAmount;
+
+  return {
+    subtotal,
+    discountType,
+    discountValue,
+    discountAmount,
+    gstAmount,
+    total,
+  };
 }
 
 /**
@@ -130,11 +182,17 @@ export async function createInvoice(
     amount: item.amount,
   }));
 
-  // Calculate totals
-  const { subtotal, gstAmount, total } = calculateTotals(
-    input.lineItems,
-    includeGst
-  );
+  const totals = calculateTotals({
+    lineItems: input.lineItems,
+    includeGst,
+    discountType: input.discountType,
+    discountValue: input.discountValue,
+  });
+
+  const discountLabel =
+    totals.discountAmount > 0
+      ? (input.discountLabel?.trim() || null)
+      : null;
 
   const result = await db.query(
     `INSERT INTO invoices (
@@ -147,11 +205,12 @@ export async function createInvoice(
       customer_id, recurring_invoice_id, include_gst,
       intl_bank_account_name, intl_iban, intl_swift_bic,
       intl_bank_name, intl_bank_address,
-      company_name, company_address, ird_number, gst_number
+      company_name, company_address, ird_number, gst_number,
+      discount_type, discount_value, discount_amount, discount_label
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft',
             $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
-            $25, $26, $27, $28)
+            $25, $26, $27, $28, $29, $30, $31, $32)
     RETURNING *`,
     [
       invoiceId,
@@ -163,9 +222,9 @@ export async function createInvoice(
       input.swmsId || null,
       input.jobDescription || null,
       JSON.stringify(lineItems),
-      subtotal,
-      gstAmount,
-      total,
+      totals.subtotal,
+      totals.gstAmount,
+      totals.total,
       input.dueDate || null,
       bankAccountName,
       bankAccountNumber,
@@ -182,6 +241,10 @@ export async function createInvoice(
       companyAddress,
       irdNumber,
       gstNumber,
+      totals.discountType,
+      totals.discountValue,
+      totals.discountAmount,
+      discountLabel,
     ]
   );
 
@@ -205,6 +268,10 @@ function transformInvoice(row: Record<string, unknown>): Invoice {
       ? JSON.parse(row.line_items)
       : (row.line_items as InvoiceLineItem[]) || [],
     subtotal: row.subtotal as number,
+    discountType: ((row.discount_type as InvoiceDiscountType) || 'none') as InvoiceDiscountType,
+    discountValue: (row.discount_value as number) ?? 0,
+    discountAmount: (row.discount_amount as number) ?? 0,
+    discountLabel: (row.discount_label as string | null) ?? null,
     gstAmount: row.gst_amount as number,
     total: row.total as number,
     status: row.status as InvoiceStatus,
@@ -253,6 +320,10 @@ function transformForMobile(invoice: Invoice): Record<string, unknown> {
     job_description: invoice.jobDescription,
     line_items: invoice.lineItems,
     subtotal: invoice.subtotal,
+    discount_type: invoice.discountType,
+    discount_value: invoice.discountValue,
+    discount_amount: invoice.discountAmount,
+    discount_label: invoice.discountLabel,
     gst_amount: invoice.gstAmount,
     total: invoice.total,
     status: invoice.status,
@@ -357,9 +428,9 @@ export async function updateInvoice(
   userId: string,
   updates: InvoiceUpdateInput
 ): Promise<Record<string, unknown> | null> {
-  // First check if invoice exists and is draft
+  // First check if invoice exists and is draft (full row for recalculation baseline)
   const existing = await db.query<Record<string, unknown>>(
-    'SELECT status FROM invoices WHERE id = $1 AND user_id = $2',
+    'SELECT * FROM invoices WHERE id = $1 AND user_id = $2',
     [invoiceId, userId]
   );
 
@@ -371,6 +442,7 @@ export async function updateInvoice(
     throw createError('Can only edit draft invoices', 400, 'INVOICE_NOT_EDITABLE');
   }
 
+  const current = transformInvoice(existing.rows[0]);
   const fields: string[] = [];
   const values: unknown[] = [];
   let paramIndex = 1;
@@ -397,34 +469,76 @@ export async function updateInvoice(
     gstNumber: 'gst_number',
   };
 
+  let nextLineItems = current.lineItems;
+  let lineItemsTouched = false;
+  let includeGst = current.includeGst;
+  let discountType: InvoiceDiscountType = current.discountType;
+  let discountValue = current.discountValue;
+  let discountLabel: string | null = current.discountLabel;
+  let totalsTouched = false;
+
   for (const [key, value] of Object.entries(updates)) {
     if (key === 'lineItems' && value !== undefined) {
-      // Recalculate totals when line items change
-      const lineItems = (value as { description: string; amount: number }[]).map((item) => ({
+      lineItemsTouched = true;
+      totalsTouched = true;
+      nextLineItems = (value as { description: string; amount: number }[]).map((item) => ({
         id: uuidv4(),
         description: item.description,
         amount: item.amount,
       }));
-      const { subtotal, gstAmount, total } = calculateTotals(
-        value as { description: string; amount: number }[],
-        updates.includeGst !== false
-      );
-
-      fields.push(`line_items = $${paramIndex++}`);
-      values.push(JSON.stringify(lineItems));
-      fields.push(`subtotal = $${paramIndex++}`);
-      values.push(subtotal);
-      fields.push(`gst_amount = $${paramIndex++}`);
-      values.push(gstAmount);
-      fields.push(`total = $${paramIndex++}`);
-      values.push(total);
     } else if (key === 'includeGst' && value !== undefined) {
+      totalsTouched = true;
+      includeGst = Boolean(value);
       fields.push(`include_gst = $${paramIndex++}`);
-      values.push(value);
+      values.push(includeGst);
+    } else if (key === 'discountType' && value !== undefined) {
+      totalsTouched = true;
+      discountType = value as InvoiceDiscountType;
+    } else if (key === 'discountValue' && value !== undefined) {
+      totalsTouched = true;
+      discountValue = value as number;
+    } else if (key === 'discountLabel') {
+      // Allow clearing with null/empty
+      discountLabel =
+        value === null || value === undefined || value === ''
+          ? null
+          : String(value).trim() || null;
+      totalsTouched = true;
     } else if (fieldMap[key] && value !== undefined) {
       fields.push(`${fieldMap[key]} = $${paramIndex++}`);
       values.push(value);
     }
+  }
+
+  if (lineItemsTouched) {
+    fields.push(`line_items = $${paramIndex++}`);
+    values.push(JSON.stringify(nextLineItems));
+  }
+
+  if (totalsTouched || lineItemsTouched) {
+    const totals = calculateTotals({
+      lineItems: nextLineItems,
+      includeGst,
+      discountType,
+      discountValue,
+    });
+    const labelToStore =
+      totals.discountAmount > 0 ? discountLabel : null;
+
+    fields.push(`subtotal = $${paramIndex++}`);
+    values.push(totals.subtotal);
+    fields.push(`discount_type = $${paramIndex++}`);
+    values.push(totals.discountType);
+    fields.push(`discount_value = $${paramIndex++}`);
+    values.push(totals.discountValue);
+    fields.push(`discount_amount = $${paramIndex++}`);
+    values.push(totals.discountAmount);
+    fields.push(`discount_label = $${paramIndex++}`);
+    values.push(labelToStore);
+    fields.push(`gst_amount = $${paramIndex++}`);
+    values.push(totals.gstAmount);
+    fields.push(`total = $${paramIndex++}`);
+    values.push(totals.total);
   }
 
   if (fields.length === 0) {
