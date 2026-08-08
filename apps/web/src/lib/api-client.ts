@@ -18,6 +18,7 @@ export class ApiError extends Error {
 async function clientFetch<T>(
   endpoint: string,
   options: { method?: string; body?: unknown } = {},
+  _retried = false,
 ): Promise<T> {
   const { method = 'GET', body } = options;
 
@@ -25,9 +26,29 @@ async function clientFetch<T>(
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
+    credentials: 'same-origin',
   });
 
   const json = await res.json();
+
+  // Access cookie is 15m; refresh is 7d. One silent refresh + retry for idle forms.
+  if (
+    !_retried &&
+    res.status === 401 &&
+    endpoint !== '/api/auth/refresh' &&
+    endpoint !== '/api/auth/login' &&
+    (json.error === 'NOT_AUTHENTICATED' ||
+      json.message === 'No session' ||
+      json.error === 'TOKEN_EXPIRED')
+  ) {
+    const refreshRes = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    if (refreshRes.ok) {
+      return clientFetch<T>(endpoint, options, true);
+    }
+  }
 
   if (!res.ok || !json.success) {
     throw new ApiError(
