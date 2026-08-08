@@ -293,6 +293,33 @@ export default function SWMSDetailScreen() {
 
       <PhotoAttachments entityType="swms" entityId={id as string} editable={document.status !== 'signed'} />
 
+      {/* After-job wedge: SWMS → invoice draft (Radar: small-crew admin loop) */}
+      <View style={styles.afterJobCard}>
+        <Text style={styles.afterJobTitle}>Finish the job</Text>
+        <Text style={styles.afterJobBody}>
+          Paperwork done — draft the invoice from this SWMS so you get paid without retyping the job.
+        </Text>
+        <TouchableOpacity
+          style={styles.invoiceButton}
+          testID="swms-invoice-this-job"
+          onPress={() => {
+            const params = new URLSearchParams();
+            params.set('swmsId', id as string);
+            if (document.client_name) params.set('clientName', document.client_name);
+            if (document.job_description) {
+              params.set('jobDescription', document.job_description.slice(0, 500));
+            }
+            if (document.site_address) {
+              params.set('siteAddress', document.site_address.slice(0, 200));
+            }
+            router.push(`/invoices/create?${params.toString()}` as any);
+          }}
+        >
+          <Ionicons name="receipt-outline" size={20} color="#fff" />
+          <Text style={styles.invoiceButtonText}>Invoice this job</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.actions}>
         {document.status !== 'signed' && (
           <>
@@ -509,6 +536,40 @@ const styles = StyleSheet.create({
   actions: {
     gap: 12,
     marginTop: 8,
+  },
+  afterJobCard: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  afterJobTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E3A8A',
+    marginBottom: 6,
+  },
+  afterJobBody: {
+    fontSize: 14,
+    color: '#1E40AF',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  invoiceButton: {
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  invoiceButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   signButton: {
     backgroundColor: '#2563EB',

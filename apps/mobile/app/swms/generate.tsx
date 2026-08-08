@@ -17,7 +17,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { swmsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -41,11 +41,22 @@ const TRADE_OPTIONS = [
 export default function GenerateSWMSScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const params = useLocalSearchParams<{
+    jobDescription?: string;
+    siteAddress?: string;
+    clientName?: string;
+  }>();
 
   const [tradeType, setTradeType] = useState(user?.tradeType || '');
-  const [jobDescription, setJobDescription] = useState('');
-  const [siteAddress, setSiteAddress] = useState('');
-  const [clientName, setClientName] = useState('');
+  const [jobDescription, setJobDescription] = useState(
+    typeof params.jobDescription === 'string' ? params.jobDescription : ''
+  );
+  const [siteAddress, setSiteAddress] = useState(
+    typeof params.siteAddress === 'string' ? params.siteAddress : ''
+  );
+  const [clientName, setClientName] = useState(
+    typeof params.clientName === 'string' ? params.clientName : ''
+  );
   const [duration, setDuration] = useState('');
   const [useAI, setUseAI] = useState(true);
   const [isLoading, setIsLoading] = useState(false);

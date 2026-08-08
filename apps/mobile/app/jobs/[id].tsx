@@ -106,6 +106,34 @@ export default function JobLogDetailScreen() {
       await jobLogsApi.clockOut(id as string, clockOutNotes.trim() || undefined);
       setShowClockOutForm(false);
       await loadJobLog();
+      // After-job wedge (Radar): SWMS then invoice — free-tier path is SWMS→invoice; job log is optional trigger
+      const desc = jobLog?.description || '';
+      const site = jobLog?.siteAddress || '';
+      const params = new URLSearchParams();
+      if (desc) params.set('jobDescription', desc.slice(0, 500));
+      if (site) params.set('siteAddress', site.slice(0, 200));
+      const qs = params.toString();
+      Alert.alert(
+        'Job clocked out',
+        'Finish the paperwork while it’s fresh — SWMS for the site, then invoice so you get paid.',
+        [
+          {
+            text: 'SWMS for this job',
+            onPress: () =>
+              router.push(
+                (qs ? `/swms/generate?${qs}` : '/swms/generate') as any
+              ),
+          },
+          {
+            text: 'Draft invoice',
+            onPress: () =>
+              router.push(
+                (qs ? `/invoices/create?${qs}` : '/invoices/create') as any
+              ),
+          },
+          { text: 'Later', style: 'cancel' },
+        ]
+      );
     } catch (error: any) {
       const message = error?.response?.data?.message || error.message || 'Failed to clock out';
       Alert.alert('Error', message);

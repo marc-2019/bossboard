@@ -19,13 +19,14 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   invoicesApi,
   customersApi,
   productsApi,
   businessProfileApi,
+  swmsApi,
 } from '../../src/services/api';
 import { safeGoBack } from '../../src/utils/navigation';
 
@@ -56,8 +57,18 @@ interface Product {
 
 export default function CreateInvoiceScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    swmsId?: string;
+    clientName?: string;
+    jobDescription?: string;
+    siteAddress?: string;
+  }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [linkedSwmsId, setLinkedSwmsId] = useState<string | undefined>(
+    typeof params.swmsId === 'string' ? params.swmsId : undefined
+  );
+  const [fromSwmsBanner, setFromSwmsBanner] = useState(!!params.swmsId);
 
   // Customer picker
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -73,12 +84,23 @@ export default function CreateInvoiceScreen() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
 
   // Form state
-  const [clientName, setClientName] = useState('');
+  const [clientName, setClientName] = useState(
+    typeof params.clientName === 'string' ? params.clientName : ''
+  );
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
+  const [jobDescription, setJobDescription] = useState(
+    typeof params.jobDescription === 'string' ? params.jobDescription : ''
+  );
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { id: '1', description: '', amount: '' },
+    {
+      id: '1',
+      description:
+        typeof params.jobDescription === 'string' && params.jobDescription
+          ? params.jobDescription.slice(0, 120)
+          : '',
+      amount: '',
+    },
   ]);
   const [includeGst, setIncludeGst] = useState(true);
   const [discountType, setDiscountType] = useState<'none' | 'fixed' | 'percent'>('none');
@@ -106,6 +128,52 @@ export default function CreateInvoiceScreen() {
   useEffect(() => {
     loadBusinessProfile();
   }, []);
+
+  // Prefill from SWMS when opened via "Invoice this job"
+  useEffect(() => {
+    const swmsId = typeof params.swmsId === 'string' ? params.swmsId : undefined;
+    if (!swmsId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await swmsApi.get(swmsId);
+        if (cancelled || !response.data?.success) return;
+        const doc = response.data.data?.document;
+        if (!doc) return;
+        setLinkedSwmsId(doc.id || swmsId);
+        setFromSwmsBanner(true);
+        if (doc.client_name) setClientName(doc.client_name);
+        if (doc.job_description) {
+          setJobDescription(doc.job_description);
+          setLineItems((prev) => {
+            if (prev.length === 1 && !prev[0].description.trim()) {
+              return [
+                {
+                  id: prev[0].id,
+                  description: doc.job_description.slice(0, 120),
+                  amount: prev[0].amount,
+                },
+              ];
+            }
+            return prev;
+          });
+        }
+        if (doc.site_address) {
+          setNotes((n) =>
+            n.includes(doc.site_address)
+              ? n
+              : [n, `Site: ${doc.site_address}`].filter(Boolean).join('\n')
+          );
+        }
+      } catch (e) {
+        console.warn('SWMS prefill failed', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.swmsId]);
 
   async function loadBusinessProfile() {
     try {
@@ -301,6 +369,7 @@ export default function CreateInvoiceScreen() {
         clientEmail: clientEmail.trim() || undefined,
         clientPhone: clientPhone.trim() || undefined,
         jobDescription: jobDescription.trim() || undefined,
+        swmsId: linkedSwmsId,
         lineItems: validLineItems.map((item) => ({
           description: item.description.trim(),
           amount: parseAmount(item.amount),
@@ -412,6 +481,15 @@ export default function CreateInvoiceScreen() {
           <Ionicons name="chevron-back" size={20} color="#2563EB" />
           <Text style={styles.inContentBackText}>Back to invoices</Text>
         </TouchableOpacity>
+
+        {fromSwmsBanner && (
+          <View style={styles.swmsBanner} testID="invoice-from-swms-banner">
+            <Ionicons name="shield-checkmark" size={18} color="#059669" />
+            <Text style={styles.swmsBannerText}>
+              Draft from SWMS{linkedSwmsId ? ` · linked` : ''}. Job details prefilled — add amounts and send.
+            </Text>
+          </View>
+        )}
 
         {/* Customer Selection */}
         <View style={styles.section}>
@@ -987,6 +1065,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     marginLeft: 2,
+  },
+  swmsBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  swmsBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#065F46',
+    lineHeight: 18,
   },
   section: {
     marginBottom: 24,
