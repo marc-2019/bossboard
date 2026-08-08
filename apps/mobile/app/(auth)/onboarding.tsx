@@ -150,7 +150,9 @@ export default function OnboardingScreen() {
           <Text style={styles.welcome}>
             Welcome{user?.name ? `, ${user.name}` : ''}! 👋
           </Text>
-          <Text style={styles.subtitle}>Let's get your account set up</Text>
+          <Text style={styles.subtitle}>
+            Built for small NZ crews — SWMS, invoices, less paperwork after the job
+          </Text>
         </View>
 
         {/* Progress */}
@@ -173,7 +175,8 @@ export default function OnboardingScreen() {
             <>
               <Text style={styles.stepTitle}>What's your trade?</Text>
               <Text style={styles.stepDescription}>
-                This helps us customise your SWMS templates and hazard suggestions.
+                For tradie crews who need invoices and SWMS without enterprise job software.
+                We customise templates for your trade.
               </Text>
               <View style={styles.tradeGrid}>
                 {TRADE_TYPES.map((trade) => (

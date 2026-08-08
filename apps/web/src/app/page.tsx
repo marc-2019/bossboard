@@ -359,6 +359,7 @@ export default function Home() {
           <div className="footer-links">
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
+            <Link href="/tools/gst-invoice">GST invoice helper</Link>
             <a
               href="https://instilligent.com"
               target="_blank"

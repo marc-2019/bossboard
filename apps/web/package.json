@@ -10,7 +10,8 @@
     "check:routes": "node scripts/check-routes.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test:smoke": "playwright test --config=playwright.smoke.config.ts"
+    "test:smoke": "playwright test --config=playwright.smoke.config.ts",
+    "test:unit": "node scripts/test-gst-invoice.mjs"
   },
   "dependencies": {
     "@bossboard/shared": "*",
