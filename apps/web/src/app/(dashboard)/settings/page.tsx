@@ -184,9 +184,9 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-base font-semibold text-gray-900">Get the BossBoard app</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Use web for invoices, clients, products, quotes, and settings. The mobile app is
-              best for on-site photos, clock-in, and field SWMS. App Store + Google Play where
-              available.
+              Use web for invoices, recurring templates, bank CSV recon, clients, products,
+              quotes, and settings. The mobile app is best for on-site photos, clock-in, and
+              field SWMS. App Store + Google Play where available.
             </p>
           </div>
         </div>
