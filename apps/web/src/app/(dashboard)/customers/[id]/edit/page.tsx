@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { customersClient, ApiError } from '@/lib/api-client';
 import { ArrowLeft } from 'lucide-react';
+import { DocumentsPanel } from '@/components/documents-panel';
 
 export default function EditCustomerPage() {
   const { id } = useParams<{ id: string }>();
@@ -191,6 +192,14 @@ export default function EditCustomerPage() {
           </Button>
         </div>
       </form>
+
+      {id ? (
+        <DocumentsPanel
+          scope="customer"
+          customerId={id}
+          title="Client contracts & terms"
+        />
+      ) : null}
     </div>
   );
 }

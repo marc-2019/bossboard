@@ -20,6 +20,7 @@ import type {
   TradeType,
 } from '@bossboard/shared';
 import { Smartphone, Pencil, Gift, Copy, Check, Building2, Landmark } from 'lucide-react';
+import { DocumentsPanel } from '@/components/documents-panel';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -114,6 +115,11 @@ export default function SettingsPage() {
       <BusinessProfileCard />
 
       <BankDetailsCard />
+
+      <DocumentsPanel
+        scope="company"
+        title="Company contracts & terms (PDF)"
+      />
 
       <Card>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
