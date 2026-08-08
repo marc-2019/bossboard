@@ -135,6 +135,22 @@ function renderInvoicePage(
   }
 
   const gstAmount = typeof inv.gst_amount === 'number' ? inv.gst_amount : parseInt(String(inv.gst_amount || '0'), 10);
+  const discountAmount =
+    typeof inv.discount_amount === 'number'
+      ? inv.discount_amount
+      : parseInt(String(inv.discount_amount || '0'), 10);
+  let discountLabel = inv.discount_label ? String(inv.discount_label) : 'Discount';
+  if (inv.discount_type === 'percent' && inv.discount_value) {
+    discountLabel = `${discountLabel} (${inv.discount_value}%)`;
+  }
+  const discountRowHtml =
+    discountAmount > 0
+      ? `
+          <tr class="discount-row">
+            <td>${escapeHtml(discountLabel)}</td>
+            <td class="amount">-${formatCurrency(discountAmount)}</td>
+          </tr>`
+      : '';
 
   let companyHtml = '';
   if (inv.company_name) {
@@ -225,6 +241,7 @@ function renderInvoicePage(
             <td>Subtotal</td>
             <td class="amount">${formatCurrency(inv.subtotal)}</td>
           </tr>
+          ${discountRowHtml}
           ${gstAmount > 0 ? `
           <tr class="gst-row">
             <td>GST (15%)</td>

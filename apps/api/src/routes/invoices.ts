@@ -31,6 +31,15 @@ const lineItemSchema = z.object({
   amount: z.number().int().min(0, 'Amount must be positive (in cents)'),
 });
 
+const discountTypeSchema = z.enum(['none', 'fixed', 'percent']);
+
+const discountFields = {
+  discountType: discountTypeSchema.optional(),
+  /** Cents if fixed; whole percent 0–100 if percent */
+  discountValue: z.number().int().min(0).max(100_000_000).optional(),
+  discountLabel: z.string().max(120).optional().nullable(),
+};
+
 const createSchema = z.object({
   clientName: z.string().min(1, 'Client name is required'),
   clientEmail: z.string().email().optional().or(z.literal('')),
@@ -43,6 +52,7 @@ const createSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
+  ...discountFields,
 });
 
 const updateSchema = z.object({
@@ -57,6 +67,7 @@ const updateSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
+  ...discountFields,
 });
 
 // =============================================================================

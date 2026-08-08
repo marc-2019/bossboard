@@ -233,6 +233,9 @@ export interface CertificationUpdateInput {
 // INVOICE TYPES
 // =============================================================================
 
+/** How a client-invoice discount is entered. Applied before GST. */
+export type InvoiceDiscountType = 'none' | 'fixed' | 'percent';
+
 export interface Invoice {
   id: string;
   userId: string;
@@ -244,6 +247,14 @@ export interface Invoice {
   jobDescription: string | null;
   lineItems: InvoiceLineItem[];
   subtotal: number;
+  /** none | fixed (cents in discountValue) | percent (0–100 in discountValue) */
+  discountType: InvoiceDiscountType;
+  /** Input value: cents if fixed, whole percent if percent */
+  discountValue: number;
+  /** Computed discount in cents applied before GST (capped at subtotal) */
+  discountAmount: number;
+  /** Optional label on PDF / detail (defaults to "Discount") */
+  discountLabel: string | null;
   gstAmount: number;
   total: number;
   status: InvoiceStatus;
@@ -293,6 +304,12 @@ export interface InvoiceCreateInput {
   jobDescription?: string;
   lineItems: { description: string; amount: number }[];
   includeGst?: boolean;
+  /** none | fixed | percent — default none */
+  discountType?: InvoiceDiscountType;
+  /** Cents if fixed; whole percent 0–100 if percent */
+  discountValue?: number;
+  /** Optional PDF/detail label */
+  discountLabel?: string | null;
   dueDate?: string;
   bankAccountName?: string;
   bankAccountNumber?: string;
@@ -318,6 +335,9 @@ export interface InvoiceUpdateInput {
   jobDescription?: string;
   lineItems?: { description: string; amount: number }[];
   includeGst?: boolean;
+  discountType?: InvoiceDiscountType;
+  discountValue?: number;
+  discountLabel?: string | null;
   dueDate?: string | null;
   bankAccountName?: string;
   bankAccountNumber?: string;

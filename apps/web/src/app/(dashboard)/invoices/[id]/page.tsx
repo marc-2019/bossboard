@@ -442,6 +442,17 @@ export default function InvoiceDetailPage() {
             <span>Subtotal</span>
             <span>{formatCents(invoice.subtotal)}</span>
           </div>
+          {invoice.discountAmount > 0 && (
+            <div className="flex justify-between text-sm text-green-700">
+              <span>
+                {invoice.discountLabel || 'Discount'}
+                {invoice.discountType === 'percent' && invoice.discountValue
+                  ? ` (${invoice.discountValue}%)`
+                  : ''}
+              </span>
+              <span>-{formatCents(invoice.discountAmount)}</span>
+            </div>
+          )}
           {invoice.includeGst && (
             <div className="flex justify-between text-sm text-gray-700">
               <span>GST (15%)</span>
