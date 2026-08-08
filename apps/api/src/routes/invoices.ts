@@ -94,10 +94,11 @@ router.post('/', authenticate, attachSubscription, checkLimit('invoice'), async 
       return;
     }
 
-    // Clean up empty clientEmail
+    // Clean up empty clientEmail / null customerId (zod allows null; service wants string | undefined)
     const input = {
       ...validation.data,
       clientEmail: validation.data.clientEmail || undefined,
+      customerId: validation.data.customerId || undefined,
     };
 
     const invoice = await invoicesService.createInvoice(req.user!.userId, input);
