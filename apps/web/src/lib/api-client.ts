@@ -609,9 +609,14 @@ export const photosClient = {
   fileUrl: (id: string) => `/api/photos/${id}/file`,
 };
 
-/** Teams API (web scope: view team + invite/cancel + remove/role/leave).
- *  Create-team and ownership transfer still happen in the mobile app. */
+/** Teams API — create, view, invite, remove/role/leave. */
 export const teamsClient = {
+  create: (data: { name: string }) =>
+    clientFetch<{
+      team: import('@bossboard/shared').Team;
+      membership?: import('@bossboard/shared').TeamMember;
+    }>('/api/teams', { method: 'POST', body: data }),
+
   myTeam: () =>
     clientFetch<{
       team: import('@bossboard/shared').Team | null;

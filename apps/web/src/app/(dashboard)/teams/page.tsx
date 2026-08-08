@@ -60,6 +60,9 @@ export default function TeamsPage() {
   const [inviteRole, setInviteRole] = useState<TeamRole>('worker');
   const [inviteBusy, setInviteBusy] = useState(false);
 
+  const [createName, setCreateName] = useState('');
+  const [createBusy, setCreateBusy] = useState(false);
+
   // Per-member action busy flags, keyed by member user id.
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [roleSavingId, setRoleSavingId] = useState<string | null>(null);
@@ -212,21 +215,66 @@ export default function TeamsPage() {
     );
   }
 
+  const onCreateTeam = async (e: FormEvent) => {
+    e.preventDefault();
+    const name = createName.trim();
+    if (!name || createBusy) return;
+    setCreateBusy(true);
+    setError(null);
+    setStatusOk(null);
+    try {
+      await teamsClient.create({ name });
+      setCreateName('');
+      setStatusOk(`Team “${name}” created — you’re the owner.`);
+      await load();
+    } catch (err: unknown) {
+      setError(describeError(err, 'Could not create team.'));
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
   if (!team) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Team</h1>
+      <div className="space-y-6 max-w-lg">
+        <h1 className="text-2xl font-bold text-gray-900">Team</h1>
+        {error && (
+          <Card>
+            <p className="text-sm text-danger">{error}</p>
+          </Card>
+        )}
+        {statusOk && (
+          <Card>
+            <p className="text-sm text-success">{statusOk}</p>
+          </Card>
+        )}
         <Card>
-          <div className="py-10 text-center">
+          <div className="py-6 text-center mb-4">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-3">
               <Users size={20} className="text-gray-500" />
             </div>
-            <h2 className="text-base font-semibold text-gray-900 mb-1">You're not on a team yet</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">
+              You&apos;re not on a team yet
+            </h2>
             <p className="text-sm text-gray-600 max-w-md mx-auto">
-              Create a team or accept a team invite from the BossBoard mobile app. Once
-              you're on a team, you can manage members and send invites from this screen.
+              Create a team for Instilligent (or your crew). You become the owner and can invite
+              workers and admins. Paid <strong>Team</strong> plan is for multi-user limits when
+              billing is live; creating a team works in beta.
             </p>
           </div>
+          <form onSubmit={onCreateTeam} className="space-y-3 border-t border-border-light pt-4">
+            <Input
+              label="Team name"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              placeholder="e.g. Instilligent Ltd"
+              required
+              autoFocus
+            />
+            <Button type="submit" loading={createBusy} disabled={!createName.trim()}>
+              Create team
+            </Button>
+          </form>
         </Card>
       </div>
     );
