@@ -322,6 +322,57 @@ export const quotesClient = {
   pdfUrl: (id: string) => `/api/quotes/${id}/pdf`,
 };
 
+/** Bank CSV import + invoice reconciliation (amounts in integer cents). */
+export type BankSummary = {
+  total: number;
+  reconciled: number;
+  unreconciled: number;
+  totalCredits: number;
+  totalDebits: number;
+};
+
+export const bankTransactionsClient = {
+  list: async (params?: { isReconciled?: boolean }) => {
+    const sp = new URLSearchParams();
+    if (params?.isReconciled === true) sp.set('isReconciled', 'true');
+    if (params?.isReconciled === false) sp.set('isReconciled', 'false');
+    const qs = sp.toString();
+    return deepCamelize<{
+      transactions: import('@bossboard/shared').BankTransaction[];
+      total?: number;
+    }>(await clientFetch<unknown>(`/api/bank-transactions${qs ? `?${qs}` : ''}`));
+  },
+
+  summary: async () =>
+    deepCamelize<{ summary: BankSummary }>(
+      await clientFetch<unknown>('/api/bank-transactions/summary'),
+    ),
+
+  /** csvContent may be plain CSV text or base64 (API accepts both). */
+  upload: async (csvContent: string, filename: string) =>
+    deepCamelize<{ imported: number; duplicates: number; batchId?: string }>(
+      await clientFetch<unknown>('/api/bank-transactions/upload', {
+        method: 'POST',
+        body: { csvContent, filename },
+      }),
+    ),
+
+  autoMatch: async () =>
+    deepCamelize<{ matched: number }>(
+      await clientFetch<unknown>('/api/bank-transactions/auto-match', { method: 'POST' }),
+    ),
+
+  confirm: async (id: string) =>
+    deepCamelize<{ transaction: import('@bossboard/shared').BankTransaction }>(
+      await clientFetch<unknown>(`/api/bank-transactions/${id}/confirm`, { method: 'POST' }),
+    ),
+
+  unmatch: async (id: string) =>
+    deepCamelize<{ transaction: import('@bossboard/shared').BankTransaction }>(
+      await clientFetch<unknown>(`/api/bank-transactions/${id}/unmatch`, { method: 'POST' }),
+    ),
+};
+
 /** Certifications API — list + full create/edit/delete. */
 export type CertificationType =
   | 'electrical' | 'gas' | 'plumbing' | 'lpg' | 'first_aid' | 'site_safe' | 'other';
