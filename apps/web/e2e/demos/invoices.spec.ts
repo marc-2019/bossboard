@@ -10,12 +10,12 @@
  *  - F-INV-06: PDF export                                          — web
  *  - F-INV-07: email invoice (Resend /emails mocked via page.route) — web
  *  - F-INV-08: public share link (no-auth render)                  — web
- *  - F-INV-09: recurring invoices                                  — MOBILE-ONLY (no Web UI; see drift app §3)
- *  - F-INV-10: bank reconciliation                                  — MOBILE-ONLY (no Web UI; see drift app §4)
+ *  - F-INV-09: recurring invoices                                  — web (/recurring) + mobile
+ *  - F-INV-10: bank reconciliation                                  — web (/bank) + mobile
  *
- * F-INV-09 + F-INV-10 are marked `test.skip()` here with an explanatory
- * tag — they live in apps/mobile/.maestro/21-* and 22-* (Maestro), plus
- * the API surface coverage in `api/invoices.api.spec.ts`.
+ * F-INV-09 + F-INV-10 remain `test.skip()` in this UI demo file until full
+ * headed Playwright coverage is added; API surface is covered in
+ * `api/invoices.api.spec.ts`, mobile Maestro in 21-* / 22-*.
  *
  * Pattern follows existing reference spec `e2e/auth.spec.ts`. Each test
  * uses an ephemeral user (registerEphemeralUser) so the suite cleans up
@@ -313,8 +313,9 @@ test.describe('F-INV (Invoices module) — web demos', () => {
     //   - apps/mobile/.maestro/21-inv-recurring.yaml (mobile UI)
   });
 
-  test.skip('F-INV-10: bank reconciliation (MOBILE-ONLY — no /bank page on Web; see drift app §4)', () => {
+  test.skip('F-INV-10: bank reconciliation (web UI at /bank + /bank/upload; headed demo not yet automated)', () => {
     // Coverage for this feature lives in:
+    //   - apps/web/src/app/(dashboard)/bank/* (Web UI)
     //   - apps/web/e2e/demos/api/invoices.api.spec.ts (API surface)
     //   - apps/mobile/.maestro/22-inv-bank-rec.yaml (mobile UI)
   });

@@ -1,9 +1,9 @@
 /**
  * API demos for the Invoices module (F-INV-01 … F-INV-10).
  *
- * Unlike the web demos, all 10 features have an API surface (recurring +
- * bank reconciliation routes exist even though no Web UI does — see
- * drift appendix §3-4). So this file covers every F-INV-NN.
+ * All 10 features have an API surface. Web UI now includes recurring
+ * (/recurring) and bank reconciliation (/bank); this file still covers
+ * every F-INV-NN via the Express API.
  *
  * Uses Playwright's `request` fixture (no browser launched). Targets the
  * real Express API on $API_BASE_URL (default http://localhost:29000).
