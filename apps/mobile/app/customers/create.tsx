@@ -74,10 +74,31 @@ export default function CreateCustomerScreen() {
     }
   }
 
+  function looksLikeBankDetails(text: string): boolean {
+    const t = text.replace(/\s+/g, ' ');
+    if (/\b\d{2}[-\s]?\d{4}[-\s]?\d{7}[-\s]?\d{2,3}\b/.test(t)) return true;
+    if (/\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/i.test(t)) return true;
+    if (
+      /\b(account\s*(number|no\.?|#)|bank\s*account)\b/i.test(t) &&
+      /\d{6,}/.test(t)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   async function handleSubmit() {
     // Validation
     if (!name.trim()) {
       Alert.alert('Error', 'Please enter a customer name');
+      return;
+    }
+
+    if (looksLikeBankDetails(notes)) {
+      Alert.alert(
+        'Bank details go in Settings',
+        'Do not put bank account numbers in client notes. Save payment details once under Settings → Bank details so they appear on all invoices.',
+      );
       return;
     }
 
@@ -248,7 +269,7 @@ export default function CreateCustomerScreen() {
               style={[styles.input, styles.textArea]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Any internal notes about this customer"
+              placeholder="Preferences, site access — not bank account numbers"
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}

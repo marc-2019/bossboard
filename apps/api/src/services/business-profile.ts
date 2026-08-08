@@ -9,6 +9,13 @@ import {
   BusinessProfile,
   BusinessProfileUpsertInput,
 } from '../types/index.js';
+import { encryptField, decryptField } from '../utils/field-crypto.js';
+import { recordDataAccess } from './data-access-audit.js';
+
+/** Decrypt sensitive business-profile columns (legacy plaintext pass-through). */
+function d(v: unknown): string | null {
+  return decryptField((v as string | null) ?? null);
+}
 
 /**
  * Transform DB row to BusinessProfile type with proper casing
@@ -19,23 +26,23 @@ function transformProfile(row: Record<string, unknown>): BusinessProfile {
     userId: row.user_id as string,
     companyName: row.company_name as string | null,
     tradingAs: row.trading_as as string | null,
-    irdNumber: row.ird_number as string | null,
-    gstNumber: row.gst_number as string | null,
+    irdNumber: d(row.ird_number),
+    gstNumber: d(row.gst_number),
     isGstRegistered: row.is_gst_registered as boolean,
-    companyAddress: row.company_address as string | null,
-    companyPhone: row.company_phone as string | null,
-    companyEmail: row.company_email as string | null,
-    bankAccountName: row.bank_account_name as string | null,
-    bankAccountNumber: row.bank_account_number as string | null,
-    bankName: row.bank_name as string | null,
-    intlBankAccountName: row.intl_bank_account_name as string | null,
-    intlIban: row.intl_iban as string | null,
-    intlSwiftBic: row.intl_swift_bic as string | null,
-    intlBankName: row.intl_bank_name as string | null,
-    intlBankAddress: row.intl_bank_address as string | null,
-    intlRoutingNumber: row.intl_routing_number as string | null,
+    companyAddress: d(row.company_address),
+    companyPhone: d(row.company_phone),
+    companyEmail: d(row.company_email),
+    bankAccountName: d(row.bank_account_name),
+    bankAccountNumber: d(row.bank_account_number),
+    bankName: d(row.bank_name),
+    intlBankAccountName: d(row.intl_bank_account_name),
+    intlIban: d(row.intl_iban),
+    intlSwiftBic: d(row.intl_swift_bic),
+    intlBankName: d(row.intl_bank_name),
+    intlBankAddress: d(row.intl_bank_address),
+    intlRoutingNumber: d(row.intl_routing_number),
     defaultPaymentTerms: row.default_payment_terms as number,
-    defaultNotes: row.default_notes as string | null,
+    defaultNotes: d(row.default_notes),
     invoicePrefix: row.invoice_prefix as string,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
@@ -89,6 +96,13 @@ export async function getBusinessProfile(
     return null;
   }
 
+  await recordDataAccess({
+    entityType: 'business_profile',
+    entityId: result.rows[0].id as string,
+    action: 'read',
+    actorUserId: userId,
+  });
+
   return transformForMobile(transformProfile(result.rows[0]));
 }
 
@@ -139,28 +153,36 @@ export async function upsertBusinessProfile(
       userId,
       input.companyName || null,
       input.tradingAs || null,
-      input.irdNumber || null,
-      input.gstNumber || null,
+      encryptField(input.irdNumber || null),
+      encryptField(input.gstNumber || null),
       input.isGstRegistered ?? false,
-      input.companyAddress || null,
-      input.companyPhone || null,
-      input.companyEmail || null,
-      input.bankAccountName || null,
-      input.bankAccountNumber || null,
-      input.bankName || null,
-      input.intlBankAccountName || null,
-      input.intlIban || null,
-      input.intlSwiftBic || null,
-      input.intlBankName || null,
-      input.intlBankAddress || null,
-      input.intlRoutingNumber || null,
+      encryptField(input.companyAddress || null),
+      encryptField(input.companyPhone || null),
+      encryptField(input.companyEmail || null),
+      encryptField(input.bankAccountName || null),
+      encryptField(input.bankAccountNumber || null),
+      encryptField(input.bankName || null),
+      encryptField(input.intlBankAccountName || null),
+      encryptField(input.intlIban || null),
+      encryptField(input.intlSwiftBic || null),
+      encryptField(input.intlBankName || null),
+      encryptField(input.intlBankAddress || null),
+      encryptField(input.intlRoutingNumber || null),
       input.defaultPaymentTerms ?? 20,
-      input.defaultNotes || null,
+      encryptField(input.defaultNotes || null),
       input.invoicePrefix || 'INV',
     ]
   );
 
-  return transformForMobile(transformProfile(result.rows[0]));
+  const profile = transformForMobile(transformProfile(result.rows[0]));
+  await recordDataAccess({
+    entityType: 'business_profile',
+    entityId: result.rows[0].id as string,
+    action: 'update',
+    actorUserId: userId,
+    metadata: { upsert: true },
+  });
+  return profile;
 }
 
 /** Bank details shape returned for invoice/quote auto-population */
@@ -205,19 +227,19 @@ export async function getBankDetailsForInvoice(
   const row = result.rows[0];
   return {
     companyName: row.company_name as string | null,
-    companyAddress: row.company_address as string | null,
-    irdNumber: row.ird_number as string | null,
-    gstNumber: row.gst_number as string | null,
+    companyAddress: d(row.company_address),
+    irdNumber: d(row.ird_number),
+    gstNumber: d(row.gst_number),
     isGstRegistered: row.is_gst_registered as boolean | undefined,
-    bankAccountName: row.bank_account_name as string | null,
-    bankAccountNumber: row.bank_account_number as string | null,
-    intlBankAccountName: row.intl_bank_account_name as string | null,
-    intlIban: row.intl_iban as string | null,
-    intlSwiftBic: row.intl_swift_bic as string | null,
-    intlBankName: row.intl_bank_name as string | null,
-    intlBankAddress: row.intl_bank_address as string | null,
+    bankAccountName: d(row.bank_account_name),
+    bankAccountNumber: d(row.bank_account_number),
+    intlBankAccountName: d(row.intl_bank_account_name),
+    intlIban: d(row.intl_iban),
+    intlSwiftBic: d(row.intl_swift_bic),
+    intlBankName: d(row.intl_bank_name),
+    intlBankAddress: d(row.intl_bank_address),
     defaultPaymentTerms: row.default_payment_terms as number,
-    defaultNotes: row.default_notes as string | null,
+    defaultNotes: d(row.default_notes),
     invoicePrefix: row.invoice_prefix as string,
   };
 }

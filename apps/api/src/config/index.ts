@@ -20,6 +20,13 @@ export const config = {
   // Database
   databaseUrl: process.env.DATABASE_URL || 'postgresql://bossboard:bossboard_dev_2026@localhost:29432/bossboard',
 
+  /**
+   * AES-256 key for field-level PII encryption (customers phone/email/address/notes,
+   * business bank details). 32-byte secret as base64 or 64-char hex.
+   * Required in production; dev derives from JWT_SECRET if unset.
+   */
+  fieldEncryptionKey: process.env.FIELD_ENCRYPTION_KEY || '',
+
   // Redis
   redisUrl: process.env.REDIS_URL || 'redis://localhost:29379',
 

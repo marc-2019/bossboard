@@ -36,9 +36,18 @@ jest.mock('../../services/database.js', () => ({
   default: { query: (...args: unknown[]) => mockDbQuery(...args) },
 }));
 
+jest.mock('../../services/data-access-audit.js', () => ({
+  recordDataAccess: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('uuid', () => ({
   v4: () => 'mock-uuid-1234',
 }));
+
+process.env.FIELD_ENCRYPTION_KEY =
+  process.env.FIELD_ENCRYPTION_KEY || Buffer.alloc(32, 3).toString('base64');
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
+process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh';
 
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
@@ -130,10 +139,10 @@ describe('createCustomer', () => {
     const result = await createCustomer(USER_ID, makeCreateInput({ email: undefined, phone: undefined }));
 
     const callArgs = mockDbQuery.mock.calls[0][1];
-    // email is at index 3
-    expect(callArgs[3]).toBeNull();
-    // phone is at index 4
-    expect(callArgs[4]).toBeNull();
+    // id, userId, name, emailEnc, emailBlind, phoneEnc, ...
+    expect(callArgs[3]).toBeNull(); // email
+    expect(callArgs[4]).toBeNull(); // email_blind
+    expect(callArgs[5]).toBeNull(); // phone
     expect(result.email).toBeNull();
   });
 
@@ -143,8 +152,8 @@ describe('createCustomer', () => {
     await createCustomer(USER_ID, makeCreateInput({ defaultIncludeGst: undefined }));
 
     const callArgs = mockDbQuery.mock.calls[0][1];
-    // defaultIncludeGst is at index 8
-    expect(callArgs[8]).toBe(true);
+    // defaultIncludeGst is last param (index 9) after email_blind
+    expect(callArgs[9]).toBe(true);
   });
 
   it('sets defaultIncludeGst to false when explicitly false', async () => {
@@ -155,7 +164,14 @@ describe('createCustomer', () => {
     await createCustomer(USER_ID, makeCreateInput({ defaultIncludeGst: false }));
 
     const callArgs = mockDbQuery.mock.calls[0][1];
-    expect(callArgs[8]).toBe(false);
+    expect(callArgs[9]).toBe(false);
+  });
+
+  it('stores encrypted email (enc:v1 prefix) not plaintext', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeCustomerRow()] });
+    await createCustomer(USER_ID, makeCreateInput({ email: 'secret@example.com' }));
+    const callArgs = mockDbQuery.mock.calls[0][1];
+    expect(String(callArgs[3])).toMatch(/^enc:v1:/);
   });
 
   it('passes userId as second query param', async () => {

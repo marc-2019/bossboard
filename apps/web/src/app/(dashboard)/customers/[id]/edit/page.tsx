@@ -162,7 +162,12 @@ export default function EditCustomerPage() {
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+              placeholder="Preferences, site access — not bank account numbers"
             />
+            <p className="mt-1.5 text-xs text-gray-500">
+              Do not put bank account numbers here. Use Settings → bank details for payment info on
+              invoices. Contact fields are encrypted at rest.
+            </p>
           </div>
         </Card>
         <div className="flex flex-wrap gap-3">

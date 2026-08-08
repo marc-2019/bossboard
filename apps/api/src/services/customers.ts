@@ -1,6 +1,7 @@
 /**
  * Customers Service
- * Customer management with contact details and billing preferences
+ * Customer management with contact details and billing preferences.
+ * Sensitive fields encrypted at rest when FIELD_ENCRYPTION_KEY is configured.
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -10,19 +11,28 @@ import {
   CustomerCreateInput,
   CustomerUpdateInput,
 } from '../types/index.js';
+import {
+  encryptField,
+  decryptField,
+  blindIndex,
+  looksLikeBankAccountDetails,
+  BANK_DETAILS_IN_NOTES_MESSAGE,
+} from '../utils/field-crypto.js';
+import { recordDataAccess } from './data-access-audit.js';
+import { createError } from '../middleware/error.js';
 
 /**
- * Transform DB row to Customer type with proper casing
+ * Transform DB row to Customer type with proper casing (decrypted PII).
  */
 function transformCustomer(row: Record<string, unknown>): Customer {
   return {
     id: row.id as string,
     userId: row.user_id as string,
     name: row.name as string,
-    email: row.email as string | null,
-    phone: row.phone as string | null,
-    address: row.address as string | null,
-    notes: row.notes as string | null,
+    email: decryptField(row.email as string | null),
+    phone: decryptField(row.phone as string | null),
+    address: decryptField(row.address as string | null),
+    notes: decryptField(row.notes as string | null),
     defaultPaymentTerms: row.default_payment_terms as number | null,
     defaultIncludeGst: row.default_include_gst as boolean,
     isActive: row.is_active as boolean,
@@ -51,6 +61,12 @@ function transformForMobile(customer: Customer): Record<string, unknown> {
   };
 }
 
+function assertNoBankInNotes(notes: string | null | undefined): void {
+  if (looksLikeBankAccountDetails(notes)) {
+    throw createError(BANK_DETAILS_IN_NOTES_MESSAGE, 400, 'BANK_DETAILS_IN_NOTES');
+  }
+}
+
 /**
  * Create a new customer
  */
@@ -58,29 +74,43 @@ export async function createCustomer(
   userId: string,
   input: CustomerCreateInput
 ): Promise<Record<string, unknown>> {
+  assertNoBankInNotes(input.notes);
+
   const customerId = uuidv4();
+  const emailPlain = input.email || null;
+  const emailEnc = encryptField(emailPlain);
+  const emailBlind = blindIndex(emailPlain);
 
   const result = await db.query<Record<string, unknown>>(
     `INSERT INTO customers (
-      id, user_id, name, email, phone,
+      id, user_id, name, email, email_blind, phone,
       address, notes, default_payment_terms, default_include_gst
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING *`,
     [
       customerId,
       userId,
       input.name,
-      input.email || null,
-      input.phone || null,
-      input.address || null,
-      input.notes || null,
+      emailEnc,
+      emailBlind,
+      encryptField(input.phone || null),
+      encryptField(input.address || null),
+      encryptField(input.notes || null),
       input.defaultPaymentTerms || null,
       input.defaultIncludeGst ?? true,
     ]
   );
 
-  return transformForMobile(transformCustomer(result.rows[0]));
+  const customer = transformForMobile(transformCustomer(result.rows[0]));
+  await recordDataAccess({
+    entityType: 'customer',
+    entityId: customerId,
+    action: 'create',
+    actorUserId: userId,
+    metadata: { name: input.name },
+  });
+  return customer;
 }
 
 /**
@@ -98,6 +128,13 @@ export async function getCustomerById(
   if (result.rows.length === 0) {
     return null;
   }
+
+  await recordDataAccess({
+    entityType: 'customer',
+    entityId: customerId,
+    action: 'read',
+    actorUserId: userId,
+  });
 
   return transformForMobile(transformCustomer(result.rows[0]));
 }
@@ -120,21 +157,27 @@ export async function listCustomers(
   }
 
   if (search) {
-    conditions.push(`(name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`);
-    params.push(`%${search}%`);
-    paramIndex++;
+    const q = search.trim();
+    // Email is encrypted — exact match via blind index; name remains searchable
+    if (q.includes('@')) {
+      conditions.push(`email_blind = $${paramIndex}`);
+      params.push(blindIndex(q));
+      paramIndex++;
+    } else {
+      conditions.push(`name ILIKE $${paramIndex}`);
+      params.push(`%${q}%`);
+      paramIndex++;
+    }
   }
 
   const whereClause = conditions.join(' AND ');
 
-  // Get total count
   const countResult = await db.query<{ count: string }>(
     `SELECT COUNT(*) as count FROM customers WHERE ${whereClause}`,
     params
   );
   const total = parseInt(countResult.rows[0].count, 10);
 
-  // Get items ordered by name
   const result = await db.query<Record<string, unknown>>(
     `SELECT * FROM customers
      WHERE ${whereClause}
@@ -147,6 +190,14 @@ export async function listCustomers(
     transformForMobile(transformCustomer(row))
   );
 
+  await recordDataAccess({
+    entityType: 'customer',
+    entityId: null,
+    action: 'list',
+    actorUserId: userId,
+    metadata: { count: customers.length, total, search: search || null },
+  });
+
   return { customers, total };
 }
 
@@ -158,6 +209,10 @@ export async function updateCustomer(
   userId: string,
   updates: CustomerUpdateInput
 ): Promise<Record<string, unknown> | null> {
+  if (updates.notes !== undefined) {
+    assertNoBankInNotes(updates.notes);
+  }
+
   const fields: string[] = [];
   const values: unknown[] = [];
   let paramIndex = 1;
@@ -173,10 +228,20 @@ export async function updateCustomer(
     isActive: 'is_active',
   };
 
+  const sensitive = new Set(['email', 'phone', 'address', 'notes']);
+
   for (const [key, value] of Object.entries(updates)) {
     if (fieldMap[key] && value !== undefined) {
       fields.push(`${fieldMap[key]} = $${paramIndex++}`);
-      values.push(value ?? null);
+      if (sensitive.has(key)) {
+        values.push(value === null ? null : encryptField(String(value)));
+      } else {
+        values.push(value ?? null);
+      }
+      if (key === 'email') {
+        fields.push(`email_blind = $${paramIndex++}`);
+        values.push(value === null ? null : blindIndex(String(value)));
+      }
     }
   }
 
@@ -198,6 +263,14 @@ export async function updateCustomer(
     return null;
   }
 
+  await recordDataAccess({
+    entityType: 'customer',
+    entityId: customerId,
+    action: 'update',
+    actorUserId: userId,
+    metadata: { fields: Object.keys(updates) },
+  });
+
   return transformForMobile(transformCustomer(result.rows[0]));
 }
 
@@ -213,7 +286,16 @@ export async function deleteCustomer(
      WHERE id = $1 AND user_id = $2 AND is_active = true`,
     [customerId, userId]
   );
-  return (result.rowCount ?? 0) > 0;
+  const ok = (result.rowCount ?? 0) > 0;
+  if (ok) {
+    await recordDataAccess({
+      entityType: 'customer',
+      entityId: customerId,
+      action: 'delete',
+      actorUserId: userId,
+    });
+  }
+  return ok;
 }
 
 export default {
