@@ -943,6 +943,8 @@ export interface SubscriptionInfo {
   stripeSubscriptionId: string | null;
   startedAt: Date | null;
   expiresAt: Date | null;
+  /** Stacked free SaaS months remaining (cap 12). From referral / grants. */
+  freeMonthsBalance?: number;
 }
 
 export interface TierLimits {

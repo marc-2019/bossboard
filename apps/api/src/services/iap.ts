@@ -144,6 +144,15 @@ export async function verifyAndActivateIap(
     expiresAt: expiresAt ?? undefined,
   });
 
+  // Referral free-month on first paid IAP activation
+  try {
+    const { activateReferralOnPaid, ensureReferralCode } = await import('./referrals.js');
+    await activateReferralOnPaid(input.userId);
+    await ensureReferralCode(input.userId).catch(() => undefined);
+  } catch (err) {
+    console.warn('[IAP] Referral activation failed (non-fatal):', err);
+  }
+
   return {
     tier,
     platform: input.platform,

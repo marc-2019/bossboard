@@ -1,6 +1,6 @@
 # BB SaaS — free month + friend referral
 
-**Status:** Product locked (Marc 2026-08-08). Implementation pending after client-invoice discount ships.  
+**Status:** Implemented (migration `019_saas_referral.sql`, API `/api/v1/referrals/*`, web Settings + `/r/{code}`).  
 **Not** the same as client-invoice discounts (tradie → their customer).
 
 ## Offer (public)
