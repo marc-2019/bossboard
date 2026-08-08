@@ -240,6 +240,29 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* After-job wedge tip */}
+        <View style={styles.afterJobTip} testID="home-after-job-tip">
+          <Text style={styles.afterJobTipTitle}>Finish a job faster</Text>
+          <Text style={styles.afterJobTipBody}>
+            After SWMS, tap Invoice this job. Or clock out a job and choose SWMS / draft invoice.
+          </Text>
+          <View style={styles.afterJobTipActions}>
+            <TouchableOpacity
+              style={styles.afterJobTipBtn}
+              onPress={() => router.push('/swms/generate' as any)}
+            >
+              <Ionicons name="shield-checkmark-outline" size={16} color="#fff" />
+              <Text style={styles.afterJobTipBtnText}>New SWMS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.afterJobTipBtn, styles.afterJobTipBtnSecondary]}
+              onPress={() => router.push('/(tabs)/work' as any)}
+            >
+              <Text style={styles.afterJobTipBtnTextSecondary}>Open Work</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Stats Overview */}
         {stats && (
           <View style={styles.statsCard}>
@@ -659,6 +682,54 @@ const styles = StyleSheet.create({
     color: '#BFDBFE',
     fontSize: 14,
     marginTop: 4,
+  },
+  afterJobTip: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  afterJobTipTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#065F46',
+    marginBottom: 6,
+  },
+  afterJobTipBody: {
+    fontSize: 14,
+    color: '#047857',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  afterJobTipActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  afterJobTipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#059669',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  afterJobTipBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  afterJobTipBtnSecondary: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#059669',
+  },
+  afterJobTipBtnTextSecondary: {
+    color: '#059669',
+    fontWeight: '600',
+    fontSize: 13,
   },
   statsCard: {
     backgroundColor: '#fff',

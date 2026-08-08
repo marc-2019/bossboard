@@ -455,6 +455,17 @@
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-08-08",
       "notes": "Funnel into register. Explicit disclaimer not tax advice / not IRD form."
+    },
+    {
+      "id": "bossboard.ux.after-job-home-tip",
+      "claim": "Home screen tip card for finish job: SWMS then invoice; hero CTA for free GST invoice draft helper.",
+      "surfaces": [
+        "apps/mobile/app/(tabs)/index.tsx",
+        "apps/web/src/app/page.tsx"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-08-08",
+      "notes": "Discoverability only."
     }
   ],
   "recall_history": [
