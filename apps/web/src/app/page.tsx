@@ -112,10 +112,21 @@ export default function Home() {
             <a href="#features" className="lp-btn lp-btn-outline lp-btn-large" data-cf-event="cta_click" data-cf-cta="see_features" data-cf-location="hero">
               See Features
             </a>
+            <Link
+              href="/tools/gst-invoice"
+              className="lp-btn lp-btn-outline lp-btn-large"
+              data-cf-event="cta_click"
+              data-cf-cta="gst_helper"
+              data-cf-location="hero"
+            >
+              Free GST invoice draft
+            </Link>
           </div>
           <p className="hero-price">
             Free during beta. Paid tiers from <strong>$4.99/week</strong> when
-            we launch billing.
+            we launch billing. Try the{' '}
+            <Link href="/tools/gst-invoice">GST invoice helper</Link> anytime
+            (draft only — not tax advice).
           </p>
         </div>
       </section>
