@@ -8,10 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   invoicesClient,
+  customersClient,
+  productsClient,
   ApiError,
   type CreateInvoiceInput,
 } from '@/lib/api-client';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import type { Customer, ProductService } from '@bossboard/shared';
+import { ArrowLeft, Plus, Trash2, User, Package } from 'lucide-react';
 
 interface LineItemRow {
   description: string;
@@ -71,6 +74,10 @@ export default function EditInvoicePage() {
   const [notEditable, setNotEditable] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
 
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<ProductService[]>([]);
+  const [customerId, setCustomerId] = useState('');
+
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -87,6 +94,25 @@ export default function EditInvoicePage() {
 
   useEffect(() => {
     let cancelled = false;
+    customersClient
+      .list({ limit: 200 })
+      .then((c) => {
+        if (!cancelled) setCustomers(c.customers || []);
+      })
+      .catch(() => undefined);
+    productsClient
+      .list({ limit: 200 })
+      .then((p) => {
+        if (!cancelled) setProducts(p.products || []);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setLoadError(null);
     setNotEditable(false);
@@ -97,6 +123,7 @@ export default function EditInvoicePage() {
         if (cancelled) return;
         const inv = data.invoice;
         setInvoiceNumber(inv.invoiceNumber || '');
+        if (inv.customerId) setCustomerId(inv.customerId);
 
         if (inv.status !== 'draft') {
           setNotEditable(true);
@@ -148,6 +175,36 @@ export default function EditInvoicePage() {
   const removeLine = (idx: number) =>
     setLineItems((rows) => (rows.length > 1 ? rows.filter((_, i) => i !== idx) : rows));
 
+  const selectCustomer = (cid: string) => {
+    setCustomerId(cid);
+    if (!cid) return;
+    const c = customers.find((x) => x.id === cid);
+    if (!c) return;
+    setClientName(c.name || '');
+    setClientEmail(c.email || '');
+    setClientPhone(c.phone || '');
+    if (c.defaultIncludeGst !== undefined) setIncludeGst(Boolean(c.defaultIncludeGst));
+    if (c.defaultPaymentTerms && c.defaultPaymentTerms > 0) {
+      const due = new Date();
+      due.setDate(due.getDate() + c.defaultPaymentTerms);
+      setDueDate(due.toISOString().split('T')[0]);
+    }
+  };
+
+  const addProductLine = (productId: string) => {
+    if (!productId) return;
+    const p = products.find((x) => x.id === productId);
+    if (!p) return;
+    const dollars = (Number(p.unitPrice || 0) / 100).toFixed(2);
+    const desc = (p.description || p.name || '').trim();
+    setLineItems((rows) => {
+      const onlyEmpty =
+        rows.length === 1 && !rows[0].description.trim() && !rows[0].amountDollars.trim();
+      const next = { description: desc, amountDollars: dollars };
+      return onlyEmpty ? [next] : [...rows, next];
+    });
+  };
+
   const subtotalCents = lineItems.reduce((sum, r) => {
     const cents = dollarsToCents(r.amountDollars);
     return sum + (cents ?? 0);
@@ -198,6 +255,7 @@ export default function EditInvoicePage() {
       jobDescription: jobDescription.trim(),
       dueDate: dueDate || null,
       notes: notes.trim(),
+      customerId: customerId || null,
     } as Partial<CreateInvoiceInput>;
 
     if (discountType !== 'none' && discountCents > 0) {
@@ -302,11 +360,39 @@ export default function EditInvoicePage() {
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
               Client
             </h2>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1.5">
+                  <User size={14} />
+                  Select saved client
+                </span>
+              </label>
+              <select
+                value={customerId}
+                onChange={(e) => selectCustomer(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/50"
+              >
+                <option value="">
+                  {customers.length
+                    ? '— Type below, or pick a client —'
+                    : '— No saved clients yet —'}
+                </option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.email ? ` · ${c.email}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Client name"
                 value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
+                onChange={(e) => {
+                  setClientName(e.target.value);
+                  if (customerId) setCustomerId('');
+                }}
                 placeholder="e.g. Smith Construction Ltd"
                 required
                 autoFocus
@@ -355,6 +441,35 @@ export default function EditInvoicePage() {
                 <Plus size={14} className="mr-1" />
                 Add line
               </Button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1.5">
+                  <Package size={14} />
+                  Add product / service
+                </span>
+              </label>
+              <select
+                value=""
+                onChange={(e) => {
+                  addProductLine(e.target.value);
+                  e.target.value = '';
+                }}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/50"
+                disabled={products.length === 0}
+              >
+                <option value="">
+                  {products.length
+                    ? '— Pick a product to add a line (price editable) —'
+                    : '— No products yet —'}
+                </option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} · {formatCents(Number(p.unitPrice || 0))}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <ul className="space-y-3">
