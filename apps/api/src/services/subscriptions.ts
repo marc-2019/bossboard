@@ -70,11 +70,15 @@ function isBetaModeFromEnv(): boolean {
 // =============================================================================
 
 /**
- * Get tier limits for a subscription tier
- * During beta, all users get tradie-level access
+ * Get tier limits for a subscription tier.
+ * During beta, free users get Tradie-level access; Team tier keeps team seats.
  */
 export function getTierLimits(tier: SubscriptionTier): TierLimits {
   if (isBetaModeFromEnv()) {
+    if (tier === 'team') {
+      return { ...TIER_LIMITS.team, tier };
+    }
+    // free + tradie → tradie features in beta (single-user product access)
     return { ...TIER_LIMITS.tradie, tier };
   }
   return TIER_LIMITS[tier];
