@@ -52,6 +52,8 @@ const createSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
+  /** Linked customer record (picker) — optional */
+  customerId: z.string().uuid().optional().nullable(),
   ...discountFields,
 });
 
@@ -67,6 +69,7 @@ const updateSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
+  customerId: z.string().uuid().optional().nullable(),
   ...discountFields,
 });
 
@@ -91,10 +94,11 @@ router.post('/', authenticate, attachSubscription, checkLimit('invoice'), async 
       return;
     }
 
-    // Clean up empty clientEmail
+    // Clean up empty clientEmail / null customerId (zod allows null; service wants string | undefined)
     const input = {
       ...validation.data,
       clientEmail: validation.data.clientEmail || undefined,
+      customerId: validation.data.customerId || undefined,
     };
 
     const invoice = await invoicesService.createInvoice(req.user!.userId, input);

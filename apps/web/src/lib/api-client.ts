@@ -104,6 +104,8 @@ export interface CreateInvoiceInput {
   bankAccountName?: string;
   bankAccountNumber?: string;
   notes?: string;
+  /** Linked customer record from picker */
+  customerId?: string | null;
 }
 
 // The Express API runs invoice/quote/expense/job-log/etc responses
@@ -530,6 +532,33 @@ export const subscriptionsClient = {
     clientFetch<{ limits: import('@bossboard/shared').TierLimits }>(
       '/api/subscriptions/limits',
     ),
+};
+
+/** Customers catalog (for invoice picker) */
+export const customersClient = {
+  list: async (opts?: { search?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (opts?.search) qs.set('search', opts.search);
+    if (opts?.limit) qs.set('limit', String(opts.limit));
+    const q = qs.toString();
+    return deepCamelize<{ customers: import('@bossboard/shared').Customer[]; total: number }>(
+      await clientFetch<unknown>(`/api/customers${q ? `?${q}` : ''}`),
+    );
+  },
+};
+
+/** Products/services catalog (for invoice line picker) */
+export const productsClient = {
+  list: async (opts?: { search?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (opts?.search) qs.set('search', opts.search);
+    if (opts?.limit) qs.set('limit', String(opts.limit));
+    const q = qs.toString();
+    return deepCamelize<{
+      products: import('@bossboard/shared').ProductService[];
+      total: number;
+    }>(await clientFetch<unknown>(`/api/products${q ? `?${q}` : ''}`));
+  },
 };
 
 /** SaaS friend referral + free-month balance */

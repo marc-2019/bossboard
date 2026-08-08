@@ -1,13 +1,20 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { invoicesClient, ApiError, type CreateInvoiceInput } from '@/lib/api-client';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import {
+  invoicesClient,
+  customersClient,
+  productsClient,
+  ApiError,
+  type CreateInvoiceInput,
+} from '@/lib/api-client';
+import type { Customer, ProductService } from '@bossboard/shared';
+import { ArrowLeft, Plus, Trash2, User, Package } from 'lucide-react';
 
 interface LineItemRow {
   description: string;
@@ -19,21 +26,76 @@ const emptyLine = (): LineItemRow => ({ description: '', amountDollars: '' });
 export default function NewInvoicePage() {
   const router = useRouter();
 
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<ProductService[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [customerId, setCustomerId] = useState('');
+
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [lineItems, setLineItems] = useState<LineItemRow[]>([emptyLine()]);
   const [includeGst, setIncludeGst] = useState(true);
-  /** none | fixed ($) | percent */
   const [discountType, setDiscountType] = useState<'none' | 'fixed' | 'percent'>('none');
-  /** Dollars string for fixed; whole percent string for percent */
   const [discountInput, setDiscountInput] = useState('');
   const [discountLabel, setDiscountLabel] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [c, p] = await Promise.all([
+          customersClient.list({ limit: 200 }),
+          productsClient.list({ limit: 200 }),
+        ]);
+        if (cancelled) return;
+        setCustomers(c.customers || []);
+        setProducts(p.products || []);
+      } catch {
+        /* catalog optional — free-text still works */
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectCustomer = (id: string) => {
+    setCustomerId(id);
+    if (!id) return;
+    const c = customers.find((x) => x.id === id);
+    if (!c) return;
+    setClientName(c.name || '');
+    setClientEmail(c.email || '');
+    setClientPhone(c.phone || '');
+    if (c.defaultIncludeGst !== undefined) setIncludeGst(Boolean(c.defaultIncludeGst));
+    if (c.defaultPaymentTerms && c.defaultPaymentTerms > 0) {
+      const due = new Date();
+      due.setDate(due.getDate() + c.defaultPaymentTerms);
+      setDueDate(due.toISOString().split('T')[0]);
+    }
+  };
+
+  const addProductLine = (productId: string) => {
+    if (!productId) return;
+    const p = products.find((x) => x.id === productId);
+    if (!p) return;
+    const dollars = (Number(p.unitPrice || 0) / 100).toFixed(2);
+    const desc = (p.description || p.name || '').trim();
+    setLineItems((rows) => {
+      const onlyEmpty =
+        rows.length === 1 && !rows[0].description.trim() && !rows[0].amountDollars.trim();
+      const next = { description: desc, amountDollars: dollars };
+      return onlyEmpty ? [next] : [...rows, next];
+    });
+  };
 
   const updateLine = (idx: number, patch: Partial<LineItemRow>) => {
     setLineItems((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -86,6 +148,7 @@ export default function NewInvoicePage() {
       lineItems: cleanedItems,
       includeGst,
     };
+    if (customerId) payload.customerId = customerId;
     if (clientEmail.trim()) payload.clientEmail = clientEmail.trim();
     if (clientPhone.trim()) payload.clientPhone = clientPhone.trim();
     if (jobDescription.trim()) payload.jobDescription = jobDescription.trim();
@@ -152,11 +215,48 @@ export default function NewInvoicePage() {
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
             Client
           </h2>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <span className="inline-flex items-center gap-1.5">
+                <User size={14} />
+                Select saved client
+              </span>
+            </label>
+            <select
+              value={customerId}
+              onChange={(e) => selectCustomer(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/50"
+              disabled={catalogLoading}
+            >
+              <option value="">
+                {catalogLoading
+                  ? 'Loading clients…'
+                  : customers.length
+                    ? '— Type below, or pick a client —'
+                    : '— No saved clients yet (type details below) —'}
+              </option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.email ? ` · ${c.email}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Saved clients live in the mobile app for now. Picking one fills name/email/phone and
+              default payment terms / GST. You can still edit the fields.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Client name"
               value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
+              onChange={(e) => {
+                setClientName(e.target.value);
+                if (customerId) setCustomerId('');
+              }}
               placeholder="e.g. Smith Construction Ltd"
               required
               autoFocus
@@ -205,6 +305,40 @@ export default function NewInvoicePage() {
               <Plus size={14} className="mr-1" />
               Add line
             </Button>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <span className="inline-flex items-center gap-1.5">
+                <Package size={14} />
+                Add product / service
+              </span>
+            </label>
+            <select
+              value=""
+              onChange={(e) => {
+                addProductLine(e.target.value);
+                e.target.value = '';
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/50"
+              disabled={catalogLoading || products.length === 0}
+            >
+              <option value="">
+                {catalogLoading
+                  ? 'Loading products…'
+                  : products.length
+                    ? '— Pick a product to add a line (price editable) —'
+                    : '— No products yet (enter lines manually) —'}
+              </option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} · {formatCents(Number(p.unitPrice || 0))}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Default price fills in — change the amount on the line if this job is different.
+            </p>
           </div>
 
           <ul className="space-y-3">
