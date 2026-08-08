@@ -534,7 +534,26 @@ export const subscriptionsClient = {
     ),
 };
 
-/** Customers catalog (for invoice picker) */
+export type CustomerCreateInput = {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  defaultPaymentTerms?: number;
+  defaultIncludeGst?: boolean;
+};
+
+export type ProductCreateInput = {
+  name: string;
+  description?: string;
+  /** Unit price in cents */
+  unitPrice: number;
+  type?: 'fixed' | 'variable';
+  isGstApplicable?: boolean;
+};
+
+/** Customers catalog — list/create/update/deactivate */
 export const customersClient = {
   list: async (opts?: { search?: string; limit?: number }) => {
     const qs = new URLSearchParams();
@@ -545,20 +564,60 @@ export const customersClient = {
       await clientFetch<unknown>(`/api/customers${q ? `?${q}` : ''}`),
     );
   },
+
+  get: async (id: string) =>
+    deepCamelize<{ customer: import('@bossboard/shared').Customer }>(
+      await clientFetch<unknown>(`/api/customers/${id}`),
+    ),
+
+  create: async (data: CustomerCreateInput) =>
+    deepCamelize<{ customer: import('@bossboard/shared').Customer }>(
+      await clientFetch<unknown>('/api/customers', { method: 'POST', body: data }),
+    ),
+
+  update: async (id: string, data: Partial<CustomerCreateInput> & { isActive?: boolean }) =>
+    deepCamelize<{ customer: import('@bossboard/shared').Customer }>(
+      await clientFetch<unknown>(`/api/customers/${id}`, { method: 'PUT', body: data }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok?: boolean }>(`/api/customers/${id}`, { method: 'DELETE' }),
 };
 
-/** Products/services catalog (for invoice line picker) */
+/** Products/services catalog — list/create/update/deactivate */
 export const productsClient = {
-  list: async (opts?: { search?: string; limit?: number }) => {
+  list: async (opts?: { search?: string; limit?: number; type?: string }) => {
     const qs = new URLSearchParams();
     if (opts?.search) qs.set('search', opts.search);
     if (opts?.limit) qs.set('limit', String(opts.limit));
+    if (opts?.type) qs.set('type', opts.type);
     const q = qs.toString();
     return deepCamelize<{
       products: import('@bossboard/shared').ProductService[];
       total: number;
     }>(await clientFetch<unknown>(`/api/products${q ? `?${q}` : ''}`));
   },
+
+  get: async (id: string) =>
+    deepCamelize<{ product: import('@bossboard/shared').ProductService }>(
+      await clientFetch<unknown>(`/api/products/${id}`),
+    ),
+
+  create: async (data: ProductCreateInput) =>
+    deepCamelize<{ product: import('@bossboard/shared').ProductService }>(
+      await clientFetch<unknown>('/api/products', { method: 'POST', body: data }),
+    ),
+
+  update: async (
+    id: string,
+    data: Partial<ProductCreateInput> & { isActive?: boolean },
+  ) =>
+    deepCamelize<{ product: import('@bossboard/shared').ProductService }>(
+      await clientFetch<unknown>(`/api/products/${id}`, { method: 'PUT', body: data }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch<{ ok?: boolean }>(`/api/products/${id}`, { method: 'DELETE' }),
 };
 
 /** SaaS friend referral + free-month balance */
