@@ -126,6 +126,10 @@ CREATE TABLE IF NOT EXISTS certifications (
 -- INVOICES
 -- =============================================================================
 
+-- Free-month balance + pending referral (migration 019; also applied on existing DBs)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_months_balance INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_referral_code VARCHAR(32) NULL;
+
 CREATE TABLE IF NOT EXISTS invoices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

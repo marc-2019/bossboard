@@ -71,6 +71,7 @@ import notificationsRoutes from './routes/notifications.js';
 import teamsRoutes from './routes/teams.js';
 import publicRoutes from './routes/public.js';
 import subscriptionsRoutes from './routes/subscriptions.js';
+import referralsRoutes from './routes/referrals.js';
 import stripeWebhookRoutes from './routes/stripe-webhook.js';
 import syncRoutes from './routes/sync.js';
 import legalRoutes from './routes/legal.js';
@@ -190,6 +191,7 @@ app.use('/api/v1/job-logs', apiLimiter, jobLogsRoutes);
 app.use('/api/v1/notifications', apiLimiter, notificationsRoutes);
 app.use('/api/v1/teams', apiLimiter, teamsRoutes);
 app.use('/api/v1/subscriptions', apiLimiter, subscriptionsRoutes);
+app.use('/api/v1/referrals', apiLimiter, referralsRoutes);
 app.use('/api/v1/sync', apiLimiter, syncRoutes);
 app.use('/api/v1/feedback', apiLimiter, feedbackRoutes);
 

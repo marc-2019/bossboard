@@ -603,6 +603,27 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
   console.log(`[Stripe] User ${userId} upgraded to ${tier} tier`);
 
+  // Referral free-month: when a mate paid via friend link, both get +1 month.
+  try {
+    const { activateReferralOnPaid } = await import('./referrals.js');
+    const refResult = await activateReferralOnPaid(userId);
+    if (refResult.activated) {
+      console.log(
+        `[Stripe] Referral activated for ${userId}: referee+${refResult.refereeGranted} referrer+${refResult.referrerGranted}`
+      );
+    }
+  } catch (err) {
+    console.warn('[Stripe] Referral activation failed (non-fatal):', err);
+  }
+
+  // Ensure this newly-paid user can invite mates (creates referral_codes row).
+  try {
+    const { ensureReferralCode } = await import('./referrals.js');
+    await ensureReferralCode(userId);
+  } catch (err) {
+    console.warn('[Stripe] ensureReferralCode failed (non-fatal):', err);
+  }
+
   // GA4 conversion (server-side): the web gtag.js client never sees the
   // Stripe-hosted checkout completion, so report it here. Best-effort.
   await trackCheckoutConversion({

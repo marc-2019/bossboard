@@ -109,9 +109,11 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionI
     stripe_subscription_id: string | null;
     subscription_started_at: Date | null;
     subscription_expires_at: Date | null;
+    free_months_balance: number | null;
   }>(
     `SELECT subscription_tier, stripe_customer_id, stripe_subscription_id,
-            subscription_started_at, subscription_expires_at
+            subscription_started_at, subscription_expires_at,
+            COALESCE(free_months_balance, 0) AS free_months_balance
      FROM users WHERE id = $1 AND is_active = true`,
     [userId]
   );
@@ -127,6 +129,7 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionI
     stripeSubscriptionId: row.stripe_subscription_id,
     startedAt: row.subscription_started_at,
     expiresAt: row.subscription_expires_at,
+    freeMonthsBalance: row.free_months_balance ?? 0,
   };
 }
 
@@ -172,11 +175,13 @@ export async function updateSubscriptionTier(
     stripe_subscription_id: string | null;
     subscription_started_at: Date | null;
     subscription_expires_at: Date | null;
+    free_months_balance: number | null;
   }>(
     `UPDATE users SET ${fields.join(', ')}
      WHERE id = $1 AND is_active = true
      RETURNING subscription_tier, stripe_customer_id, stripe_subscription_id,
-               subscription_started_at, subscription_expires_at`,
+               subscription_started_at, subscription_expires_at,
+               COALESCE(free_months_balance, 0) AS free_months_balance`,
     values
   );
 
@@ -191,6 +196,7 @@ export async function updateSubscriptionTier(
     stripeSubscriptionId: row.stripe_subscription_id,
     startedAt: row.subscription_started_at,
     expiresAt: row.subscription_expires_at,
+    freeMonthsBalance: row.free_months_balance ?? 0,
   };
 }
 

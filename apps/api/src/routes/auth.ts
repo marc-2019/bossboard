@@ -78,6 +78,8 @@ const registerSchema = z.object({
   phone: z.string().optional(),
   tradeType: z.enum(['electrician', 'plumber', 'builder', 'landscaper', 'painter', 'other']).optional(),
   businessName: z.string().optional(),
+  /** Friend referral code (from /r/CODE) — attached after account create */
+  referralCode: z.string().min(4).max(32).optional(),
 });
 
 const loginSchema = z.object({
@@ -117,7 +119,18 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const { user, tokens, verificationCode } = await authService.register(validation.data);
+    const { referralCode, ...registerInput } = validation.data;
+    const { user, tokens, verificationCode } = await authService.register(registerInput);
+
+    // Best-effort friend-code attach (does not fail registration)
+    if (referralCode) {
+      try {
+        const { attachReferralCode } = await import('../services/referrals.js');
+        await attachReferralCode(user.id, referralCode);
+      } catch (err) {
+        console.warn('[Auth] referral attach on register failed (non-fatal):', err);
+      }
+    }
 
     res.status(201).json({
       success: true,

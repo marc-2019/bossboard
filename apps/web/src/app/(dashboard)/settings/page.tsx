@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { authClient, subscriptionsClient, ApiError } from '@/lib/api-client';
+import { authClient, subscriptionsClient, referralsClient, ApiError } from '@/lib/api-client';
 import type {
   User,
   SubscriptionInfo,
@@ -12,7 +12,7 @@ import type {
   TierLimits,
   TradeType,
 } from '@bossboard/shared';
-import { Smartphone, Pencil } from 'lucide-react';
+import { Smartphone, Pencil, Gift, Copy, Check } from 'lucide-react';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -127,6 +127,13 @@ export default function SettingsPage() {
               )}
             </div>
 
+            {(subscription.freeMonthsBalance ?? 0) > 0 && (
+              <p className="text-sm text-green-700 mb-3">
+                Free months on your account:{' '}
+                <strong>{subscription.freeMonthsBalance}</strong> (stacks up to 12).
+              </p>
+            )}
+
             {limits && usage && (
               <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                 <UsageStat
@@ -155,6 +162,8 @@ export default function SettingsPage() {
         </p>
       </Card>
 
+      <ReferralCard />
+
       <Card>
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -171,6 +180,156 @@ export default function SettingsPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function ReferralCard() {
+  const [loading, setLoading] = useState(true);
+  const [eligible, setEligible] = useState(false);
+  const [code, setCode] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [offerCopy, setOfferCopy] = useState('');
+  const [freeMonths, setFreeMonths] = useState(0);
+  const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [stats, setStats] = useState({ pending: 0, activated: 0 });
+  const [attachInput, setAttachInput] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [attaching, setAttaching] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    referralsClient
+      .me()
+      .then((d) => {
+        if (cancelled) return;
+        setEligible(d.eligible);
+        setCode(d.code);
+        setShareUrl(d.shareUrl);
+        setOfferCopy(d.offerCopy);
+        setFreeMonths(d.freeMonthsBalance);
+        setPendingCode(d.pendingReferralCode);
+        setStats(d.stats);
+      })
+      .catch(() => {
+        /* optional surface */
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setErr('Could not copy — select the link and copy manually.');
+    }
+  };
+
+  const attach = async () => {
+    setErr(null);
+    setMsg(null);
+    setAttaching(true);
+    try {
+      const r = await referralsClient.attach(attachInput.trim());
+      setPendingCode(r.code);
+      setMsg('Friend code saved. When you subscribe, you both get a free month.');
+      setAttachInput('');
+    } catch (e: unknown) {
+      setErr(e instanceof ApiError ? e.message : 'Could not attach code.');
+    } finally {
+      setAttaching(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-start gap-3 mb-3">
+        <div className="shrink-0 w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center">
+          <Gift size={18} className="text-green-700" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-base font-semibold text-gray-900">Invite a mate</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {offerCopy ||
+              'Give a mate a free month of BossBoard — when they pay, you both get a free month.'}
+          </p>
+        </div>
+      </div>
+
+      {loading && <p className="text-sm text-gray-500">Loading referral…</p>}
+
+      {!loading && eligible && shareUrl && (
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <code className="flex-1 text-sm bg-gray-50 border border-border rounded-lg px-3 py-2 break-all">
+              {shareUrl}
+            </code>
+            <Button type="button" variant="ghost" size="sm" onClick={copyLink}>
+              {copied ? <Check size={14} className="mr-1" /> : <Copy size={14} className="mr-1" />}
+              {copied ? 'Copied' : 'Copy link'}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Your code: <span className="font-mono font-semibold">{code}</span>
+            {stats.activated > 0 && (
+              <> · {stats.activated} mate{stats.activated === 1 ? '' : 's'} subscribed</>
+            )}
+            {stats.pending > 0 && <> · {stats.pending} pending</>}
+          </p>
+          {freeMonths > 0 && (
+            <p className="text-sm text-green-700">
+              Free months balance: <strong>{freeMonths}</strong> / 12
+            </p>
+          )}
+        </div>
+      )}
+
+      {!loading && !eligible && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Subscribe to Tradie or Team to get your invite link. If a mate already shared a code
+            with you, enter it below before you pay.
+          </p>
+          {pendingCode ? (
+            <p className="text-sm text-green-700">
+              Friend code <span className="font-mono font-semibold">{pendingCode}</span> is saved
+              for when you subscribe.
+            </p>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                label="Friend code"
+                value={attachInput}
+                onChange={(e) => setAttachInput(e.target.value.toUpperCase())}
+                placeholder="BBABC123"
+              />
+              <div className="flex items-end">
+                <Button type="button" onClick={attach} loading={attaching} disabled={!attachInput.trim()}>
+                  Save code
+                </Button>
+              </div>
+            </div>
+          )}
+          {freeMonths > 0 && (
+            <p className="text-sm text-green-700">
+              Free months balance: <strong>{freeMonths}</strong> / 12
+            </p>
+          )}
+        </div>
+      )}
+
+      {msg && <p className="text-sm text-green-700 mt-2">{msg}</p>}
+      {err && <p className="text-sm text-danger mt-2">{err}</p>}
+    </Card>
   );
 }
 

@@ -45,8 +45,12 @@ export const authClient = {
   login: (email: string, password: string) =>
     clientFetch('/api/auth/login', { method: 'POST', body: { email, password } }),
 
-  register: (data: { email: string; password: string; name?: string }) =>
-    clientFetch('/api/auth/register', { method: 'POST', body: data }),
+  register: (data: {
+    email: string;
+    password: string;
+    name?: string;
+    referralCode?: string;
+  }) => clientFetch('/api/auth/register', { method: 'POST', body: data }),
 
   logout: () =>
     clientFetch('/api/auth/logout', { method: 'POST' }),
@@ -526,6 +530,26 @@ export const subscriptionsClient = {
     clientFetch<{ limits: import('@bossboard/shared').TierLimits }>(
       '/api/subscriptions/limits',
     ),
+};
+
+/** SaaS friend referral + free-month balance */
+export const referralsClient = {
+  me: () =>
+    clientFetch<{
+      eligible: boolean;
+      code: string | null;
+      shareUrl: string | null;
+      freeMonthsBalance: number;
+      pendingReferralCode: string | null;
+      stats: { pending: number; activated: number };
+      offerCopy: string;
+    }>('/api/referrals/me'),
+
+  attach: (code: string) =>
+    clientFetch<{ code: string; status: string }>('/api/referrals/attach', {
+      method: 'POST',
+      body: { code },
+    }),
 };
 
 /** Feedback API — Lane A in-app capture (bug / idea / other). */
