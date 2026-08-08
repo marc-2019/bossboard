@@ -395,14 +395,19 @@ function BusinessProfileCard() {
           </label>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Default invoice notes
+              Company notes template
             </label>
             <textarea
               value={form.defaultNotes}
               onChange={(e) => set('defaultNotes', e.target.value)}
-              rows={2}
+              rows={4}
+              placeholder="e.g. Thank you for your business. Please pay Instilligent Ltd …"
               className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Your Instilligent-wide footer for invoices and new clients (payment message, bank
+              details, thank-you). Per-client notes can override this when you pick that client.
+            </p>
           </div>
           <div className="flex gap-2">
             <Button type="submit" loading={submitting} size="sm">
@@ -415,7 +420,7 @@ function BusinessProfileCard() {
         </form>
       )}
       <p className="text-xs text-gray-500 mt-3">
-        Used on invoices (company block, GST, prefix, default notes).
+        Used on invoices (company block, GST, prefix) and as the company notes template.
       </p>
     </Card>
   );

@@ -10,6 +10,7 @@ import {
   invoicesClient,
   customersClient,
   productsClient,
+  businessProfileClient,
   ApiError,
   type CreateInvoiceInput,
 } from '@/lib/api-client';
@@ -20,6 +21,8 @@ interface LineItemRow {
   description: string;
   amountDollars: string;
 }
+
+type NotesSource = 'company' | 'client' | 'custom' | 'blank';
 
 const emptyLine = (): LineItemRow => ({ description: '', amountDollars: '' });
 
@@ -42,6 +45,8 @@ export default function NewInvoicePage() {
   const [discountLabel, setDiscountLabel] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [companyTemplate, setCompanyTemplate] = useState('');
+  const [notesSource, setNotesSource] = useState<NotesSource>('company');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,13 +54,22 @@ export default function NewInvoicePage() {
     let cancelled = false;
     (async () => {
       try {
-        const [c, p] = await Promise.all([
+        const [c, p, bp] = await Promise.all([
           customersClient.list({ limit: 200 }),
           productsClient.list({ limit: 200 }),
+          businessProfileClient.get().catch(() => ({ profile: null })),
         ]);
         if (cancelled) return;
         setCustomers(c.customers || []);
         setProducts(p.products || []);
+        const tpl = (bp.profile?.defaultNotes || '').trim();
+        setCompanyTemplate(tpl);
+        if (tpl) {
+          setNotes(tpl);
+          setNotesSource('company');
+        } else {
+          setNotesSource('blank');
+        }
       } catch {
         /* catalog optional — free-text still works */
       } finally {
@@ -67,9 +81,26 @@ export default function NewInvoicePage() {
     };
   }, []);
 
+  const selectedCustomer = customers.find((x) => x.id === customerId);
+  const clientNotes = (selectedCustomer?.notes || '').trim();
+
+  const applyNotesSource = (source: NotesSource) => {
+    setNotesSource(source);
+    if (source === 'company') setNotes(companyTemplate);
+    else if (source === 'client') setNotes(clientNotes);
+    else if (source === 'blank') setNotes('');
+  };
+
   const selectCustomer = (id: string) => {
     setCustomerId(id);
-    if (!id) return;
+    if (!id) {
+      // cleared — fall back to company template if present
+      if (companyTemplate) {
+        setNotes(companyTemplate);
+        setNotesSource('company');
+      }
+      return;
+    }
     const c = customers.find((x) => x.id === id);
     if (!c) return;
     setClientName(c.name || '');
@@ -80,6 +111,15 @@ export default function NewInvoicePage() {
       const due = new Date();
       due.setDate(due.getDate() + c.defaultPaymentTerms);
       setDueDate(due.toISOString().split('T')[0]);
+    }
+    // Prefer this client's saved notes when present; else company template
+    const cn = (c.notes || '').trim();
+    if (cn) {
+      setNotes(cn);
+      setNotesSource('client');
+    } else if (companyTemplate) {
+      setNotes(companyTemplate);
+      setNotesSource('company');
     }
   };
 
@@ -471,15 +511,40 @@ export default function NewInvoicePage() {
 
         <Card>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Notes (optional)
+            Notes (footer on invoice)
           </h2>
+          <select
+            value={notesSource}
+            onChange={(e) => applyNotesSource(e.target.value as NotesSource)}
+            className="mb-2 w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent/50"
+          >
+            <option value="company" disabled={!companyTemplate}>
+              {companyTemplate
+                ? 'Company template (Instilligent default)'
+                : 'Company template (add in Settings)'}
+            </option>
+            <option value="client" disabled={!clientNotes}>
+              {clientNotes
+                ? `This client’s notes (${selectedCustomer?.name || 'client'})`
+                : 'This client’s notes (none saved)'}
+            </option>
+            <option value="blank">Blank</option>
+            <option value="custom">Custom (edit below)</option>
+          </select>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Payment terms, thank-you message, anything else."
-            rows={3}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setNotesSource('custom');
+            }}
+            placeholder="Payment thank-you, terms, or pick a template above."
+            rows={4}
             className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
           />
+          <p className="mt-1.5 text-xs text-gray-500">
+            Company template = Settings → Company notes. Client notes = saved on that client (e.g.
+            Joan). Bank account for all invoices still comes from Settings → Bank details.
+          </p>
         </Card>
 
         <div className="flex gap-3">

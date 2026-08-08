@@ -19,14 +19,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { customersApi } from '../../src/services/api';
+import { customersApi, businessProfileApi } from '../../src/services/api';
 
 export default function CreateCustomerScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = !!id;
 
-  const [isLoading, setIsLoading] = useState(isEditing);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form state
@@ -35,14 +35,35 @@ export default function CreateCustomerScreen() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [companyTemplate, setCompanyTemplate] = useState('');
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState('');
   const [defaultIncludeGst, setDefaultIncludeGst] = useState(true);
 
   useEffect(() => {
     if (isEditing) {
       loadCustomer();
+    } else {
+      loadCompanyTemplate();
     }
   }, [id]);
+
+  async function loadCompanyTemplate() {
+    try {
+      const response = await businessProfileApi.get();
+      if (response.data.success) {
+        const p = response.data.data.profile || response.data.data;
+        const tpl = (p?.default_notes || p?.defaultNotes || '').trim();
+        setCompanyTemplate(tpl);
+        if (tpl) setNotes(tpl);
+        const terms = p?.default_payment_terms ?? p?.defaultPaymentTerms;
+        if (terms) setDefaultPaymentTerms(String(terms));
+      }
+    } catch (e) {
+      console.warn('Could not load company notes template', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   async function loadCustomer() {
     try {
@@ -265,11 +286,21 @@ export default function CreateCustomerScreen() {
         <View style={styles.section}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Notes</Text>
+            {!isEditing && companyTemplate ? (
+              <TouchableOpacity
+                onPress={() => setNotes(companyTemplate)}
+                style={{ marginBottom: 8 }}
+              >
+                <Text style={{ color: '#FF6B35', fontSize: 14 }}>
+                  Apply company template
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             <TextInput
               style={[styles.input, styles.textArea]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Preferences, site access — not bank account numbers"
+              placeholder="Company template or notes for this client only"
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
