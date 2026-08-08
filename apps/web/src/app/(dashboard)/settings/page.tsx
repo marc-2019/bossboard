@@ -4,7 +4,14 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { authClient, subscriptionsClient, referralsClient, ApiError } from '@/lib/api-client';
+import {
+  authClient,
+  subscriptionsClient,
+  referralsClient,
+  businessProfileClient,
+  ApiError,
+  type BusinessProfileUpdate,
+} from '@/lib/api-client';
 import type {
   User,
   SubscriptionInfo,
@@ -12,7 +19,7 @@ import type {
   TierLimits,
   TradeType,
 } from '@bossboard/shared';
-import { Smartphone, Pencil, Gift, Copy, Check } from 'lucide-react';
+import { Smartphone, Pencil, Gift, Copy, Check, Building2, Landmark } from 'lucide-react';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -104,6 +111,10 @@ export default function SettingsPage() {
 
       <ProfileCard user={user} onUserUpdated={setUser} />
 
+      <BusinessProfileCard />
+
+      <BankDetailsCard />
+
       <Card>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
           Subscription
@@ -158,7 +169,8 @@ export default function SettingsPage() {
           <p className="text-sm text-gray-500 py-4">Loading subscription…</p>
         )}
         <p className="text-xs text-gray-500 mt-4">
-          Plan changes and billing are currently managed in the BossBoard mobile app.
+          Plan changes and billing checkout are currently completed in the BossBoard mobile app
+          (App Store / Google Play where available). Web shows tier usage and referral invites.
         </p>
       </Card>
 
@@ -172,14 +184,431 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-base font-semibold text-gray-900">Get the BossBoard app</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Day-to-day work — creating invoices, capturing photos, generating SWMS, clocking
-              in to jobs — happens in the mobile app. Web is for reviewing your account from a
-              desktop. App Store + Google Play release coming soon.
+              Use web for invoices, clients, products, quotes, and settings. The mobile app is
+              best for on-site photos, clock-in, and field SWMS. App Store + Google Play where
+              available.
             </p>
           </div>
         </div>
       </Card>
     </div>
+  );
+}
+
+function BusinessProfileCard() {
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [form, setForm] = useState({
+    companyName: '',
+    tradingAs: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
+    irdNumber: '',
+    gstNumber: '',
+    isGstRegistered: false,
+    invoicePrefix: 'INV',
+    defaultPaymentTerms: '20',
+    defaultNotes: '',
+  });
+
+  const load = () => {
+    setLoading(true);
+    businessProfileClient
+      .get()
+      .then((d) => {
+        const p = d.profile;
+        if (!p) return;
+        setForm({
+          companyName: p.companyName || '',
+          tradingAs: p.tradingAs || '',
+          companyAddress: p.companyAddress || '',
+          companyPhone: p.companyPhone || '',
+          companyEmail: p.companyEmail || '',
+          irdNumber: p.irdNumber || '',
+          gstNumber: p.gstNumber || '',
+          isGstRegistered: Boolean(p.isGstRegistered),
+          invoicePrefix: p.invoicePrefix || 'INV',
+          defaultPaymentTerms:
+            p.defaultPaymentTerms != null ? String(p.defaultPaymentTerms) : '20',
+          defaultNotes: p.defaultNotes || '',
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const set = (key: keyof typeof form, value: string | boolean) =>
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const terms = form.defaultPaymentTerms.trim()
+      ? parseInt(form.defaultPaymentTerms, 10)
+      : undefined;
+    if (terms !== undefined && (!Number.isFinite(terms) || terms < 1 || terms > 365)) {
+      setError('Payment terms must be 1–365 days.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const payload: BusinessProfileUpdate = {
+        companyName: form.companyName.trim() || undefined,
+        tradingAs: form.tradingAs.trim() || undefined,
+        companyAddress: form.companyAddress.trim() || undefined,
+        companyPhone: form.companyPhone.trim() || undefined,
+        companyEmail: form.companyEmail.trim() || undefined,
+        irdNumber: form.irdNumber.trim() || undefined,
+        gstNumber: form.gstNumber.trim() || undefined,
+        isGstRegistered: form.isGstRegistered,
+        invoicePrefix: form.invoicePrefix.trim() || undefined,
+        defaultPaymentTerms: terms,
+        defaultNotes: form.defaultNotes.trim() || undefined,
+      };
+      await businessProfileClient.update(payload);
+      setSaved(true);
+      setEditing(false);
+      setTimeout(() => setSaved(false), 2000);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save business profile.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide inline-flex items-center gap-2">
+          <Building2 size={14} />
+          Business profile
+        </h2>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-sm text-accent hover:underline inline-flex items-center gap-1"
+          >
+            <Pencil size={14} />
+            Edit
+          </button>
+        )}
+      </div>
+      {loading && <p className="text-sm text-gray-500">Loading…</p>}
+      {error && <p className="text-sm text-danger mb-2">{error}</p>}
+      {saved && <p className="text-sm text-green-700 mb-2">Saved.</p>}
+      {!loading && !editing && (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <div>
+            <dt className="text-gray-500">Company</dt>
+            <dd className="font-medium text-gray-900">{form.companyName || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">GST</dt>
+            <dd className="font-medium text-gray-900">
+              {form.isGstRegistered ? form.gstNumber || 'Registered' : 'Not registered'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">Invoice prefix</dt>
+            <dd className="font-medium text-gray-900">{form.invoicePrefix || 'INV'}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">Default terms</dt>
+            <dd className="font-medium text-gray-900">
+              {form.defaultPaymentTerms ? `${form.defaultPaymentTerms} days` : '—'}
+            </dd>
+          </div>
+        </dl>
+      )}
+      {!loading && editing && (
+        <form onSubmit={save} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Company name"
+              value={form.companyName}
+              onChange={(e) => set('companyName', e.target.value)}
+            />
+            <Input
+              label="Trading as"
+              value={form.tradingAs}
+              onChange={(e) => set('tradingAs', e.target.value)}
+            />
+            <Input
+              label="Company email"
+              type="email"
+              value={form.companyEmail}
+              onChange={(e) => set('companyEmail', e.target.value)}
+            />
+            <Input
+              label="Company phone"
+              value={form.companyPhone}
+              onChange={(e) => set('companyPhone', e.target.value)}
+            />
+            <Input
+              label="IRD number"
+              value={form.irdNumber}
+              onChange={(e) => set('irdNumber', e.target.value)}
+            />
+            <Input
+              label="GST number"
+              value={form.gstNumber}
+              onChange={(e) => set('gstNumber', e.target.value)}
+            />
+            <Input
+              label="Invoice prefix"
+              value={form.invoicePrefix}
+              onChange={(e) => set('invoicePrefix', e.target.value)}
+              maxLength={10}
+            />
+            <Input
+              label="Default payment terms (days)"
+              type="number"
+              min={1}
+              max={365}
+              value={form.defaultPaymentTerms}
+              onChange={(e) => set('defaultPaymentTerms', e.target.value)}
+            />
+          </div>
+          <Input
+            label="Company address"
+            value={form.companyAddress}
+            onChange={(e) => set('companyAddress', e.target.value)}
+          />
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.isGstRegistered}
+              onChange={(e) => set('isGstRegistered', e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-accent"
+            />
+            GST registered
+          </label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Default invoice notes
+            </label>
+            <textarea
+              value={form.defaultNotes}
+              onChange={(e) => set('defaultNotes', e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" loading={submitting} size="sm">
+              Save
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+      <p className="text-xs text-gray-500 mt-3">
+        Used on invoices (company block, GST, prefix, default notes).
+      </p>
+    </Card>
+  );
+}
+
+function BankDetailsCard() {
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [form, setForm] = useState({
+    bankAccountName: '',
+    bankAccountNumber: '',
+    bankName: '',
+    intlBankAccountName: '',
+    intlIban: '',
+    intlSwiftBic: '',
+    intlBankName: '',
+    intlBankAddress: '',
+    intlRoutingNumber: '',
+  });
+
+  const load = () => {
+    setLoading(true);
+    businessProfileClient
+      .get()
+      .then((d) => {
+        const p = d.profile;
+        if (!p) return;
+        setForm({
+          bankAccountName: p.bankAccountName || '',
+          bankAccountNumber: p.bankAccountNumber || '',
+          bankName: p.bankName || '',
+          intlBankAccountName: p.intlBankAccountName || '',
+          intlIban: p.intlIban || '',
+          intlSwiftBic: p.intlSwiftBic || '',
+          intlBankName: p.intlBankName || '',
+          intlBankAddress: p.intlBankAddress || '',
+          intlRoutingNumber: p.intlRoutingNumber || '',
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const set = (key: keyof typeof form, value: string) =>
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await businessProfileClient.update({
+        bankAccountName: form.bankAccountName.trim() || undefined,
+        bankAccountNumber: form.bankAccountNumber.trim() || undefined,
+        bankName: form.bankName.trim() || undefined,
+        intlBankAccountName: form.intlBankAccountName.trim() || undefined,
+        intlIban: form.intlIban.trim() || undefined,
+        intlSwiftBic: form.intlSwiftBic.trim() || undefined,
+        intlBankName: form.intlBankName.trim() || undefined,
+        intlBankAddress: form.intlBankAddress.trim() || undefined,
+        intlRoutingNumber: form.intlRoutingNumber.trim() || undefined,
+      });
+      setSaved(true);
+      setEditing(false);
+      setTimeout(() => setSaved(false), 2000);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save bank details.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide inline-flex items-center gap-2">
+          <Landmark size={14} />
+          Bank details
+        </h2>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-sm text-accent hover:underline inline-flex items-center gap-1"
+          >
+            <Pencil size={14} />
+            Edit
+          </button>
+        )}
+      </div>
+      {loading && <p className="text-sm text-gray-500">Loading…</p>}
+      {error && <p className="text-sm text-danger mb-2">{error}</p>}
+      {saved && <p className="text-sm text-green-700 mb-2">Saved.</p>}
+      {!loading && !editing && (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <div>
+            <dt className="text-gray-500">Account name</dt>
+            <dd className="font-medium text-gray-900">{form.bankAccountName || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">Account number</dt>
+            <dd className="font-mono text-sm text-gray-900">{form.bankAccountNumber || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">Bank</dt>
+            <dd className="font-medium text-gray-900">{form.bankName || '—'}</dd>
+          </div>
+          {form.intlIban && (
+            <div>
+              <dt className="text-gray-500">IBAN</dt>
+              <dd className="font-mono text-sm text-gray-900">{form.intlIban}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+      {!loading && editing && (
+        <form onSubmit={save} className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase">NZD account</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Account name"
+              value={form.bankAccountName}
+              onChange={(e) => set('bankAccountName', e.target.value)}
+            />
+            <Input
+              label="Account number"
+              value={form.bankAccountNumber}
+              onChange={(e) => set('bankAccountNumber', e.target.value)}
+              placeholder="12-3456-7890123-00"
+            />
+            <Input
+              label="Bank name"
+              value={form.bankName}
+              onChange={(e) => set('bankName', e.target.value)}
+            />
+          </div>
+          <p className="text-xs font-semibold text-gray-500 uppercase pt-2">
+            International (optional)
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Account name"
+              value={form.intlBankAccountName}
+              onChange={(e) => set('intlBankAccountName', e.target.value)}
+            />
+            <Input
+              label="IBAN"
+              value={form.intlIban}
+              onChange={(e) => set('intlIban', e.target.value)}
+            />
+            <Input
+              label="SWIFT/BIC"
+              value={form.intlSwiftBic}
+              onChange={(e) => set('intlSwiftBic', e.target.value)}
+            />
+            <Input
+              label="Bank name"
+              value={form.intlBankName}
+              onChange={(e) => set('intlBankName', e.target.value)}
+            />
+            <Input
+              label="Bank address"
+              value={form.intlBankAddress}
+              onChange={(e) => set('intlBankAddress', e.target.value)}
+            />
+            <Input
+              label="Routing number"
+              value={form.intlRoutingNumber}
+              onChange={(e) => set('intlRoutingNumber', e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" loading={submitting} size="sm">
+              Save
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+      <p className="text-xs text-gray-500 mt-3">
+        Printed on invoices so clients know where to pay.
+      </p>
+    </Card>
   );
 }
 

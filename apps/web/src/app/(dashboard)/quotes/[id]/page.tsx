@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
 import { quotesClient, ApiError } from '@/lib/api-client';
 import type { Quote } from '@bossboard/shared';
-import { ArrowLeft, FileCheck, Pencil } from 'lucide-react';
+import { ArrowLeft, FileCheck, Pencil, Download } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
@@ -60,7 +60,7 @@ export default function QuoteDetailPage() {
 
   const onConvert = async () => {
     if (!id || convertBusy) return;
-    if (!confirm('Convert this quote to an invoice? You can still edit the invoice afterwards from the mobile app.')) return;
+    if (!confirm('Convert this quote to an invoice? You can edit the invoice afterwards on web or mobile.')) return;
     setConvertBusy(true);
     try {
       const data = await quotesClient.convert(id);
@@ -115,6 +115,17 @@ export default function QuoteDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() =>
+                window.open(quotesClient.pdfUrl(quote.id), '_blank', 'noopener,noreferrer')
+              }
+            >
+              <Download size={14} className="mr-1.5" />
+              Download PDF
+            </Button>
             {quote.status === 'draft' && !alreadyConverted && (
               <Link
                 href={`/quotes/${quote.id}/edit`}

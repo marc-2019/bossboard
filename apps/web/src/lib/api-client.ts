@@ -213,6 +213,86 @@ export type UpdateQuoteInput = Partial<CreateQuoteInput>;
 type QuoteEnvelope = { quote: import('@bossboard/shared').Quote };
 type QuoteListEnvelope = { quotes: import('@bossboard/shared').Quote[] };
 
+export type BusinessProfileUpdate = {
+  companyName?: string;
+  tradingAs?: string;
+  irdNumber?: string;
+  gstNumber?: string;
+  isGstRegistered?: boolean;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  intlBankAccountName?: string;
+  intlIban?: string;
+  intlSwiftBic?: string;
+  intlBankName?: string;
+  intlBankAddress?: string;
+  intlRoutingNumber?: string;
+  defaultPaymentTerms?: number;
+  defaultNotes?: string;
+  invoicePrefix?: string;
+};
+
+export const businessProfileClient = {
+  get: async () =>
+    deepCamelize<{ profile: import('@bossboard/shared').BusinessProfile | null }>(
+      await clientFetch<unknown>('/api/business-profile'),
+    ),
+
+  update: async (data: BusinessProfileUpdate) =>
+    deepCamelize<{ profile: import('@bossboard/shared').BusinessProfile }>(
+      await clientFetch<unknown>('/api/business-profile', { method: 'PUT', body: data }),
+    ),
+};
+
+export const recurringInvoicesClient = {
+  list: async () =>
+    deepCamelize<{
+      recurringInvoices: import('@bossboard/shared').RecurringInvoice[];
+      total?: number;
+    }>(await clientFetch<unknown>('/api/recurring-invoices')),
+
+  pending: async () =>
+    deepCamelize<{
+      autoGenerate?: unknown[];
+      needsInput?: unknown[];
+      pending?: unknown[];
+    }>(await clientFetch<unknown>('/api/recurring-invoices/pending')),
+
+  create: async (data: {
+    customerId: string;
+    name: string;
+    dayOfMonth?: number;
+    includeGst?: boolean;
+    paymentTerms?: number;
+    notes?: string;
+    lineItems: {
+      productServiceId: string;
+      description?: string;
+      unitPrice: number;
+      quantity?: number;
+      type: 'fixed' | 'variable';
+    }[];
+  }) =>
+    deepCamelize<{ recurringInvoice: import('@bossboard/shared').RecurringInvoice }>(
+      await clientFetch<unknown>('/api/recurring-invoices', { method: 'POST', body: data }),
+    ),
+
+  generate: async (id: string, variableAmounts?: Record<string, number>) =>
+    deepCamelize<{ invoice: import('@bossboard/shared').Invoice }>(
+      await clientFetch<unknown>(`/api/recurring-invoices/${id}/generate`, {
+        method: 'POST',
+        body: variableAmounts ? { variableAmounts } : {},
+      }),
+    ),
+
+  remove: (id: string) =>
+    clientFetch(`/api/recurring-invoices/${id}`, { method: 'DELETE' }),
+};
+
 export const quotesClient = {
   list: async () =>
     deepCamelize<QuoteListEnvelope>(await clientFetch<unknown>('/api/quotes')),
@@ -237,6 +317,9 @@ export const quotesClient = {
     deepCamelize<{ invoice: import('@bossboard/shared').Invoice }>(
       await clientFetch<unknown>(`/api/quotes/${id}/convert`, { method: 'POST' }),
     ),
+
+  /** Absolute URL for the quote PDF download endpoint. */
+  pdfUrl: (id: string) => `/api/quotes/${id}/pdf`,
 };
 
 /** Certifications API — list + full create/edit/delete. */
