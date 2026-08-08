@@ -466,6 +466,37 @@
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-08-08",
       "notes": "Discoverability only."
+    },
+    {
+      "id": "bossboard.after-job-swms-invoice",
+      "claim": "On mobile, after creating a SWMS you can start an invoice for that job (Invoice this job) with details prefilled; web also offers a free NZ GST invoice draft helper.",
+      "surfaces": [
+        "apps/mobile/app/swms/[id].tsx",
+        "apps/mobile/app/invoices/create.tsx",
+        "apps/mobile/app/(tabs)/index.tsx",
+        "apps/web/src/app/tools/gst-invoice/page.tsx",
+        "apps/web/src/app/page.tsx"
+      ],
+      "evidence_references": [
+        "master feat after-job SWMS\u2192invoice + discoverability GST hero",
+        "Public URL https://bossboard.instilligent.com/tools/gst-invoice (200, 2026-08-08)"
+      ],
+      "verdict": "allowed",
+      "last_verified": "2026-08-08",
+      "previous_overclaim": "Do not claim IRD-approved tax invoice or that mobile after-job is on App Store until TestFlight/production binary ships."
+    },
+    {
+      "id": "bossboard.gst-helper-not-tax-advice",
+      "claim": "The free GST invoice draft helper calculates 15% GST layout for drafting only \u2014 not tax advice and not an IRD-approved form.",
+      "surfaces": [
+        "apps/web/src/app/tools/gst-invoice/page.tsx"
+      ],
+      "evidence_references": [
+        "Disclaimer copy on /tools/gst-invoice"
+      ],
+      "verdict": "allowed",
+      "last_verified": "2026-08-08",
+      "previous_overclaim": null
     }
   ],
   "recall_history": [
@@ -525,10 +556,9 @@
     "No X/Twitter integration claims"
   ],
   "open_items": [
+    "TestFlight/App Store: ship master after-job SWMS\u2192invoice (EAS login required on Mac) \u2014 see docs/BB_TESTFLIGHT_AFTER_JOB.md in local-agent-workspace",
     "Cashflow forecasting + Xero integration: Module 2 (Q2-Q3 2026 per CLAUDE.md)",
     "Visa/hiring compliance: Module 3 (Q3-Q4 2026 per CLAUDE.md)",
-    "Stripe NZ integration: pending at ~50 paying users target",
-    "App Store production submission (iOS): in flight per memory",
-    "Land master branch ahead of origin/master (12 commits) \u2014 separate housekeeping concern flagged from PR #2 push"
+    "Stripe NZ integration: pending at ~50 paying users target"
   ]
 }
