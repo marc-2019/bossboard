@@ -12,12 +12,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const search = request.nextUrl.searchParams.get('search') || '';
-    const qs = new URLSearchParams();
-    if (search) qs.set('search', search);
-    qs.set('limit', request.nextUrl.searchParams.get('limit') || '100');
-
-    const res = await fetch(`${API_URL}/api/v1/products?${qs.toString()}`, {
+    const qs = request.nextUrl.searchParams.toString();
+    const res = await fetch(`${API_URL}/api/v1/products${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     });
@@ -27,6 +23,36 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { success: false, error: 'PROXY_ERROR', message: 'Failed to fetch products' },
+      { status: 502 },
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: 'NOT_AUTHENTICATED', message: 'No session' },
+        { status: 401 },
+      );
+    }
+
+    const body = await request.text();
+    const res = await fetch(`${API_URL}/api/v1/products`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body,
+    });
+
+    const json = await res.json();
+    return NextResponse.json(json, { status: res.status });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'PROXY_ERROR', message: 'Failed to create product' },
       { status: 502 },
     );
   }

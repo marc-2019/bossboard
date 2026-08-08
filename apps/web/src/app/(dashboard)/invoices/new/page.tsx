@@ -244,8 +244,8 @@ export default function NewInvoicePage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              Saved clients live in the mobile app for now. Picking one fills name/email/phone and
-              default payment terms / GST. You can still edit the fields.
+              Manage clients under Clients in the sidebar. Picking one fills name/email/phone and
+              default payment terms / GST — you can still edit the fields.
             </p>
           </div>
 
