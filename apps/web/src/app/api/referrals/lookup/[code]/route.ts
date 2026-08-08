@@ -3,10 +3,10 @@ import { API_URL } from '@/lib/constants';
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ code: string }> | { code: string } },
+  context: { params: Promise<{ code: string }> },
 ) {
   try {
-    const params = await Promise.resolve(context.params);
+    const params = await context.params;
     const code = encodeURIComponent(params.code || '');
     const res = await fetch(`${API_URL}/api/v1/referrals/lookup/${code}`, {
       cache: 'no-store',
