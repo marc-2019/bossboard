@@ -39,6 +39,36 @@ export interface UserLoginInput {
 }
 
 // =============================================================================
+// GETTING STARTED (first-invoice onboarding checklist + product tour)
+// =============================================================================
+
+export type GettingStartedStepId =
+  | 'businessProfile'
+  | 'products'
+  | 'customers'
+  | 'invoice'
+  | 'sendInvoice';
+
+export interface GettingStartedStep {
+  id: GettingStartedStepId;
+  title: string;
+  description: string;
+  href: string;
+  done: boolean;
+}
+
+export interface GettingStartedStatus {
+  tourCompleted: boolean;
+  checklistDismissed: boolean;
+  allStepsDone: boolean;
+  completedCount: number;
+  totalCount: number;
+  shouldStartTour: boolean;
+  showChecklist: boolean;
+  steps: GettingStartedStep[];
+}
+
+// =============================================================================
 // AUTH TYPES
 // =============================================================================
 

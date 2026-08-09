@@ -27,20 +27,26 @@ import { FeedbackButton } from './feedback-button';
 // build time — any href here without a backing page fails CI. Add a new
 // nav item ONLY when the page exists; restore items as their pages
 // land. See PIR 2026-04-27-bossboard-dashboard-404s.
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+const NAV_ITEMS: {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  /** Anchor for first-login product tour (driver.js). */
+  tourId?: string;
+}[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, tourId: 'nav-dashboard' },
   { label: 'SWMS', href: '/swms', icon: HardHat },
-  { label: 'Invoices', href: '/invoices', icon: FileText },
+  { label: 'Invoices', href: '/invoices', icon: FileText, tourId: 'nav-invoices' },
   { label: 'Recurring', href: '/recurring', icon: Repeat },
   { label: 'Bank', href: '/bank', icon: Landmark },
   { label: 'Quotes', href: '/quotes', icon: ClipboardList },
-  { label: 'Clients', href: '/customers', icon: Contact },
-  { label: 'Products', href: '/products', icon: Package },
+  { label: 'Clients', href: '/customers', icon: Contact, tourId: 'nav-customers' },
+  { label: 'Products', href: '/products', icon: Package, tourId: 'nav-products' },
   { label: 'Expenses', href: '/expenses', icon: Receipt },
   { label: 'Job logs', href: '/job-logs', icon: Clock },
   { label: 'Certifications', href: '/certifications', icon: Award },
   { label: 'Team', href: '/teams', icon: Users },
-  { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Settings', href: '/settings', icon: Settings, tourId: 'nav-settings' },
 ];
 
 export function Sidebar() {
@@ -64,6 +70,7 @@ export function Sidebar() {
           key={item.href}
           href={item.href}
           onClick={() => setMobileOpen(false)}
+          data-tour={item.tourId}
           className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
             isActive(item.href)
               ? 'bg-accent text-white font-semibold'

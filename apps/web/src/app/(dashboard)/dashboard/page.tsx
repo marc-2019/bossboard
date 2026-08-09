@@ -4,9 +4,16 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { jobLogsClient, statsClient, ApiError } from '@/lib/api-client';
-import type { DashboardStats, JobLog } from '@bossboard/shared';
+import {
+  jobLogsClient,
+  statsClient,
+  gettingStartedClient,
+  ApiError,
+} from '@/lib/api-client';
+import type { DashboardStats, GettingStartedStatus, JobLog } from '@bossboard/shared';
 import { CalendarDays, ClipboardList, FileText, HardHat, Landmark, Loader2 } from 'lucide-react';
+import { GettingStartedChecklist } from '@/components/getting-started-checklist';
+import { ProductTour } from '@/components/product-tour';
 
 /** Render value for a stat card: number, dash placeholder while loading,
  *  or em-dash on error. Keeps the card height stable across states. */
@@ -28,6 +35,11 @@ export default function DashboardPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
 
+  const [gettingStarted, setGettingStarted] = useState<GettingStartedStatus | null>(null);
+  const [dismissingGs, setDismissingGs] = useState(false);
+  const [tourToken, setTourToken] = useState(0);
+  const [autoStartTour, setAutoStartTour] = useState(false);
+
   const loadStats = useCallback(async (signal?: AbortSignal) => {
     setStatsLoading(true);
     setStatsError(null);
@@ -42,6 +54,19 @@ export default function DashboardPage() {
       );
     } finally {
       if (!signal?.aborted) setStatsLoading(false);
+    }
+  }, []);
+
+  const loadGettingStarted = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const status = await gettingStartedClient.status();
+      if (signal?.aborted) return;
+      setGettingStarted(status);
+      if (status.shouldStartTour) {
+        setAutoStartTour(true);
+      }
+    } catch {
+      /* non-fatal — checklist/tour optional */
     }
   }, []);
 
@@ -68,9 +93,11 @@ export default function DashboardPage() {
   useEffect(() => {
     const controller = new AbortController();
     void loadStats(controller.signal);
+    void loadGettingStarted(controller.signal);
 
     const onFocus = () => {
       void loadStats();
+      void loadGettingStarted();
     };
     window.addEventListener('focus', onFocus);
 
@@ -78,7 +105,34 @@ export default function DashboardPage() {
       controller.abort();
       window.removeEventListener('focus', onFocus);
     };
-  }, [loadStats]);
+  }, [loadStats, loadGettingStarted]);
+
+  const handleTourComplete = useCallback(async () => {
+    try {
+      const status = await gettingStartedClient.completeTour();
+      setGettingStarted(status);
+      setAutoStartTour(false);
+    } catch {
+      setAutoStartTour(false);
+    }
+  }, []);
+
+  const handleDismissChecklist = useCallback(async () => {
+    setDismissingGs(true);
+    try {
+      const status = await gettingStartedClient.dismiss();
+      setGettingStarted(status);
+      setAutoStartTour(false);
+    } catch {
+      /* keep card if dismiss fails */
+    } finally {
+      setDismissingGs(false);
+    }
+  }, []);
+
+  const handleStartTour = useCallback(() => {
+    setTourToken((n) => n + 1);
+  }, []);
 
   const loading = jobs === null && error === null;
   const isEmpty = jobs !== null && jobs.length === 0;
@@ -86,6 +140,24 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+
+      <ProductTour
+        autoStart={autoStartTour}
+        startToken={tourToken}
+        onComplete={handleTourComplete}
+      />
+
+      {gettingStarted && (
+        <GettingStartedChecklist
+          status={gettingStarted}
+          onDismiss={() => {
+            void handleDismissChecklist();
+          }}
+          onStartTour={handleStartTour}
+          dismissing={dismissingGs}
+        />
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <p className="text-sm font-medium text-gray-500">SWMS This Month</p>

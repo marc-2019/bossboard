@@ -9,6 +9,7 @@ import {
   subscriptionsClient,
   referralsClient,
   businessProfileClient,
+  gettingStartedClient,
   ApiError,
   type BusinessProfileUpdate,
 } from '@/lib/api-client';
@@ -19,8 +20,9 @@ import type {
   TierLimits,
   TradeType,
 } from '@bossboard/shared';
-import { Smartphone, Pencil, Gift, Copy, Check, Building2, Landmark } from 'lucide-react';
+import { Smartphone, Pencil, Gift, Copy, Check, Building2, Landmark, Rocket } from 'lucide-react';
 import { DocumentsPanel } from '@/components/documents-panel';
+import { useRouter } from 'next/navigation';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -181,6 +183,8 @@ export default function SettingsPage() {
       </Card>
 
       <ReferralCard />
+
+      <GettingStartedHelpCard />
 
       <Card>
         <div className="flex items-start gap-3">
@@ -619,6 +623,75 @@ function BankDetailsCard() {
       <p className="text-xs text-gray-500 mt-3">
         Printed on invoices so clients know where to pay.
       </p>
+    </Card>
+  );
+}
+
+function GettingStartedHelpCard() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const reopen = async (resetTour: boolean) => {
+    setBusy(true);
+    setMsg(null);
+    setErr(null);
+    try {
+      await gettingStartedClient.reopen(resetTour);
+      setMsg(
+        resetTour
+          ? 'Tour and checklist reset — opening dashboard…'
+          : 'Checklist restored — opening dashboard…',
+      );
+      // Tour auto-starts on dashboard when product_tour_completed_at is cleared
+      window.setTimeout(() => router.push('/dashboard'), 400);
+    } catch (e: unknown) {
+      setErr(e instanceof ApiError ? e.message : 'Could not reopen getting started.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card data-tour="settings-getting-started">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="shrink-0 w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center">
+          <Rocket size={18} className="text-accent" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-base font-semibold text-gray-900">Getting started</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Replay the first-login tour (Settings → Products → Clients → Invoices) or bring
+            back the dashboard checklist if you dismissed it.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          loading={busy}
+          onClick={() => {
+            void reopen(true);
+          }}
+        >
+          Replay product tour
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          loading={busy}
+          onClick={() => {
+            void reopen(false);
+          }}
+        >
+          Show checklist again
+        </Button>
+      </div>
+      {msg && <p className="text-sm text-green-700 mt-3">{msg}</p>}
+      {err && <p className="text-sm text-danger mt-3">{err}</p>}
     </Card>
   );
 }

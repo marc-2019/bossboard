@@ -677,6 +677,32 @@ export const statsClient = {
     ),
 };
 
+/** Getting started — first-invoice checklist + product tour flags. */
+export const gettingStartedClient = {
+  status: () =>
+    clientFetch<import('@bossboard/shared').GettingStartedStatus>(
+      '/api/getting-started',
+    ),
+
+  completeTour: () =>
+    clientFetch<import('@bossboard/shared').GettingStartedStatus>(
+      '/api/getting-started/tour-complete',
+      { method: 'POST' },
+    ),
+
+  dismiss: () =>
+    clientFetch<import('@bossboard/shared').GettingStartedStatus>(
+      '/api/getting-started/dismiss',
+      { method: 'POST' },
+    ),
+
+  reopen: (resetTour = false) =>
+    clientFetch<import('@bossboard/shared').GettingStartedStatus>(
+      '/api/getting-started/reopen',
+      { method: 'POST', body: { resetTour } },
+    ),
+};
+
 /** Subscriptions API (read-only).
  *  Plan changes / Stripe checkout still happen in the mobile app. */
 export const subscriptionsClient = {

@@ -76,6 +76,7 @@ import referralsRoutes from './routes/referrals.js';
 import stripeWebhookRoutes from './routes/stripe-webhook.js';
 import syncRoutes from './routes/sync.js';
 import legalRoutes from './routes/legal.js';
+import gettingStartedRoutes from './routes/getting-started.js';
 import cronService from './services/cron.js';
 
 const app = express();
@@ -196,6 +197,7 @@ app.use('/api/v1/subscriptions', apiLimiter, subscriptionsRoutes);
 app.use('/api/v1/referrals', apiLimiter, referralsRoutes);
 app.use('/api/v1/sync', apiLimiter, syncRoutes);
 app.use('/api/v1/feedback', apiLimiter, feedbackRoutes);
+app.use('/api/v1/getting-started', apiLimiter, gettingStartedRoutes);
 
 // Public routes (no auth required)
 app.use('/api/v1/public', apiLimiter, publicRoutes);
