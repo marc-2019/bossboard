@@ -596,7 +596,7 @@ export default function InvoiceDetailPage() {
       {invoice.notes && (
         <Card>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Notes
+            Customer notes (on PDF &amp; email)
           </h2>
           <p className="text-sm text-gray-800 whitespace-pre-line">{invoice.notes}</p>
         </Card>

@@ -13,6 +13,24 @@ import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, checkLimit, requireFeature } from '../middleware/subscription.js';
 import { config } from '../config/index.js';
 import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
+import {
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+} from '../types/index.js';
+
+/** Block customer-facing notes that look like internal/test scaffolding. */
+function rejectInternalNotes(
+  res: Response,
+  notes: string | null | undefined,
+): boolean {
+  if (!looksLikeInternalInvoiceNotes(notes)) return false;
+  res.status(400).json({
+    success: false,
+    error: 'NOTES_NOT_CUSTOMER_READY',
+    message: INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+  });
+  return true;
+}
 
 // App error type for error handling
 interface AppError extends Error {
@@ -105,6 +123,8 @@ router.post('/', authenticate, attachSubscription, checkLimit('invoice'), async 
       clientEmail: validation.data.clientEmail || undefined,
       customerId: validation.data.customerId || undefined,
     };
+
+    if (rejectInternalNotes(res, input.notes)) return;
 
     const invoice = await invoicesService.createInvoice(req.user!.userId, input);
 
@@ -215,6 +235,8 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
       });
       return;
     }
+
+    if (rejectInternalNotes(res, validation.data.notes)) return;
 
     const id = req.params.id as string;
     const invoice = await invoicesService.updateInvoice(
@@ -345,6 +367,9 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
       });
       return;
     }
+
+    // Notes ride on the PDF/email body — block internal scaffolding at send time too
+    if (rejectInternalNotes(res, invoice.notes)) return;
 
     // Get business profile for sender name + BCC (web and mobile share this path)
     const profile = await getBusinessProfile(req.user!.userId);

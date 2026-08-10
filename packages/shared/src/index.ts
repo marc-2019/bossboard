@@ -20,3 +20,9 @@ export {
   normalizePricedLineItem,
 } from './utils/pricing.js';
 export type { PricedLineLike, InvoiceProfitSummary } from './utils/pricing.js';
+export {
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_CUSTOMER_FACING_HINT,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+  INVOICE_NOTES_RULES,
+} from './utils/invoice-notes.js';

@@ -14,7 +14,12 @@ import {
   type CreateInvoiceInput,
 } from '@/lib/api-client';
 import type { Customer, ProductService } from '@bossboard/shared';
-import { sellAmountFromCostMargin, computeInvoiceProfit } from '@bossboard/shared';
+import {
+  sellAmountFromCostMargin,
+  computeInvoiceProfit,
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+} from '@bossboard/shared';
 import { ArrowLeft, Plus, Trash2, User, Package } from 'lucide-react';
 
 interface LineItemRow {
@@ -309,6 +314,11 @@ export default function EditInvoicePage() {
     }
     if (cleanedItems.length === 0) {
       setError('Add at least one line item.');
+      return;
+    }
+
+    if (looksLikeInternalInvoiceNotes(notes)) {
+      setError(INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE);
       return;
     }
 
@@ -724,15 +734,19 @@ export default function EditInvoicePage() {
 
           <Card>
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Notes (optional)
+              Customer notes (PDF &amp; email)
             </h2>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Payment terms, thank-you message, anything else."
+              placeholder="e.g. Thank you for your business. Please pay by the due date."
               rows={3}
               className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
             />
+            <p className="mt-1.5 text-xs text-gray-500">
+              The customer sees this. Avoid internal/test wording (“system test”, “review before
+              send”). Leave blank if you only need line items and bank details.
+            </p>
           </Card>
 
           <div className="flex gap-3">

@@ -18,6 +18,8 @@ import type { Customer, ProductService } from '@bossboard/shared';
 import {
   sellAmountFromCostMargin,
   computeInvoiceProfit,
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
 } from '@bossboard/shared';
 import { ArrowLeft, Plus, Trash2, User, Package } from 'lucide-react';
 
@@ -259,7 +261,13 @@ export default function NewInvoicePage() {
     if (clientPhone.trim()) payload.clientPhone = clientPhone.trim();
     if (jobDescription.trim()) payload.jobDescription = jobDescription.trim();
     if (dueDate) payload.dueDate = dueDate;
-    if (notes.trim()) payload.notes = notes.trim();
+    if (notes.trim()) {
+      if (looksLikeInternalInvoiceNotes(notes)) {
+        setError(INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE);
+        return;
+      }
+      payload.notes = notes.trim();
+    }
 
     if (discountType !== 'none' && discountCents > 0) {
       payload.discountType = discountType;
@@ -631,7 +639,7 @@ export default function NewInvoicePage() {
 
         <Card>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Notes (footer on invoice)
+            Customer notes (PDF &amp; email)
           </h2>
           <select
             value={notesSource}
@@ -657,13 +665,14 @@ export default function NewInvoicePage() {
               setNotes(e.target.value);
               setNotesSource('custom');
             }}
-            placeholder="Payment thank-you, terms, or pick a template above."
+            placeholder="e.g. Thank you for your business. Please pay by the due date."
             rows={4}
             className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
           />
           <p className="mt-1.5 text-xs text-gray-500">
-            Company template = Settings → Company notes. Client notes = saved on that client (e.g.
-            Joan). Bank account for all invoices still comes from Settings → Bank details.
+            The customer sees this on the PDF and email. Use payment thanks, terms, or how to pay —
+            not “system test”, seed notes, or “review before send”. Cost/margin stay in line items
+            (internal). Company template = Settings → Company notes.
           </p>
         </Card>
 
