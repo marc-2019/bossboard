@@ -310,6 +310,24 @@ export const recurringInvoicesClient = {
       }),
     ),
 
+  /** Create a monthly template from an existing invoice (needs linked customer). */
+  fromInvoice: async (
+    invoiceId: string,
+    data?: {
+      name?: string;
+      dayOfMonth?: number;
+      includeGst?: boolean;
+      paymentTerms?: number;
+      notes?: string;
+    },
+  ) =>
+    deepCamelize<{ recurring: import('@bossboard/shared').RecurringInvoice }>(
+      await clientFetch<unknown>(
+        `/api/recurring-invoices/from-invoice/${invoiceId}`,
+        { method: 'POST', body: data || {} },
+      ),
+    ),
+
   remove: (id: string) =>
     clientFetch(`/api/recurring-invoices/${id}`, { method: 'DELETE' }),
 };

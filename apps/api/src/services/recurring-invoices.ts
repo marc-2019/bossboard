@@ -6,6 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from './database.js';
 import invoicesService from './invoices.js';
+import * as productsService from './products.js';
 import {
   RecurringInvoice,
   ProductType,
@@ -554,6 +555,199 @@ export async function getLastAmounts(
   return parsed || [];
 }
 
+// ---------------------------------------------------------------------------
+// Create recurring template FROM an existing invoice
+// ---------------------------------------------------------------------------
+
+export interface FromInvoiceOptions {
+  name?: string;
+  dayOfMonth?: number;
+  paymentTerms?: number;
+  includeGst?: boolean;
+  notes?: string;
+}
+
+interface InvoiceLineRaw {
+  description?: string;
+  amount?: number;
+}
+
+function parseQtyFromDescription(description: string): number {
+  // "… × 2" or "x2" or "(3 hours …)"
+  const mult = description.match(/[×x]\s*(\d+)/i);
+  if (mult) {
+    const n = parseInt(mult[1], 10);
+    if (n >= 1 && n <= 999) return n;
+  }
+  const hours = description.match(/\((\d+)\s*hours?\b/i);
+  if (hours) {
+    const n = parseInt(hours[1], 10);
+    if (n >= 1 && n <= 999) return n;
+  }
+  return 1;
+}
+
+function matchProduct(
+  products: { id: string; name: string; unit_price: number; type: string }[],
+  description: string
+): { id: string; name: string; unit_price: number; type: string } | null {
+  const desc = description.toLowerCase().trim();
+  if (!desc) return null;
+
+  // Prefer longest product name contained in the description (or vice versa)
+  let best: { id: string; name: string; unit_price: number; type: string } | null = null;
+  let bestLen = 0;
+  for (const p of products) {
+    const n = (p.name || '').toLowerCase().trim();
+    if (!n) continue;
+    if (desc === n || desc.startsWith(n) || desc.includes(n) || n.includes(desc)) {
+      if (n.length > bestLen) {
+        best = p;
+        bestLen = n.length;
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * Turn a one-off invoice into a monthly recurring template.
+ * Requires invoice.customer_id. Line items are matched to products by name;
+ * unmatched lines get a catalog product auto-created so recurring schema is happy.
+ */
+export async function createRecurringFromInvoice(
+  userId: string,
+  invoiceId: string,
+  options: FromInvoiceOptions = {}
+): Promise<Record<string, unknown>> {
+  const invResult = await db.query<Record<string, unknown>>(
+    `SELECT * FROM invoices WHERE id = $1 AND user_id = $2`,
+    [invoiceId, userId]
+  );
+  if (invResult.rows.length === 0) {
+    throw Object.assign(new Error('Invoice not found'), {
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
+  }
+  const inv = invResult.rows[0];
+  const customerId = inv.customer_id as string | null;
+  if (!customerId) {
+    throw Object.assign(
+      new Error(
+        'Invoice has no linked client. Attach a customer on the invoice first, then make it recurring.'
+      ),
+      { statusCode: 400, code: 'CUSTOMER_REQUIRED' }
+    );
+  }
+
+  let rawLines = inv.line_items as InvoiceLineRaw[] | string | null;
+  if (typeof rawLines === 'string') {
+    try {
+      rawLines = JSON.parse(rawLines) as InvoiceLineRaw[];
+    } catch {
+      rawLines = [];
+    }
+  }
+  const lines = Array.isArray(rawLines) ? rawLines : [];
+  if (lines.length === 0) {
+    throw Object.assign(new Error('Invoice has no line items to copy'), {
+      statusCode: 400,
+      code: 'NO_LINE_ITEMS',
+    });
+  }
+
+  const productsResult = await db.query<{
+    id: string;
+    name: string;
+    unit_price: number;
+    type: string;
+  }>(
+    `SELECT id, name, unit_price, type FROM products_services
+     WHERE user_id = $1 AND is_active = true`,
+    [userId]
+  );
+  const products = productsResult.rows;
+
+  const lineItems: {
+    productServiceId: string;
+    description?: string;
+    unitPrice: number;
+    quantity: number;
+    type: 'fixed' | 'variable';
+  }[] = [];
+
+  for (const line of lines) {
+    const description = (line.description || 'Line item').trim();
+    const amount = Math.max(0, Math.round(Number(line.amount) || 0));
+    const quantity = parseQtyFromDescription(description);
+    // Prefer invoice-derived unit price so the template matches this bill
+    const unitFromInvoice = quantity > 1 ? Math.round(amount / quantity) : amount;
+
+    let product = matchProduct(products, description);
+    if (!product) {
+      // Auto-create catalog entry so recurring_line_items FK is satisfied
+      const created = await productsService.createProduct(userId, {
+        name: description.slice(0, 255),
+        description: `Auto-created from invoice ${inv.invoice_number as string}`,
+        unitPrice: unitFromInvoice,
+        type: 'fixed',
+        isGstApplicable: true,
+      });
+      product = {
+        id: created.id as string,
+        name: created.name as string,
+        unit_price: created.unit_price as number,
+        type: (created.type as string) || 'fixed',
+      };
+      products.push(product);
+    }
+
+    const pType: 'fixed' | 'variable' =
+      product.type === 'variable' ? 'variable' : 'fixed';
+
+    // Variable lines (e.g. Google ads): qty 1, amount = this period's figure
+    // Fixed multi-qty (e.g. O365 × 2): split unit × qty from invoice
+    lineItems.push({
+      productServiceId: product.id,
+      description,
+      unitPrice: pType === 'variable' ? amount : unitFromInvoice,
+      quantity: pType === 'variable' ? 1 : quantity,
+      type: pType,
+    });
+  }
+
+  const clientName =
+    (inv.client_name as string) ||
+    (await db.query<{ name: string }>(`SELECT name FROM customers WHERE id = $1`, [customerId]))
+      .rows[0]?.name ||
+    'Client';
+  const invNum = (inv.invoice_number as string) || '';
+  const name =
+    (options.name && options.name.trim()) ||
+    `${clientName} — monthly (from ${invNum || 'invoice'})`;
+
+  const dayOfMonth =
+    options.dayOfMonth ??
+    Math.min(28, Math.max(1, new Date(inv.created_at as string | Date).getDate() || 1));
+
+  return createRecurringInvoice(userId, {
+    customerId,
+    name,
+    dayOfMonth,
+    includeGst:
+      options.includeGst !== undefined
+        ? options.includeGst
+        : ((inv.include_gst as boolean) ?? true),
+    paymentTerms: options.paymentTerms ?? 20,
+    notes:
+      options.notes !== undefined
+        ? options.notes
+        : ((inv.notes as string) || undefined),
+    lineItems,
+  });
+}
+
 export default {
   createRecurringInvoice,
   getRecurringInvoiceById,
@@ -563,4 +757,5 @@ export default {
   deleteRecurringInvoice,
   generateInvoiceFromRecurring,
   getLastAmounts,
+  createRecurringFromInvoice,
 };

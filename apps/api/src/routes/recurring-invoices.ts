@@ -52,6 +52,60 @@ const generateSchema = z.object({
 // ROUTES
 // =============================================================================
 
+const fromInvoiceSchema = z.object({
+  name: z.string().min(1).optional(),
+  dayOfMonth: z.number().int().min(1).max(28).optional(),
+  includeGst: z.boolean().optional(),
+  paymentTerms: z.number().int().min(1).max(365).optional(),
+  notes: z.string().optional(),
+});
+
+/**
+ * POST /api/v1/recurring-invoices/from-invoice/:invoiceId
+ * Create a monthly template from an existing invoice (requires linked customer).
+ */
+router.post(
+  '/from-invoice/:invoiceId',
+  authenticate,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validation = fromInvoiceSchema.safeParse(req.body || {});
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          error: 'VALIDATION_ERROR',
+          message: validation.error.errors[0].message,
+        });
+        return;
+      }
+
+      const invoiceId = req.params.invoiceId as string;
+      const recurring = await recurringInvoicesService.createRecurringFromInvoice(
+        req.user!.userId,
+        invoiceId,
+        validation.data
+      );
+
+      res.status(201).json({
+        success: true,
+        data: { recurring },
+        message: 'Recurring template created from invoice',
+      });
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error) {
+        const appError = error as Error & { statusCode: number; code?: string };
+        res.status(appError.statusCode).json({
+          success: false,
+          error: appError.code || 'ERROR',
+          message: appError.message,
+        });
+        return;
+      }
+      next(error);
+    }
+  }
+);
+
 /**
  * POST /api/v1/recurring-invoices
  * Create a recurring invoice with line items

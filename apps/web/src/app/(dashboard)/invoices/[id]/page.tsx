@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
-import { invoicesClient, ApiError } from '@/lib/api-client';
+import { invoicesClient, recurringInvoicesClient, ApiError } from '@/lib/api-client';
 import { PhotoUploader } from '@/components/ui/photo-uploader';
 import type { Invoice } from '@bossboard/shared';
 import {
@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Trash2,
   Pencil,
+  Repeat,
 } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
@@ -107,6 +108,42 @@ export default function InvoiceDetailPage() {
 
   const onMarkPaid = () =>
     runAction('mark as paid', () => invoicesClient.markPaid(id!), 'Invoice marked as paid.');
+
+  const onMakeRecurring = async () => {
+    if (!id || actionBusy) return;
+    if (
+      !window.confirm(
+        'Create a monthly recurring template from this invoice? Lines will be matched to Products (or auto-created if needed).',
+      )
+    ) {
+      return;
+    }
+    setActionBusy('make recurring');
+    setActionMessage(null);
+    setError(null);
+    try {
+      const data = await recurringInvoicesClient.fromInvoice(id);
+      const rec = data.recurring as { id?: string; name?: string } | undefined;
+      setActionMessage(
+        rec?.name
+          ? `Recurring template “${rec.name}” created.`
+          : 'Recurring template created.',
+      );
+      // Open the recurring list so they can review / generate next month
+      if (rec?.id) {
+        router.push('/recurring');
+      } else {
+        router.push('/recurring');
+      }
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Could not create recurring template. Invoice needs a linked client.',
+      );
+      setActionBusy(null);
+    }
+  };
 
   const onDownloadPdf = () => {
     if (!id) return;
@@ -248,6 +285,23 @@ export default function InvoiceDetailPage() {
               </Button>
             </Link>
           )}
+          <Button
+            onClick={() => {
+              void onMakeRecurring();
+            }}
+            loading={actionBusy === 'make recurring'}
+            disabled={!!actionBusy}
+            variant="secondary"
+            size="md"
+            title={
+              invoice.customerId
+                ? 'Create a monthly template from this invoice'
+                : 'Link a client on the invoice first'
+            }
+          >
+            <Repeat size={14} className="mr-2" />
+            Make recurring
+          </Button>
           <Button
             onClick={() => setEmailFormOpen((v) => !v)}
             disabled={!!actionBusy}
