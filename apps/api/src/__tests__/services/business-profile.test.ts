@@ -33,6 +33,7 @@ function makeRow(overrides: Record<string, unknown> = {}): Record<string, unknow
     company_address: '1 Main St',
     company_phone: '021000000',
     company_email: 'acme@example.com',
+    invoice_bcc_email: 'accounts@acme.example.com',
     bank_account_name: 'Acme Plumbing Ltd',
     bank_account_number: '12-3456-7890123-00',
     bank_name: 'ANZ',
@@ -62,6 +63,7 @@ describe('getBusinessProfile', () => {
     expect(result?.company_name).toBe('Acme Plumbing');
     expect(result?.is_gst_registered).toBe(true);
     expect(result?.invoice_prefix).toBe('INV');
+    expect(result?.invoice_bcc_email).toBe('accounts@acme.example.com');
   });
 
   it('returns null when no profile exists', async () => {
@@ -85,8 +87,8 @@ describe('upsertBusinessProfile', () => {
     expect(params[1]).toBe('user-1');
     expect(params[2]).toBe('Acme Plumbing');
     expect(params[6]).toBe(true); // isGstRegistered
-    expect(params[19]).toBe(7); // defaultPaymentTerms
-    expect(params[21]).toBe('ACM'); // invoicePrefix
+    expect(params[20]).toBe(7); // defaultPaymentTerms (index shifted by invoice_bcc_email)
+    expect(params[22]).toBe('ACM'); // invoicePrefix
   });
 
   it('applies defaults for gst flag, payment terms, and prefix', async () => {
@@ -96,8 +98,8 @@ describe('upsertBusinessProfile', () => {
 
     const params = mockDbQuery.mock.calls[0][1] as unknown[];
     expect(params[6]).toBe(false); // isGstRegistered defaults false
-    expect(params[19]).toBe(20); // defaultPaymentTerms defaults 20
-    expect(params[21]).toBe('INV'); // invoicePrefix defaults INV
+    expect(params[20]).toBe(20); // defaultPaymentTerms defaults 20
+    expect(params[22]).toBe('INV'); // invoicePrefix defaults INV
     expect(params[3]).toBeNull(); // tradingAs default null
   });
 

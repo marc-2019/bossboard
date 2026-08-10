@@ -53,6 +53,7 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
+  resolveInvoiceBcc,
   sendTradeConfirmation,
   sendPortfolioAlert,
   sendPaymentFailedEmail,
@@ -272,6 +273,81 @@ describe('sendInvoiceEmail', () => {
     const call = mockEmailsSend.mock.calls[0][0];
     expect(call.html).toContain('Please pay within 7 days');
     expect(call.text).toContain('Please pay within 7 days');
+  });
+
+  it('includes bcc when provided and different from recipient', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@acme.com', 'Bob', undefined, {
+      bcc: 'accounts@business.co.nz',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.bcc).toEqual(['accounts@business.co.nz']);
+  });
+
+  it('omits bcc when same as recipient', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@acme.com', 'Bob', undefined, {
+      bcc: 'client@acme.com',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.bcc).toBeUndefined();
+  });
+});
+
+describe('resolveInvoiceBcc', () => {
+  it('prefers dedicated invoice BCC over company and user email', () => {
+    expect(
+      resolveInvoiceBcc({
+        invoiceBccEmail: 'accounts@co.nz',
+        companyEmail: 'office@co.nz',
+        userEmail: 'me@co.nz',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('accounts@co.nz');
+  });
+
+  it('falls back to company email when dedicated BCC unset', () => {
+    expect(
+      resolveInvoiceBcc({
+        invoiceBccEmail: null,
+        companyEmail: 'office@co.nz',
+        userEmail: 'me@co.nz',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('office@co.nz');
+  });
+
+  it('falls back to user email when company email unset', () => {
+    expect(
+      resolveInvoiceBcc({
+        invoiceBccEmail: '',
+        companyEmail: null,
+        userEmail: 'me@co.nz',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('me@co.nz');
+  });
+
+  it('skips addresses that match the recipient', () => {
+    expect(
+      resolveInvoiceBcc({
+        invoiceBccEmail: 'client@example.com',
+        companyEmail: 'client@example.com',
+        userEmail: 'me@co.nz',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('me@co.nz');
+  });
+
+  it('returns null when no distinct address is available', () => {
+    expect(
+      resolveInvoiceBcc({
+        invoiceBccEmail: null,
+        companyEmail: null,
+        userEmail: 'client@example.com',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBeNull();
   });
 });
 

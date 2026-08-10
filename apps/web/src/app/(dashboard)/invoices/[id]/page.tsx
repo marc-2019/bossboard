@@ -167,7 +167,11 @@ export default function InvoiceDetailPage() {
         customMessage: customMessage.trim() || undefined,
       });
       setInvoice(data.invoice);
-      setActionMessage(`Invoice emailed to ${recipient.trim()}.`);
+      const bccNote =
+        data.bccEmail && typeof data.bccEmail === 'string'
+          ? ` A copy was BCC’d to ${data.bccEmail}.`
+          : '';
+      setActionMessage(`Invoice emailed to ${recipient.trim()}.${bccNote}`);
       setEmailFormOpen(false);
       setCustomMessage('');
     } catch (err) {
@@ -390,6 +394,10 @@ export default function InvoiceDetailPage() {
                 className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
               />
             </div>
+            <p className="text-xs text-gray-500">
+              A silent BCC copy is also sent to your business mailbox (Settings → Invoice BCC,
+              or company email / account email if unset).
+            </p>
             <div className="flex gap-2">
               <Button type="submit" loading={actionBusy === 'email'} variant="primary">
                 <Send size={14} className="mr-2" />

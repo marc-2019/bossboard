@@ -32,6 +32,7 @@ function transformProfile(row: Record<string, unknown>): BusinessProfile {
     companyAddress: d(row.company_address),
     companyPhone: d(row.company_phone),
     companyEmail: d(row.company_email),
+    invoiceBccEmail: d(row.invoice_bcc_email),
     bankAccountName: d(row.bank_account_name),
     bankAccountNumber: d(row.bank_account_number),
     bankName: d(row.bank_name),
@@ -64,6 +65,7 @@ function transformForMobile(profile: BusinessProfile): Record<string, unknown> {
     company_address: profile.companyAddress,
     company_phone: profile.companyPhone,
     company_email: profile.companyEmail,
+    invoice_bcc_email: profile.invoiceBccEmail,
     bank_account_name: profile.bankAccountName,
     bank_account_number: profile.bankAccountNumber,
     bank_name: profile.bankName,
@@ -119,12 +121,12 @@ export async function upsertBusinessProfile(
     `INSERT INTO business_profiles (
       id, user_id,
       company_name, trading_as, ird_number, gst_number, is_gst_registered,
-      company_address, company_phone, company_email,
+      company_address, company_phone, company_email, invoice_bcc_email,
       bank_account_name, bank_account_number, bank_name,
       intl_bank_account_name, intl_iban, intl_swift_bic, intl_bank_name, intl_bank_address, intl_routing_number,
       default_payment_terms, default_notes, invoice_prefix
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
     ON CONFLICT (user_id) DO UPDATE SET
       company_name = COALESCE(EXCLUDED.company_name, business_profiles.company_name),
       trading_as = COALESCE(EXCLUDED.trading_as, business_profiles.trading_as),
@@ -134,6 +136,7 @@ export async function upsertBusinessProfile(
       company_address = COALESCE(EXCLUDED.company_address, business_profiles.company_address),
       company_phone = COALESCE(EXCLUDED.company_phone, business_profiles.company_phone),
       company_email = COALESCE(EXCLUDED.company_email, business_profiles.company_email),
+      invoice_bcc_email = COALESCE(EXCLUDED.invoice_bcc_email, business_profiles.invoice_bcc_email),
       bank_account_name = COALESCE(EXCLUDED.bank_account_name, business_profiles.bank_account_name),
       bank_account_number = COALESCE(EXCLUDED.bank_account_number, business_profiles.bank_account_number),
       bank_name = COALESCE(EXCLUDED.bank_name, business_profiles.bank_name),
@@ -159,6 +162,7 @@ export async function upsertBusinessProfile(
       encryptField(input.companyAddress || null),
       encryptField(input.companyPhone || null),
       encryptField(input.companyEmail || null),
+      encryptField(input.invoiceBccEmail || null),
       encryptField(input.bankAccountName || null),
       encryptField(input.bankAccountNumber || null),
       encryptField(input.bankName || null),

@@ -217,6 +217,7 @@ function BusinessProfileCard() {
     companyAddress: '',
     companyPhone: '',
     companyEmail: '',
+    invoiceBccEmail: '',
     irdNumber: '',
     gstNumber: '',
     isGstRegistered: false,
@@ -238,6 +239,7 @@ function BusinessProfileCard() {
           companyAddress: p.companyAddress || '',
           companyPhone: p.companyPhone || '',
           companyEmail: p.companyEmail || '',
+          invoiceBccEmail: p.invoiceBccEmail || '',
           irdNumber: p.irdNumber || '',
           gstNumber: p.gstNumber || '',
           isGstRegistered: Boolean(p.isGstRegistered),
@@ -276,6 +278,7 @@ function BusinessProfileCard() {
         companyAddress: form.companyAddress.trim() || undefined,
         companyPhone: form.companyPhone.trim() || undefined,
         companyEmail: form.companyEmail.trim() || undefined,
+        invoiceBccEmail: form.invoiceBccEmail.trim() || undefined,
         irdNumber: form.irdNumber.trim() || undefined,
         gstNumber: form.gstNumber.trim() || undefined,
         isGstRegistered: form.isGstRegistered,
@@ -338,6 +341,12 @@ function BusinessProfileCard() {
               {form.defaultPaymentTerms ? `${form.defaultPaymentTerms} days` : '—'}
             </dd>
           </div>
+          <div>
+            <dt className="text-gray-500">Invoice BCC</dt>
+            <dd className="font-medium text-gray-900">
+              {form.invoiceBccEmail || form.companyEmail || 'Account email (fallback)'}
+            </dd>
+          </div>
         </dl>
       )}
       {!loading && editing && (
@@ -365,6 +374,13 @@ function BusinessProfileCard() {
               onChange={(e) => set('companyPhone', e.target.value)}
             />
             <Input
+              label="Invoice BCC email"
+              type="email"
+              value={form.invoiceBccEmail}
+              onChange={(e) => set('invoiceBccEmail', e.target.value)}
+              placeholder="accounts@yourbusiness.co.nz"
+            />
+            <Input
               label="IRD number"
               value={form.irdNumber}
               onChange={(e) => set('irdNumber', e.target.value)}
@@ -389,6 +405,10 @@ function BusinessProfileCard() {
               onChange={(e) => set('defaultPaymentTerms', e.target.value)}
             />
           </div>
+          <p className="text-xs text-gray-500 -mt-1">
+            Invoice BCC: a silent copy of every emailed invoice goes to this address (your
+            business mailbox). If blank, we use company email, then your login email.
+          </p>
           <Input
             label="Company address"
             value={form.companyAddress}
@@ -430,7 +450,8 @@ function BusinessProfileCard() {
         </form>
       )}
       <p className="text-xs text-gray-500 mt-3">
-        Used on invoices (company block, GST, prefix) and as the company notes template.
+        Used on invoices (company block, GST, prefix), invoice email BCC, and as the company
+        notes template. Applies to web and mobile apps.
       </p>
     </Card>
   );

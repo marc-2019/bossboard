@@ -41,17 +41,21 @@ jest.mock('../../services/pdf.js', () => ({
 
 const mockIsEmailConfigured = jest.fn();
 const mockSendInvoiceEmail = jest.fn();
+const mockResolveInvoiceBcc = jest.fn();
 jest.mock('../../services/email.js', () => ({
   __esModule: true,
   default: {
     isEmailConfigured: mockIsEmailConfigured,
     isSmtpConfigured: mockIsEmailConfigured,
     sendInvoiceEmail: mockSendInvoiceEmail,
+    resolveInvoiceBcc: (...args: unknown[]) => mockResolveInvoiceBcc(...args),
   },
+  resolveInvoiceBcc: (...args: unknown[]) => mockResolveInvoiceBcc(...args),
 }));
 
+const mockGetBusinessProfile = jest.fn();
 jest.mock('../../services/business-profile.js', () => ({
-  getBusinessProfile: jest.fn().mockResolvedValue({ company_name: 'Test Co' }),
+  getBusinessProfile: (...args: unknown[]) => mockGetBusinessProfile(...args),
 }));
 
 jest.mock('../../middleware/auth.js', () => ({
@@ -85,6 +89,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGetBusinessProfile.mockResolvedValue({ company_name: 'Test Co' });
+  // Default: no BCC unless a test sets it
+  mockResolveInvoiceBcc.mockReturnValue(null);
 });
 
 describe('Invoice Routes', () => {
@@ -340,6 +347,7 @@ describe('Invoice Routes', () => {
       mockSendInvoiceEmail.mockResolvedValue({ messageId: 'msg-1' });
       mockMarkAsSent.mockResolvedValue({ id: 'inv-1', status: 'sent' });
       mockGetInvoiceById.mockResolvedValue({ id: 'inv-1', status: 'sent' });
+      mockResolveInvoiceBcc.mockReturnValue(null);
 
       const response = await request(app)
         .post('/api/v1/invoices/inv-1/email')
@@ -347,6 +355,51 @@ describe('Invoice Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data.messageId).toBe('msg-1');
+      expect(mockSendInvoiceEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        'client@example.com',
+        'Test Co',
+        undefined,
+        undefined
+      );
+      expect(response.body.data.bccEmail).toBeNull();
+    });
+
+    it('should BCC business mailbox when resolveInvoiceBcc returns an address', async () => {
+      mockIsEmailConfigured.mockReturnValue(true);
+      mockGetBusinessProfile.mockResolvedValue({
+        company_name: 'Test Co',
+        company_email: 'office@test.co.nz',
+        invoice_bcc_email: 'accounts@test.co.nz',
+      });
+      mockResolveInvoiceBcc.mockReturnValue('accounts@test.co.nz');
+      mockGetInvoiceByIdRaw.mockResolvedValue({ id: 'inv-1', invoiceNumber: 'INV-001', status: 'sent' });
+      mockGenerateInvoicePDF.mockResolvedValue(Buffer.from('fake-pdf'));
+      mockSendInvoiceEmail.mockResolvedValue({ messageId: 'msg-bcc' });
+      mockGetInvoiceById.mockResolvedValue({ id: 'inv-1', status: 'sent' });
+
+      const response = await request(app)
+        .post('/api/v1/invoices/inv-1/email')
+        .send({ recipientEmail: 'client@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(mockResolveInvoiceBcc).toHaveBeenCalledWith({
+        invoiceBccEmail: 'accounts@test.co.nz',
+        companyEmail: 'office@test.co.nz',
+        userEmail: 'test@example.com',
+        recipientEmail: 'client@example.com',
+      });
+      expect(mockSendInvoiceEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        'client@example.com',
+        'Test Co',
+        undefined,
+        { bcc: 'accounts@test.co.nz' }
+      );
+      expect(response.body.data.bccEmail).toBe('accounts@test.co.nz');
+      expect(response.body.message).toContain('BCC accounts@test.co.nz');
     });
   });
 

@@ -23,6 +23,10 @@ const upsertSchema = z.object({
   companyAddress: z.string().optional(),
   companyPhone: z.string().optional(),
   companyEmail: z.string().email('Invalid email format').optional(),
+  /** Optional BCC for invoice emails; leave unset to fall back to company email / account email */
+  invoiceBccEmail: z
+    .union([z.string().email('Invalid BCC email format'), z.literal('')])
+    .optional(),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   bankName: z.string().optional(),

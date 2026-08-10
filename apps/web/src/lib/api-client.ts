@@ -194,7 +194,7 @@ export const invoicesClient = {
     ),
 
   email: async (id: string, data: { recipientEmail: string; customMessage?: string }) =>
-    deepCamelize<InvoiceEnvelope & { messageId?: string }>(
+    deepCamelize<InvoiceEnvelope & { messageId?: string; bccEmail?: string | null }>(
       await clientFetch<unknown>(`/api/invoices/${id}/email`, {
         method: 'POST',
         body: data,
@@ -243,6 +243,8 @@ export type BusinessProfileUpdate = {
   companyAddress?: string;
   companyPhone?: string;
   companyEmail?: string;
+  /** Optional BCC for invoice emails (business mailbox). Falls back to companyEmail then account email. */
+  invoiceBccEmail?: string;
   bankAccountName?: string;
   bankAccountNumber?: string;
   bankName?: string;

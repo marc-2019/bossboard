@@ -32,6 +32,7 @@ export default function BusinessProfileScreen() {
   const [companyAddress, setCompanyAddress] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
+  const [invoiceBccEmail, setInvoiceBccEmail] = useState('');
 
   // Invoice Settings
   const [invoicePrefix, setInvoicePrefix] = useState('');
@@ -47,23 +48,25 @@ export default function BusinessProfileScreen() {
   async function loadProfile() {
     try {
       const response = await businessProfileApi.get();
-      const profile = (response.data as any).data;
+      // API returns { success, data: { profile } } with snake_case keys
+      const envelope = (response.data as any)?.data;
+      const profile = envelope?.profile || envelope;
       if (profile) {
-        setCompanyName(profile.companyName || '');
-        setTradingAs(profile.tradingAs || '');
-        setIrdNumber(profile.irdNumber || '');
-        setCompanyAddress(profile.companyAddress || '');
-        setCompanyPhone(profile.companyPhone || '');
-        setCompanyEmail(profile.companyEmail || '');
-        setInvoicePrefix(profile.invoicePrefix || '');
-        setDefaultPaymentTerms(
-          profile.defaultPaymentTerms != null
-            ? String(profile.defaultPaymentTerms)
-            : ''
+        setCompanyName(profile.companyName || profile.company_name || '');
+        setTradingAs(profile.tradingAs || profile.trading_as || '');
+        setIrdNumber(profile.irdNumber || profile.ird_number || '');
+        setCompanyAddress(profile.companyAddress || profile.company_address || '');
+        setCompanyPhone(profile.companyPhone || profile.company_phone || '');
+        setCompanyEmail(profile.companyEmail || profile.company_email || '');
+        setInvoiceBccEmail(profile.invoiceBccEmail || profile.invoice_bcc_email || '');
+        setInvoicePrefix(profile.invoicePrefix || profile.invoice_prefix || '');
+        const terms = profile.defaultPaymentTerms ?? profile.default_payment_terms;
+        setDefaultPaymentTerms(terms != null ? String(terms) : '');
+        setDefaultNotes(profile.defaultNotes || profile.default_notes || '');
+        setIsGstRegistered(
+          Boolean(profile.isGstRegistered ?? profile.is_gst_registered)
         );
-        setDefaultNotes(profile.defaultNotes || '');
-        setIsGstRegistered(profile.isGstRegistered || false);
-        setGstNumber(profile.gstNumber || '');
+        setGstNumber(profile.gstNumber || profile.gst_number || '');
       }
     } catch (error) {
       console.error('Failed to load business profile:', error);
@@ -94,6 +97,7 @@ export default function BusinessProfileScreen() {
         companyAddress: companyAddress.trim() || undefined,
         companyPhone: companyPhone.trim() || undefined,
         companyEmail: companyEmail.trim() || undefined,
+        invoiceBccEmail: invoiceBccEmail.trim() || undefined,
         invoicePrefix: invoicePrefix.trim() || undefined,
         defaultPaymentTerms: paymentTerms,
         defaultNotes: defaultNotes.trim() || undefined,
@@ -206,6 +210,23 @@ export default function BusinessProfileScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
             />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Invoice BCC Email</Text>
+            <TextInput
+              style={styles.input}
+              value={invoiceBccEmail}
+              onChangeText={setInvoiceBccEmail}
+              placeholder="accounts@yourbusiness.co.nz"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Text style={styles.hint}>
+              Silent copy of every emailed invoice (business mailbox). If blank, uses
+              company email, then your login email.
+            </Text>
           </View>
         </View>
 

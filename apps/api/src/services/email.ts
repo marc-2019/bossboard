@@ -406,7 +406,8 @@ function paymentFailedTemplate(opts: {
 async function send(
   to: string,
   template: { subject: string; html: string; text: string },
-  attachments?: Array<{ filename: string; content: Buffer }>
+  attachments?: Array<{ filename: string; content: Buffer }>,
+  options?: { bcc?: string[] }
 ): Promise<{ messageId: string }> {
   const resend = getResend();
 
@@ -417,6 +418,10 @@ async function send(
     html: template.html,
     text: template.text,
   };
+
+  if (options?.bcc?.length) {
+    payload.bcc = options.bcc;
+  }
 
   if (attachments?.length) {
     payload.attachments = attachments.map(a => ({
@@ -455,13 +460,46 @@ export async function sendInvoiceEmail(
   pdfBuffer: Buffer,
   recipientEmail: string,
   senderName: string,
-  customMessage?: string
+  customMessage?: string,
+  options?: { bcc?: string }
 ): Promise<{ messageId: string }> {
+  const bccList =
+    options?.bcc &&
+    options.bcc.trim() &&
+    options.bcc.trim().toLowerCase() !== recipientEmail.trim().toLowerCase()
+      ? [options.bcc.trim()]
+      : undefined;
+
   return send(
     recipientEmail,
     invoiceTemplate(invoice, senderName, customMessage),
-    [{ filename: `Invoice-${invoice.invoiceNumber}.pdf`, content: pdfBuffer }]
+    [{ filename: `Invoice-${invoice.invoiceNumber}.pdf`, content: pdfBuffer }],
+    bccList ? { bcc: bccList } : undefined
   );
+}
+
+/**
+ * Resolve BCC for invoice emails (best practice: business mailbox).
+ * Chain: dedicated invoice_bcc_email → company_email → user login email.
+ * Returns null when no usable address (should be rare).
+ */
+export function resolveInvoiceBcc(opts: {
+  invoiceBccEmail?: string | null;
+  companyEmail?: string | null;
+  userEmail?: string | null;
+  recipientEmail: string;
+}): string | null {
+  const recipient = opts.recipientEmail.trim().toLowerCase();
+  const candidates = [opts.invoiceBccEmail, opts.companyEmail, opts.userEmail];
+  for (const raw of candidates) {
+    const email = (raw || '').trim();
+    if (!email) continue;
+    if (email.toLowerCase() === recipient) continue;
+    // light validation — full email schema already applied on profile fields
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
+    return email;
+  }
+  return null;
 }
 
 export async function sendTradeConfirmation(
@@ -501,6 +539,7 @@ export default {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
+  resolveInvoiceBcc,
   sendTradeConfirmation,
   sendPortfolioAlert,
   sendPaymentFailedEmail,

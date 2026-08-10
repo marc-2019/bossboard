@@ -341,20 +341,27 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
       return;
     }
 
-    // Get business profile for sender name
+    // Get business profile for sender name + BCC (web and mobile share this path)
     const profile = await getBusinessProfile(req.user!.userId);
     const senderName = (profile?.company_name as string) || '';
+    const bccEmail = emailService.resolveInvoiceBcc({
+      invoiceBccEmail: (profile?.invoice_bcc_email as string) || null,
+      companyEmail: (profile?.company_email as string) || null,
+      userEmail: req.user?.email || null,
+      recipientEmail,
+    });
 
     // Generate PDF
     const pdfBuffer = await pdfService.generateInvoicePDF(invoice);
 
-    // Send email
+    // Send email (BCC business mailbox when resolved)
     const result = await emailService.sendInvoiceEmail(
       invoice,
       pdfBuffer,
       recipientEmail,
       senderName,
-      customMessage
+      customMessage,
+      bccEmail ? { bcc: bccEmail } : undefined
     );
 
     // Auto-mark as sent if currently draft
@@ -365,13 +372,18 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
     // Fetch updated invoice to return
     const updatedInvoice = await invoicesService.getInvoiceById(id, req.user!.userId);
 
+    const message = bccEmail
+      ? `Invoice emailed to ${recipientEmail} (BCC ${bccEmail})`
+      : `Invoice emailed to ${recipientEmail}`;
+
     res.json({
       success: true,
       data: {
         invoice: updatedInvoice,
         messageId: result.messageId,
+        bccEmail: bccEmail || null,
       },
-      message: `Invoice emailed to ${recipientEmail}`,
+      message,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('SMTP')) {

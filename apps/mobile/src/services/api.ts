@@ -476,6 +476,8 @@ export const businessProfileApi = {
     companyAddress?: string;
     companyPhone?: string;
     companyEmail?: string;
+    /** Optional BCC for invoice emails (business mailbox) */
+    invoiceBccEmail?: string;
     bankAccountName?: string;
     bankAccountNumber?: string;
     bankName?: string;

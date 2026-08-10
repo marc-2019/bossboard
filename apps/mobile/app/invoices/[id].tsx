@@ -271,7 +271,11 @@ export default function InvoiceDetailScreen() {
                 if (response.data.data?.invoice) {
                   setInvoice(response.data.data.invoice);
                 }
-                Alert.alert('Success', `Invoice emailed to ${recipientEmail}`);
+                const bcc = response.data.data?.bccEmail as string | null | undefined;
+                const successMsg = bcc
+                  ? `Invoice emailed to ${recipientEmail}\n\nA copy was BCC’d to ${bcc}`
+                  : response.data.message || `Invoice emailed to ${recipientEmail}`;
+                Alert.alert('Success', successMsg);
               }
             } catch (error: unknown) {
               const apiError = error as { code?: string; message?: string };

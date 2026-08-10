@@ -399,6 +399,8 @@ export interface BusinessProfile {
   companyAddress: string | null;
   companyPhone: string | null;
   companyEmail: string | null;
+  /** Optional BCC for invoice emails; falls back to companyEmail then user email when unset */
+  invoiceBccEmail: string | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;
   bankName: string | null;
@@ -424,6 +426,8 @@ export interface BusinessProfileUpsertInput {
   companyAddress?: string;
   companyPhone?: string;
   companyEmail?: string;
+  /** Optional BCC for invoice emails (business mailbox recommended) */
+  invoiceBccEmail?: string;
   bankAccountName?: string;
   bankAccountNumber?: string;
   bankName?: string;
