@@ -29,6 +29,7 @@ function transformProduct(row: Record<string, unknown>): ProductService {
     description: row.description as string | null,
     unitPrice: row.unit_price as number,
     unitCost: (row.unit_cost as number | null) ?? null,
+    unitCostIsAnnual: Boolean(row.unit_cost_is_annual),
     defaultMarginPercent:
       defaultMarginPercent != null && Number.isFinite(defaultMarginPercent)
         ? defaultMarginPercent
@@ -52,6 +53,7 @@ function transformForMobile(product: ProductService): Record<string, unknown> {
     description: product.description,
     unit_price: product.unitPrice,
     unit_cost: product.unitCost,
+    unit_cost_is_annual: product.unitCostIsAnnual,
     default_margin_percent: product.defaultMarginPercent,
     type: product.type,
     is_gst_applicable: product.isGstApplicable,
@@ -72,10 +74,10 @@ export async function createProduct(
 
   const result = await db.query<Record<string, unknown>>(
     `INSERT INTO products_services (
-      id, user_id, name, description, unit_price, unit_cost, default_margin_percent,
-      type, is_gst_applicable
+      id, user_id, name, description, unit_price, unit_cost, unit_cost_is_annual,
+      default_margin_percent, type, is_gst_applicable
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING *`,
     [
       productId,
@@ -84,6 +86,7 @@ export async function createProduct(
       input.description || null,
       input.unitPrice,
       input.unitCost != null && input.unitCost >= 0 ? Math.round(input.unitCost) : null,
+      Boolean(input.unitCostIsAnnual),
       input.defaultMarginPercent != null && Number.isFinite(input.defaultMarginPercent)
         ? input.defaultMarginPercent
         : null,
@@ -184,6 +187,7 @@ export async function updateProduct(
     description: 'description',
     unitPrice: 'unit_price',
     unitCost: 'unit_cost',
+    unitCostIsAnnual: 'unit_cost_is_annual',
     defaultMarginPercent: 'default_margin_percent',
     type: 'type',
     isGstApplicable: 'is_gst_applicable',

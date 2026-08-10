@@ -91,6 +91,7 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     bankAccountName: 'Test Trading Ltd',
     bankAccountNumber: '12-3456-7890123-00',
     notes: null,
+    internalMemo: null,
     customerId: null,
     recurringInvoiceId: null,
     includeGst: true,

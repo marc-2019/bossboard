@@ -18,6 +18,8 @@ export {
   marginPercentFromCostSell,
   computeInvoiceProfit,
   normalizePricedLineItem,
+  attributedCostCents,
+  ANNUAL_COST_MONTHS,
 } from './utils/pricing.js';
 export type { PricedLineLike, InvoiceProfitSummary } from './utils/pricing.js';
 export {

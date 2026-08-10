@@ -324,10 +324,17 @@ export interface InvoiceLineItem {
   description: string;
   /** Customer-facing sell amount in cents */
   amount: number;
-  /** Direct cost in cents (internal only — never on PDF/email) */
+  /**
+   * Cost attributed to this invoice in cents (internal only — never on PDF/email).
+   * For annual costs this is the monthly share (annual/12).
+   */
   cost?: number | null;
   /** Markup percent on cost (e.g. 30 = 30%). Internal only. */
   marginPercent?: number | null;
+  /** True when cost was derived from an annual total */
+  costIsAnnual?: boolean | null;
+  /** Full annual cost in cents when costIsAnnual (for re-edit / display) */
+  annualCost?: number | null;
 }
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
@@ -345,6 +352,8 @@ export interface InvoiceCreateInput {
     amount: number;
     cost?: number | null;
     marginPercent?: number | null;
+    costIsAnnual?: boolean | null;
+    annualCost?: number | null;
   }[];
   includeGst?: boolean;
   /** none | fixed | percent — default none */
@@ -383,6 +392,8 @@ export interface InvoiceUpdateInput {
     amount: number;
     cost?: number | null;
     marginPercent?: number | null;
+    costIsAnnual?: boolean | null;
+    annualCost?: number | null;
   }[];
   includeGst?: boolean;
   discountType?: InvoiceDiscountType;
@@ -516,9 +527,14 @@ export interface ProductService {
   description: string | null;
   /** Default sell price in cents (customer-facing) */
   unitPrice: number;
-  /** Direct cost in cents (internal) */
+  /**
+   * Direct cost in cents (internal). If unitCostIsAnnual, this is the full
+   * yearly amount (e.g. annual web hosting).
+   */
   unitCost: number | null;
-  /** Default margin % on cost (e.g. 30 = 30%) */
+  /** When true, unitCost is yearly; invoice P&L uses unitCost/12 */
+  unitCostIsAnnual: boolean;
+  /** Default margin % on cost (e.g. 30 = 30%) — applied to attributed (monthly) cost */
   defaultMarginPercent: number | null;
   type: ProductType;
   isGstApplicable: boolean;
@@ -532,6 +548,7 @@ export interface ProductServiceCreateInput {
   description?: string;
   unitPrice: number;
   unitCost?: number | null;
+  unitCostIsAnnual?: boolean;
   defaultMarginPercent?: number | null;
   type?: ProductType;
   isGstApplicable?: boolean;
@@ -542,6 +559,7 @@ export interface ProductServiceUpdateInput {
   description?: string | null;
   unitPrice?: number;
   unitCost?: number | null;
+  unitCostIsAnnual?: boolean;
   defaultMarginPercent?: number | null;
   type?: ProductType;
   isGstApplicable?: boolean;

@@ -492,6 +492,11 @@ export default function InvoiceDetailPage() {
           )}
           {invoice.lineItems.map((item) => {
             const hasCost = item.cost != null && Number(item.cost) >= 0;
+            const isAnnual = Boolean(
+              (item as { costIsAnnual?: boolean }).costIsAnnual,
+            );
+            const annualCost = (item as { annualCost?: number | null })
+              .annualCost;
             const margin$ =
               hasCost ? Number(item.amount) - Number(item.cost) : null;
             return (
@@ -505,6 +510,11 @@ export default function InvoiceDetailPage() {
                 {hasCost && (
                   <p className="text-xs text-amber-800">
                     Internal: cost {formatCents(Number(item.cost))}
+                    {isAnnual && annualCost != null
+                      ? ` (1/12 of annual ${formatCents(Number(annualCost))})`
+                      : isAnnual
+                        ? ' (annual, attributed monthly)'
+                        : ''}
                     {item.marginPercent != null
                       ? ` · margin ${item.marginPercent}%`
                       : ''}

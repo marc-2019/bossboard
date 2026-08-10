@@ -41,12 +41,23 @@ function parseLineItems(raw: unknown): InvoiceLineItem[] {
         : row.margin_percent != null && Number.isFinite(Number(row.margin_percent))
           ? Number(row.margin_percent)
           : null;
+    const costIsAnnual = Boolean(
+      row.costIsAnnual ?? row.cost_is_annual ?? false,
+    );
+    const annualCost =
+      row.annualCost != null && Number.isFinite(Number(row.annualCost))
+        ? Math.round(Number(row.annualCost))
+        : row.annual_cost != null && Number.isFinite(Number(row.annual_cost))
+          ? Math.round(Number(row.annual_cost))
+          : null;
     return {
       id: String(row.id || uuidv4()),
       description: String(row.description || ''),
       amount: Math.round(Number(row.amount) || 0),
       cost,
       marginPercent,
+      costIsAnnual: costIsAnnual || undefined,
+      annualCost: annualCost,
     };
   });
 }
@@ -214,6 +225,8 @@ export async function createInvoice(
       amount: item.amount,
       cost: item.cost,
       marginPercent: item.marginPercent,
+      costIsAnnual: item.costIsAnnual,
+      annualCost: item.annualCost,
     });
     return {
       id: uuidv4(),
@@ -221,6 +234,8 @@ export async function createInvoice(
       amount: normalized.amount,
       cost: normalized.cost,
       marginPercent: normalized.marginPercent,
+      costIsAnnual: normalized.costIsAnnual || undefined,
+      annualCost: normalized.annualCost,
     };
   });
 
@@ -532,6 +547,8 @@ export async function updateInvoice(
           amount: number;
           cost?: number | null;
           marginPercent?: number | null;
+          costIsAnnual?: boolean | null;
+          annualCost?: number | null;
         }[]
       ).map((item) => {
         const normalized = normalizePricedLineItem({
@@ -539,6 +556,8 @@ export async function updateInvoice(
           amount: item.amount,
           cost: item.cost,
           marginPercent: item.marginPercent,
+          costIsAnnual: item.costIsAnnual,
+          annualCost: item.annualCost,
         });
         return {
           id: uuidv4(),
@@ -546,6 +565,8 @@ export async function updateInvoice(
           amount: normalized.amount,
           cost: normalized.cost,
           marginPercent: normalized.marginPercent,
+          costIsAnnual: normalized.costIsAnnual || undefined,
+          annualCost: normalized.annualCost,
         };
       });
     } else if (key === 'includeGst' && value !== undefined) {

@@ -18,6 +18,7 @@ import type { Customer, ProductService } from '@bossboard/shared';
 import {
   sellAmountFromCostMargin,
   computeInvoiceProfit,
+  attributedCostCents,
   looksLikeInternalInvoiceNotes,
   INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
 } from '@bossboard/shared';
@@ -26,7 +27,9 @@ import { ArrowLeft, Plus, Trash2, User, Package } from 'lucide-react';
 interface LineItemRow {
   description: string;
   amountDollars: string;
+  /** Full cost as typed; annual total when costIsAnnual */
   costDollars: string;
+  costIsAnnual: boolean;
   marginPercent: string;
 }
 
@@ -36,6 +39,7 @@ const emptyLine = (): LineItemRow => ({
   description: '',
   amountDollars: '',
   costDollars: '',
+  costIsAnnual: false,
   marginPercent: '',
 });
 
@@ -141,12 +145,17 @@ export default function NewInvoicePage() {
     if (!productId) return;
     const p = products.find((x) => x.id === productId);
     if (!p) return;
-    const costCents = p.unitCost != null ? Number(p.unitCost) : null;
+    const rawCost = p.unitCost != null ? Number(p.unitCost) : null;
+    const isAnnual = Boolean(
+      (p as { unitCostIsAnnual?: boolean }).unitCostIsAnnual,
+    );
     const margin =
       p.defaultMarginPercent != null ? Number(p.defaultMarginPercent) : null;
+    const attributed =
+      rawCost != null ? attributedCostCents(rawCost, isAnnual) : null;
     let sellCents = Number(p.unitPrice || 0);
-    if (costCents != null && costCents >= 0 && margin != null) {
-      sellCents = sellAmountFromCostMargin(costCents, margin);
+    if (attributed != null && attributed >= 0 && margin != null) {
+      sellCents = sellAmountFromCostMargin(attributed, margin);
     }
     const dollars = (sellCents / 100).toFixed(2);
     const desc = (p.description || p.name || '').trim();
@@ -159,7 +168,8 @@ export default function NewInvoicePage() {
       const next: LineItemRow = {
         description: desc,
         amountDollars: dollars,
-        costDollars: costCents != null ? (costCents / 100).toFixed(2) : '',
+        costDollars: rawCost != null ? (rawCost / 100).toFixed(2) : '',
+        costIsAnnual: isAnnual && rawCost != null,
         marginPercent: margin != null ? String(margin) : '',
       };
       return onlyEmpty ? [next] : [...rows, next];
@@ -171,18 +181,25 @@ export default function NewInvoicePage() {
       rows.map((r, i) => {
         if (i !== idx) return r;
         const next = { ...r, ...patch };
-        // When cost and margin % both set, sell amount follows
-        const cost = dollarsToCents(next.costDollars);
+        const rawCost = dollarsToCents(next.costDollars);
+        const attributed =
+          rawCost != null
+            ? attributedCostCents(rawCost, next.costIsAnnual)
+            : null;
         const margin = next.marginPercent.trim()
           ? Number(next.marginPercent.trim())
           : NaN;
         if (
-          cost != null &&
+          attributed != null &&
           Number.isFinite(margin) &&
           margin >= 0 &&
-          ('costDollars' in patch || 'marginPercent' in patch)
+          ('costDollars' in patch ||
+            'marginPercent' in patch ||
+            'costIsAnnual' in patch)
         ) {
-          next.amountDollars = (sellAmountFromCostMargin(cost, margin) / 100).toFixed(2);
+          next.amountDollars = (
+            sellAmountFromCostMargin(attributed, margin) / 100
+          ).toFixed(2);
         }
         return next;
       }),
@@ -197,13 +214,16 @@ export default function NewInvoicePage() {
     return sum + (cents ?? 0);
   }, 0);
   const profitPreview = computeInvoiceProfit(
-    lineItems.map((r) => ({
-      amount: dollarsToCents(r.amountDollars) ?? 0,
-      cost: dollarsToCents(r.costDollars),
-      marginPercent: r.marginPercent.trim()
-        ? Number(r.marginPercent.trim())
-        : null,
-    })),
+    lineItems.map((r) => {
+      const raw = dollarsToCents(r.costDollars);
+      return {
+        amount: dollarsToCents(r.amountDollars) ?? 0,
+        cost: raw != null ? attributedCostCents(raw, r.costIsAnnual) : null,
+        marginPercent: r.marginPercent.trim()
+          ? Number(r.marginPercent.trim())
+          : null,
+      };
+    }),
   );
   const discountCents = computeDiscountCents(discountType, discountInput, subtotalCents);
   const taxableCents = subtotalCents - discountCents;
@@ -224,7 +244,13 @@ export default function NewInvoicePage() {
     for (const row of lineItems) {
       const desc = row.description.trim();
       let cents = dollarsToCents(row.amountDollars);
-      const cost = dollarsToCents(row.costDollars);
+      const rawCost = dollarsToCents(row.costDollars);
+      const annualCost =
+        row.costIsAnnual && rawCost != null ? rawCost : null;
+      const cost =
+        rawCost != null
+          ? attributedCostCents(rawCost, row.costIsAnnual)
+          : null;
       const marginRaw = row.marginPercent.trim();
       const margin = marginRaw ? Number(marginRaw) : null;
       if (cost != null && margin != null && Number.isFinite(margin)) {
@@ -242,9 +268,11 @@ export default function NewInvoicePage() {
       cleanedItems.push({
         description: desc,
         amount: cents,
-        cost: cost,
+        cost,
         marginPercent:
           margin != null && Number.isFinite(margin) ? margin : null,
+        costIsAnnual: Boolean(row.costIsAnnual && annualCost != null),
+        annualCost,
       });
     }
     if (cleanedItems.length === 0) {
@@ -473,7 +501,13 @@ export default function NewInvoicePage() {
                 </div>
                 <div className="w-28">
                   <Input
-                    label={idx === 0 ? 'Cost (internal)' : undefined}
+                    label={
+                      idx === 0
+                        ? row.costIsAnnual
+                          ? 'Annual cost'
+                          : 'Cost (internal)'
+                        : undefined
+                    }
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -507,6 +541,20 @@ export default function NewInvoicePage() {
                     placeholder="0.00"
                   />
                 </div>
+                <label
+                  className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer pb-2"
+                  title="Spread cost over 12 months for profit on this invoice"
+                >
+                  <input
+                    type="checkbox"
+                    checked={row.costIsAnnual}
+                    onChange={(e) =>
+                      updateLine(idx, { costIsAnnual: e.target.checked })
+                    }
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-accent"
+                  />
+                  Annual
+                </label>
                 <Button
                   type="button"
                   variant="ghost"
@@ -517,11 +565,21 @@ export default function NewInvoicePage() {
                 >
                   <Trash2 size={14} />
                 </Button>
+                {row.costIsAnnual &&
+                  row.costDollars.trim() &&
+                  Number.isFinite(Number(row.costDollars)) && (
+                    <p className="w-full text-xs text-gray-500 -mt-1">
+                      ≈ ${(Number(row.costDollars) / 12).toFixed(2)}/mo attributed to
+                      this invoice for profit
+                    </p>
+                  )}
               </li>
             ))}
           </ul>
           <p className="mt-2 text-xs text-gray-500">
             Cost and margin stay on your draft only — PDF and email show sell amounts only.
+            Tick <strong>Annual</strong> for yearly costs (e.g. hosting) so profit uses 1/12
+            per invoice.
           </p>
           {profitPreview.linesWithCost > 0 && (
             <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-100 text-sm text-amber-950 space-y-1">

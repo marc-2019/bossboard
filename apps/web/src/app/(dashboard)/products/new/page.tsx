@@ -15,20 +15,22 @@ export default function NewProductPage() {
   const [description, setDescription] = useState('');
   const [priceDollars, setPriceDollars] = useState('');
   const [costDollars, setCostDollars] = useState('');
+  const [costIsAnnual, setCostIsAnnual] = useState(false);
   const [marginPercent, setMarginPercent] = useState('');
   const [type, setType] = useState<'fixed' | 'variable'>('fixed');
   const [isGstApplicable, setIsGstApplicable] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // When cost + margin change, keep sell price in sync
-  const onCostOrMargin = (cost: string, margin: string) => {
+  // When cost + margin change, keep sell price in sync (margin on monthly share if annual)
+  const onCostOrMargin = (cost: string, margin: string, annual = costIsAnnual) => {
     setCostDollars(cost);
     setMarginPercent(margin);
     const c = Number(cost.trim());
     const m = Number(margin.trim());
     if (Number.isFinite(c) && c >= 0 && Number.isFinite(m) && m >= 0 && margin.trim()) {
-      setPriceDollars((Math.round(c * (1 + m / 100) * 100) / 100).toFixed(2));
+      const attributed = annual ? c / 12 : c;
+      setPriceDollars((Math.round(attributed * (1 + m / 100) * 100) / 100).toFixed(2));
     }
   };
 
@@ -64,7 +66,8 @@ export default function NewProductPage() {
       defaultMarginPercent = m;
     }
     if (unitCost != null && defaultMarginPercent != null) {
-      unitPrice = Math.round(unitCost * (1 + defaultMarginPercent / 100));
+      const attributed = costIsAnnual ? Math.round(unitCost / 12) : unitCost;
+      unitPrice = Math.round(attributed * (1 + defaultMarginPercent / 100));
     }
 
     setSubmitting(true);
@@ -74,6 +77,7 @@ export default function NewProductPage() {
         description: description.trim() || undefined,
         unitPrice,
         unitCost,
+        unitCostIsAnnual: costIsAnnual && unitCost != null,
         defaultMarginPercent,
         type,
         isGstApplicable,
@@ -120,9 +124,22 @@ export default function NewProductPage() {
               placeholder="Shown on invoice line if set"
             />
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={costIsAnnual}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setCostIsAnnual(next);
+                onCostOrMargin(costDollars, marginPercent, next);
+              }}
+              className="h-4 w-4 rounded border-gray-300 text-accent"
+            />
+            Cost is annual (e.g. web hosting paid yearly)
+          </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
-              label="Cost (NZD, internal)"
+              label={costIsAnnual ? 'Annual cost (NZD, internal)' : 'Cost (NZD, internal)'}
               type="number"
               inputMode="decimal"
               step="0.01"
@@ -142,7 +159,7 @@ export default function NewProductPage() {
               placeholder="30"
             />
             <Input
-              label="Sell price (NZD)"
+              label={costIsAnnual ? 'Sell price / month (NZD)' : 'Sell price (NZD)'}
               type="number"
               inputMode="decimal"
               step="0.01"
@@ -154,7 +171,17 @@ export default function NewProductPage() {
             />
           </div>
           <p className="text-xs text-gray-500 -mt-2">
-            Cost + margin % calculate sell price. Customers only ever see sell price on invoices.
+            {costIsAnnual ? (
+              <>
+                Annual cost is spread over 12 months for profit on each invoice
+                {costDollars.trim() && Number.isFinite(Number(costDollars))
+                  ? ` (≈ $${(Number(costDollars) / 12).toFixed(2)}/mo).`
+                  : '.'}{' '}
+                Margin % applies to the monthly share. Customers only see sell price.
+              </>
+            ) : (
+              <>Cost + margin % calculate sell price. Customers only ever see sell price on invoices.</>
+            )}
           </p>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>

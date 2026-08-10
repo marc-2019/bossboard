@@ -141,10 +141,14 @@ export interface InvoiceLineItemInput {
   description: string;
   /** Sell amount in cents (customer-facing). $5.99 → 599. */
   amount: number;
-  /** Direct cost cents — internal only */
+  /** Cost attributed to this invoice (cents) — internal only. Annual → monthly share. */
   cost?: number | null;
   /** Markup % on cost — internal only */
   marginPercent?: number | null;
+  /** True when cost came from an annual total */
+  costIsAnnual?: boolean | null;
+  /** Full annual cost cents when costIsAnnual */
+  annualCost?: number | null;
 }
 
 export type InvoiceDiscountType = 'none' | 'fixed' | 'percent';
@@ -801,8 +805,10 @@ export type ProductCreateInput = {
   description?: string;
   /** Sell unit price in cents */
   unitPrice: number;
-  /** Direct cost cents (internal) */
+  /** Direct cost cents (internal). Full year if unitCostIsAnnual. */
   unitCost?: number | null;
+  /** When true, unitCost is yearly; invoices use unitCost/12 for P&L */
+  unitCostIsAnnual?: boolean;
   /** Default margin % on cost */
   defaultMarginPercent?: number | null;
   type?: 'fixed' | 'variable';
