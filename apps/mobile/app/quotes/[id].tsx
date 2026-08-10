@@ -55,6 +55,7 @@ interface Quote {
   ird_number: string | null;
   gst_number: string | null;
   notes: string | null;
+  internal_memo?: string | null;
   created_at: string;
 }
 
@@ -465,12 +466,24 @@ export default function QuoteDetailScreen() {
           )}
         </View>
 
-        {/* Notes */}
+        {quote.internal_memo ? (
+          <View style={[styles.card, { borderColor: '#FCD34D', backgroundColor: '#FFFBEB' }]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="lock-closed-outline" size={18} color="#92400E" />
+              <Text style={[styles.cardTitle, { color: '#92400E' }]}>
+                Internal memo (private)
+              </Text>
+            </View>
+            <Text style={styles.notesText}>{quote.internal_memo}</Text>
+          </View>
+        ) : null}
+
+        {/* Customer notes (PDF) */}
         {quote.notes && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Ionicons name="document-text-outline" size={18} color="#8B5CF6" />
-              <Text style={styles.cardTitle}>Notes</Text>
+              <Text style={styles.cardTitle}>Customer notes (PDF)</Text>
             </View>
             <Text style={styles.notesText}>{quote.notes}</Text>
           </View>

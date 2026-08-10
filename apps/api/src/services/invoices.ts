@@ -243,7 +243,7 @@ export async function createInvoice(
       swms_id, job_description,
       line_items, subtotal, gst_amount, total,
       status, due_date,
-      bank_account_name, bank_account_number, notes,
+      bank_account_name, bank_account_number, notes, internal_memo,
       customer_id, recurring_invoice_id, include_gst,
       intl_bank_account_name, intl_iban, intl_swift_bic,
       intl_bank_name, intl_bank_address,
@@ -252,7 +252,7 @@ export async function createInvoice(
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft',
             $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
-            $25, $26, $27, $28, $29, $30, $31, $32)
+            $25, $26, $27, $28, $29, $30, $31, $32, $33)
     RETURNING *`,
     [
       invoiceId,
@@ -271,6 +271,7 @@ export async function createInvoice(
       bankAccountName,
       bankAccountNumber,
       input.notes || null,
+      input.internalMemo || null,
       input.customerId || null,
       input.recurringInvoiceId || null,
       includeGst,
@@ -321,6 +322,7 @@ function transformInvoice(row: Record<string, unknown>): Invoice {
     bankAccountName: decryptField(row.bank_account_name as string | null),
     bankAccountNumber: decryptField(row.bank_account_number as string | null),
     notes: row.notes as string | null,
+    internalMemo: (row.internal_memo as string | null) ?? null,
     // Enhanced fields
     customerId: row.customer_id as string | null,
     recurringInvoiceId: row.recurring_invoice_id as string | null,
@@ -373,6 +375,7 @@ function transformForMobile(invoice: Invoice): Record<string, unknown> {
     bank_account_name: invoice.bankAccountName,
     bank_account_number: invoice.bankAccountNumber,
     notes: invoice.notes,
+    internal_memo: invoice.internalMemo,
     // Enhanced fields
     customer_id: invoice.customerId,
     recurring_invoice_id: invoice.recurringInvoiceId,
@@ -498,6 +501,7 @@ export async function updateInvoice(
     bankAccountName: 'bank_account_name',
     bankAccountNumber: 'bank_account_number',
     notes: 'notes',
+    internalMemo: 'internal_memo',
     customerId: 'customer_id',
     intlBankAccountName: 'intl_bank_account_name',
     intlIban: 'intl_iban',

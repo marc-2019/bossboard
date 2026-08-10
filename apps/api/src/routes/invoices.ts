@@ -75,6 +75,8 @@ const createSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
+  /** Staff-only — never on PDF/email/share */
+  internalMemo: z.string().optional(),
   /** Linked customer record (picker) — optional */
   customerId: z.string().uuid().optional().nullable(),
   ...discountFields,
@@ -92,6 +94,7 @@ const updateSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
+  internalMemo: z.string().optional(),
   customerId: z.string().uuid().optional().nullable(),
   ...discountFields,
 });

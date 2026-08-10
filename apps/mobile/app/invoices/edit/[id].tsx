@@ -74,6 +74,7 @@ export default function EditInvoiceScreen() {
   const [discountLabel, setDiscountLabel] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [internalMemo, setInternalMemo] = useState('');
 
   const loadInvoice = useCallback(async () => {
     if (!id) return;
@@ -116,6 +117,11 @@ export default function EditInvoiceScreen() {
       setIncludeGst(inv.include_gst !== false);
       setDueDate(toDateInput(inv.due_date));
       setNotes(inv.notes || '');
+      setInternalMemo(
+        (inv as { internal_memo?: string; internalMemo?: string }).internal_memo ||
+          (inv as { internalMemo?: string }).internalMemo ||
+          '',
+      );
 
       const dType = inv.discount_type as 'none' | 'fixed' | 'percent' | undefined;
       if (dType === 'fixed' || dType === 'percent') {
@@ -270,6 +276,7 @@ export default function EditInvoiceScreen() {
         includeGst,
         dueDate: trimmedDue || null,
         notes: notes.trim(),
+        internalMemo: internalMemo.trim(),
         ...discountPayload,
       } as any);
 
@@ -573,6 +580,23 @@ export default function EditInvoiceScreen() {
           <Text style={styles.hint}>
             Shown on the customer PDF and email — not for system test or seed text.
           </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: '#92400E' }]}>Internal memo (private)</Text>
+          <TextInput
+            style={[
+              styles.input,
+              styles.multiline,
+              { borderColor: '#FCD34D', backgroundColor: '#FFFBEB' },
+            ]}
+            value={internalMemo}
+            onChangeText={setInternalMemo}
+            placeholder="Staff only — never on PDF/email"
+            placeholderTextColor="#9CA3AF"
+            multiline
+            numberOfLines={3}
+          />
         </View>
 
         <TouchableOpacity

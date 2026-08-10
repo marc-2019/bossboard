@@ -53,6 +53,8 @@ interface Invoice {
   ird_number: string | null;
   gst_number: string | null;
   notes: string | null;
+  internal_memo?: string | null;
+  internalMemo?: string | null;
   created_at: string;
 }
 
@@ -525,6 +527,17 @@ export default function InvoiceDetailScreen() {
           </View>
         )}
       </View>
+
+      {(invoice.internal_memo || invoice.internalMemo) && (
+        <View style={[styles.card, { borderColor: '#FCD34D', backgroundColor: '#FFFBEB' }]}>
+          <Text style={[styles.cardTitle, { color: '#92400E' }]}>
+            Internal memo (private)
+          </Text>
+          <Text style={styles.notes}>
+            {invoice.internal_memo || invoice.internalMemo}
+          </Text>
+        </View>
+      )}
 
       {/* Customer notes — same text appears on PDF & email */}
       {invoice.notes && (

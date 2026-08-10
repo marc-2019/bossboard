@@ -292,7 +292,10 @@ export interface Invoice {
   paidAt: Date | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;
+  /** Customer-facing notes (PDF / email / share) */
   notes: string | null;
+  /** Staff-only memo — never on PDF, email, or share link */
+  internalMemo: string | null;
   customerId: string | null;
   recurringInvoiceId: string | null;
   includeGst: boolean;
@@ -354,6 +357,8 @@ export interface InvoiceCreateInput {
   bankAccountName?: string;
   bankAccountNumber?: string;
   notes?: string;
+  /** Staff-only — never on PDF/email/share */
+  internalMemo?: string;
   customerId?: string;
   recurringInvoiceId?: string;
   intlBankAccountName?: string;
@@ -387,6 +392,7 @@ export interface InvoiceUpdateInput {
   bankAccountName?: string;
   bankAccountNumber?: string;
   notes?: string;
+  internalMemo?: string;
   customerId?: string | null;
   intlBankAccountName?: string;
   intlIban?: string;
@@ -795,7 +801,10 @@ export interface Quote {
   companyAddress: string | null;
   irdNumber: string | null;
   gstNumber: string | null;
+  /** Customer-facing notes (PDF) */
   notes: string | null;
+  /** Staff-only memo — never on quote PDF */
+  internalMemo: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -821,6 +830,7 @@ export interface QuoteCreateInput {
   irdNumber?: string;
   gstNumber?: string;
   notes?: string;
+  internalMemo?: string;
 }
 
 export interface QuoteUpdateInput {
@@ -844,6 +854,7 @@ export interface QuoteUpdateInput {
   irdNumber?: string;
   gstNumber?: string;
   notes?: string;
+  internalMemo?: string;
 }
 
 // =============================================================================

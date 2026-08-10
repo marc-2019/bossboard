@@ -9,6 +9,10 @@ import quotesService from '../services/quotes.js';
 import pdfService from '../services/pdf.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, requireFeature } from '../middleware/subscription.js';
+import {
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+} from '../types/index.js';
 
 // App error type for error handling
 interface AppError extends Error {
@@ -38,7 +42,10 @@ const createSchema = z.object({
   validUntil: z.string().optional(), // ISO date string
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
+  /** Customer-facing (PDF) */
   notes: z.string().optional(),
+  /** Staff-only — never on PDF */
+  internalMemo: z.string().optional(),
 });
 
 const updateSchema = z.object({
@@ -53,6 +60,7 @@ const updateSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
+  internalMemo: z.string().optional(),
 });
 
 // =============================================================================
@@ -81,6 +89,16 @@ router.post('/', authenticate, attachSubscription, requireFeature('quotes'), asy
       ...validation.data,
       clientEmail: validation.data.clientEmail || undefined,
     };
+
+    // Customer notes only — internal memo can hold seed/test text freely
+    if (looksLikeInternalInvoiceNotes(input.notes)) {
+      res.status(400).json({
+        success: false,
+        error: 'NOTES_NOT_CUSTOMER_READY',
+        message: INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+      });
+      return;
+    }
 
     const quote = await quotesService.createQuote(req.user!.userId, input);
 
@@ -186,6 +204,15 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
         success: false,
         error: 'VALIDATION_ERROR',
         message: validation.error.errors[0].message,
+      });
+      return;
+    }
+
+    if (looksLikeInternalInvoiceNotes(validation.data.notes)) {
+      res.status(400).json({
+        success: false,
+        error: 'NOTES_NOT_CUSTOMER_READY',
+        message: INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
       });
       return;
     }

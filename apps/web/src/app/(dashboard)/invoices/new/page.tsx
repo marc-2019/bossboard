@@ -58,6 +58,7 @@ export default function NewInvoicePage() {
   const [discountLabel, setDiscountLabel] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [internalMemo, setInternalMemo] = useState('');
   const [companyTemplate, setCompanyTemplate] = useState('');
   const [notesSource, setNotesSource] = useState<NotesSource>('company');
   const [submitting, setSubmitting] = useState(false);
@@ -268,6 +269,7 @@ export default function NewInvoicePage() {
       }
       payload.notes = notes.trim();
     }
+    if (internalMemo.trim()) payload.internalMemo = internalMemo.trim();
 
     if (discountType !== 'none' && discountCents > 0) {
       payload.discountType = discountType;
@@ -673,6 +675,22 @@ export default function NewInvoicePage() {
             The customer sees this on the PDF and email. Use payment thanks, terms, or how to pay —
             not “system test”, seed notes, or “review before send”. Cost/margin stay in line items
             (internal). Company template = Settings → Company notes.
+          </p>
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide mb-2">
+            Internal memo (private)
+          </h2>
+          <textarea
+            value={internalMemo}
+            onChange={(e) => setInternalMemo(e.target.value)}
+            placeholder="e.g. Deskera 0000092 seed — review before send. Never shown to the client."
+            rows={3}
+            className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-amber-50/50 text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-colors"
+          />
+          <p className="mt-1.5 text-xs text-amber-900/70">
+            Staff only — never on PDF, email, or share link.
           </p>
         </Card>
 

@@ -593,6 +593,15 @@ export default function InvoiceDetailPage() {
         </Card>
       )}
 
+      {invoice.internalMemo && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <h2 className="text-sm font-semibold text-amber-900 uppercase tracking-wide mb-2">
+            Internal memo (private — not on PDF/email)
+          </h2>
+          <p className="text-sm text-amber-950 whitespace-pre-line">{invoice.internalMemo}</p>
+        </Card>
+      )}
+
       {invoice.notes && (
         <Card>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">

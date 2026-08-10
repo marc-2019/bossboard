@@ -148,14 +148,14 @@ export async function createQuote(
       customer_id, job_description,
       line_items, subtotal, gst_amount, total,
       status, valid_until, include_gst,
-      bank_account_name, bank_account_number, notes,
+      bank_account_name, bank_account_number, notes, internal_memo,
       intl_bank_account_name, intl_iban, intl_swift_bic,
       intl_bank_name, intl_bank_address,
       company_name, company_address, ird_number, gst_number
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft',
-            $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-            $23, $24, $25, $26)
+            $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+            $24, $25, $26, $27)
     RETURNING *`,
     [
       quoteId,
@@ -175,6 +175,7 @@ export async function createQuote(
       bankAccountName,
       bankAccountNumber,
       input.notes || null,
+      input.internalMemo || null,
       intlBankAccountName,
       intlIban,
       intlSwiftBic,
@@ -225,6 +226,7 @@ function transformQuote(row: Record<string, unknown>): Quote {
     irdNumber: decryptField(row.ird_number as string | null),
     gstNumber: decryptField(row.gst_number as string | null),
     notes: row.notes as string | null,
+    internalMemo: (row.internal_memo as string | null) ?? null,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
   };
@@ -263,6 +265,7 @@ function transformForMobile(quote: Quote): Record<string, unknown> {
     ird_number: quote.irdNumber,
     gst_number: quote.gstNumber,
     notes: quote.notes,
+    internal_memo: quote.internalMemo,
     created_at: quote.createdAt,
     updated_at: quote.updatedAt,
   };
@@ -373,6 +376,7 @@ export async function updateQuote(
     bankAccountName: 'bank_account_name',
     bankAccountNumber: 'bank_account_number',
     notes: 'notes',
+    internalMemo: 'internal_memo',
     intlBankAccountName: 'intl_bank_account_name',
     intlIban: 'intl_iban',
     intlSwiftBic: 'intl_swift_bic',
@@ -558,6 +562,7 @@ export async function convertToInvoice(
     irdNumber: quote.irdNumber || undefined,
     gstNumber: quote.gstNumber || undefined,
     notes: quote.notes || undefined,
+    internalMemo: quote.internalMemo || undefined,
   });
 
   // Update the quote status and link to the invoice

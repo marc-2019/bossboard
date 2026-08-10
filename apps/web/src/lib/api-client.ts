@@ -169,6 +169,8 @@ export interface CreateInvoiceInput {
   notes?: string;
   /** Linked customer record from picker */
   customerId?: string | null;
+  /** Staff-only — never on PDF/email/share */
+  internalMemo?: string;
 }
 
 // The Express API runs invoice/quote/expense/job-log/etc responses
@@ -270,6 +272,8 @@ export interface CreateQuoteInput {
   bankAccountName?: string;
   bankAccountNumber?: string;
   notes?: string;
+  /** Staff-only — never on quote PDF */
+  internalMemo?: string;
 }
 export type UpdateQuoteInput = Partial<CreateQuoteInput>;
 

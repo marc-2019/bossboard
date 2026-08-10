@@ -243,9 +243,18 @@ export default function QuoteDetailPage() {
       {quote.notes && (
         <Card>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Notes
+            Customer notes (on PDF)
           </h2>
           <p className="text-sm text-gray-800 whitespace-pre-line">{quote.notes}</p>
+        </Card>
+      )}
+
+      {quote.internalMemo && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <h2 className="text-sm font-semibold text-amber-900 uppercase tracking-wide mb-2">
+            Internal memo (private — not on PDF)
+          </h2>
+          <p className="text-sm text-amber-950 whitespace-pre-line">{quote.internalMemo}</p>
         </Card>
       )}
     </div>

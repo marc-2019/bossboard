@@ -102,6 +102,7 @@ export default function EditInvoicePage() {
   const [discountLabel, setDiscountLabel] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [internalMemo, setInternalMemo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -150,6 +151,7 @@ export default function EditInvoicePage() {
         setIncludeGst(Boolean(inv.includeGst));
         setDueDate(toDateInput(inv.dueDate));
         setNotes(inv.notes || '');
+        setInternalMemo(inv.internalMemo || '');
 
         const dType = (inv.discountType || 'none') as 'none' | 'fixed' | 'percent';
         setDiscountType(dType === 'fixed' || dType === 'percent' ? dType : 'none');
@@ -333,6 +335,7 @@ export default function EditInvoicePage() {
       jobDescription: jobDescription.trim(),
       dueDate: dueDate || null,
       notes: notes.trim(),
+      internalMemo: internalMemo.trim(),
       customerId: customerId || null,
     } as Partial<CreateInvoiceInput>;
 
@@ -747,6 +750,19 @@ export default function EditInvoicePage() {
               The customer sees this. Avoid internal/test wording (“system test”, “review before
               send”). Leave blank if you only need line items and bank details.
             </p>
+          </Card>
+
+          <Card>
+            <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide mb-2">
+              Internal memo (private)
+            </h2>
+            <textarea
+              value={internalMemo}
+              onChange={(e) => setInternalMemo(e.target.value)}
+              placeholder="Staff-only — never on PDF, email, or share."
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-amber-50/50 text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-colors"
+            />
           </Card>
 
           <div className="flex gap-3">

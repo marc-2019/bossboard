@@ -120,6 +120,7 @@ export default function CreateInvoiceScreen() {
   const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [internalMemo, setInternalMemo] = useState('');
 
   // Enhanced fields (auto-populated from business profile)
   const [customerId, setCustomerId] = useState<string | undefined>();
@@ -438,6 +439,7 @@ export default function CreateInvoiceScreen() {
         bankAccountName: bankAccountName.trim() || undefined,
         bankAccountNumber: bankAccountNumber.trim() || undefined,
         notes: notes.trim() || undefined,
+        internalMemo: internalMemo.trim() || undefined,
         customerId: customerId,
         intlBankAccountName: intlBankAccountName.trim() || undefined,
         intlIban: intlIban.trim() || undefined,
@@ -932,6 +934,27 @@ export default function CreateInvoiceScreen() {
               terms — not system test / seed notes. Leave blank if not needed. Cost and
               margin stay internal on line items.
             </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: '#92400E' }]}>
+              Internal memo (private)
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                styles.textArea,
+                { borderColor: '#FCD34D', backgroundColor: '#FFFBEB' },
+              ]}
+              value={internalMemo}
+              onChangeText={setInternalMemo}
+              placeholder="Staff only — never on PDF/email (seed notes, review flags)"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={3}
+            />
           </View>
         </View>
 

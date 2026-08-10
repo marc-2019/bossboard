@@ -7,6 +7,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { quotesClient, ApiError, type UpdateQuoteInput } from '@/lib/api-client';
+import {
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+} from '@bossboard/shared';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 interface LineItemRow {
@@ -29,6 +33,7 @@ export default function EditQuotePage() {
   const [includeGst, setIncludeGst] = useState(true);
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
+  const [internalMemo, setInternalMemo] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -50,6 +55,7 @@ export default function EditQuotePage() {
         setIncludeGst(q.includeGst ?? true);
         setValidUntil(toDateInput(q.validUntil));
         setNotes(q.notes ?? '');
+        setInternalMemo(q.internalMemo ?? '');
         const rows: LineItemRow[] = (q.lineItems ?? []).map((item) => ({
           description: item.description ?? '',
           amountDollars: centsToDollars(item.amount),
@@ -116,6 +122,11 @@ export default function EditQuotePage() {
       return;
     }
 
+    if (looksLikeInternalInvoiceNotes(notes)) {
+      setError(INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE);
+      return;
+    }
+
     const payload: UpdateQuoteInput = {
       clientName: trimmedClient,
       clientEmail: clientEmail.trim(),
@@ -124,6 +135,7 @@ export default function EditQuotePage() {
       lineItems: cleanedItems,
       includeGst,
       notes: notes.trim(),
+      internalMemo: internalMemo.trim(),
     };
     if (validUntil) payload.validUntil = validUntil;
 
@@ -304,14 +316,30 @@ export default function EditQuotePage() {
 
         <Card>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Notes (optional)
+            Customer notes (PDF)
           </h2>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Terms, exclusions, thank-you message, anything else."
+            placeholder="Terms, exclusions, thank-you — client sees this on the PDF."
             rows={3}
             className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
+          />
+          <p className="mt-1.5 text-xs text-gray-500">
+            Shown on the quote PDF. Not for system test / seed notes.
+          </p>
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide mb-2">
+            Internal memo (private)
+          </h2>
+          <textarea
+            value={internalMemo}
+            onChange={(e) => setInternalMemo(e.target.value)}
+            placeholder="Staff-only notes — never on the PDF."
+            rows={3}
+            className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-amber-50/50 text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-colors"
           />
         </Card>
 

@@ -7,6 +7,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { quotesClient, ApiError, type CreateQuoteInput } from '@/lib/api-client';
+import {
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+} from '@bossboard/shared';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 interface LineItemRow {
@@ -34,6 +38,7 @@ export default function NewQuotePage() {
   const [includeGst, setIncludeGst] = useState(true);
   const [validUntil, setValidUntil] = useState(defaultValidUntil());
   const [notes, setNotes] = useState('');
+  const [internalMemo, setInternalMemo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,7 +95,14 @@ export default function NewQuotePage() {
     if (clientPhone.trim()) payload.clientPhone = clientPhone.trim();
     if (jobDescription.trim()) payload.jobDescription = jobDescription.trim();
     if (validUntil) payload.validUntil = validUntil;
-    if (notes.trim()) payload.notes = notes.trim();
+    if (notes.trim()) {
+      if (looksLikeInternalInvoiceNotes(notes)) {
+        setError(INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE);
+        return;
+      }
+      payload.notes = notes.trim();
+    }
+    if (internalMemo.trim()) payload.internalMemo = internalMemo.trim();
 
     setSubmitting(true);
     try {
@@ -251,15 +263,34 @@ export default function NewQuotePage() {
 
         <Card>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Notes (optional)
+            Customer notes (PDF)
           </h2>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Terms, exclusions, thank-you message, anything else."
+            placeholder="Terms, exclusions, thank-you — the client will see this on the PDF."
             rows={3}
             className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
           />
+          <p className="mt-1.5 text-xs text-gray-500">
+            Shown on the quote PDF. Not for system test / seed / Deskera meta.
+          </p>
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide mb-2">
+            Internal memo (private)
+          </h2>
+          <textarea
+            value={internalMemo}
+            onChange={(e) => setInternalMemo(e.target.value)}
+            placeholder="e.g. Based on Deskera 0000092 — review before send. Never shown to the client."
+            rows={3}
+            className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-amber-50/50 text-gray-900 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-300 transition-colors"
+          />
+          <p className="mt-1.5 text-xs text-amber-900/70">
+            Staff only — never on PDF. Use for seed notes, review flags, cost context.
+          </p>
         </Card>
 
         <div className="flex gap-3">

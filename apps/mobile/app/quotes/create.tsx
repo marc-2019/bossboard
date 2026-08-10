@@ -83,6 +83,7 @@ export default function CreateQuoteScreen() {
   const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [internalMemo, setInternalMemo] = useState('');
   const [customerId, setCustomerId] = useState<string | undefined>(undefined);
 
   // International bank details
@@ -259,6 +260,7 @@ export default function CreateQuoteScreen() {
         bankAccountName: bankAccountName.trim() || undefined,
         bankAccountNumber: bankAccountNumber.trim() || undefined,
         notes: notes.trim() || undefined,
+        internalMemo: internalMemo.trim() || undefined,
       });
 
       const quoteId = (response.data as any).data?.quote?.id;
@@ -492,14 +494,33 @@ export default function CreateQuoteScreen() {
           <Text style={styles.helperText}>Quote validity period (default: 30 days)</Text>
         </View>
 
-        {/* Notes */}
+        {/* Customer notes (PDF) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notes</Text>
+          <Text style={styles.sectionTitle}>Customer notes (PDF)</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Additional notes or terms..."
+            placeholder="Terms or thank-you — client sees this on the PDF"
             value={notes}
             onChangeText={setNotes}
+            multiline
+            numberOfLines={3}
+            placeholderTextColor="#9CA3AF"
+          />
+          <Text style={styles.helperText}>
+            Not for system test / seed notes — use Internal memo below.
+          </Text>
+        </View>
+
+        {/* Internal memo (private) */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: '#92400E' }]}>
+            Internal memo (private)
+          </Text>
+          <TextInput
+            style={[styles.input, styles.textArea, { borderColor: '#FCD34D', backgroundColor: '#FFFBEB' }]}
+            placeholder="Staff only — never on the PDF"
+            value={internalMemo}
+            onChangeText={setInternalMemo}
             multiline
             numberOfLines={3}
             placeholderTextColor="#9CA3AF"
