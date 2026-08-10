@@ -20,6 +20,8 @@ const createSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   description: z.string().optional(),
   unitPrice: z.number().int().min(0, 'Price must be a positive number in cents'),
+  unitCost: z.number().int().min(0).nullable().optional(),
+  defaultMarginPercent: z.number().min(0).max(1000).nullable().optional(),
   type: z.enum(productTypes).optional(),
   isGstApplicable: z.boolean().optional(),
 });
@@ -28,6 +30,8 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
   unitPrice: z.number().int().min(0).optional(),
+  unitCost: z.number().int().min(0).nullable().optional(),
+  defaultMarginPercent: z.number().min(0).max(1000).nullable().optional(),
   type: z.enum(productTypes).optional(),
   isGstApplicable: z.boolean().optional(),
   isActive: z.boolean().optional(),

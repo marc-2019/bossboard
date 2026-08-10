@@ -35,6 +35,8 @@ export default function CreateProductScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [unitPriceDisplay, setUnitPriceDisplay] = useState('');
+  const [costDisplay, setCostDisplay] = useState('');
+  const [marginDisplay, setMarginDisplay] = useState('');
   const [type, setType] = useState<ProductType>('fixed');
   const [isGstApplicable, setIsGstApplicable] = useState(true);
 
@@ -55,6 +57,16 @@ export default function CreateProductScreen() {
         setDescription(product.description || '');
         setUnitPriceDisplay(
           (product.unit_price / 100).toFixed(2)
+        );
+        setCostDisplay(
+          product.unit_cost != null
+            ? (Number(product.unit_cost) / 100).toFixed(2)
+            : ''
+        );
+        setMarginDisplay(
+          product.default_margin_percent != null
+            ? String(product.default_margin_percent)
+            : ''
         );
         setType(product.type || 'fixed');
         setIsGstApplicable(
@@ -83,9 +95,18 @@ export default function CreateProductScreen() {
       return;
     }
 
-    const unitPriceCents = parsePriceToCents(unitPriceDisplay);
-    if (unitPriceCents <= 0) {
-      Alert.alert('Error', 'Please enter a valid price');
+    let unitPriceCents = parsePriceToCents(unitPriceDisplay);
+    const unitCostCents = costDisplay.trim()
+      ? parsePriceToCents(costDisplay)
+      : null;
+    const marginPct = marginDisplay.trim()
+      ? parseFloat(marginDisplay.replace(/[^0-9.]/g, ''))
+      : null;
+    if (unitCostCents != null && marginPct != null && Number.isFinite(marginPct)) {
+      unitPriceCents = Math.round(unitCostCents * (1 + marginPct / 100));
+    }
+    if (unitPriceCents <= 0 && unitCostCents == null) {
+      Alert.alert('Error', 'Please enter a valid sell price or cost + margin %');
       return;
     }
 
@@ -96,6 +117,9 @@ export default function CreateProductScreen() {
         name: name.trim(),
         description: description.trim() || undefined,
         unitPrice: unitPriceCents,
+        unitCost: unitCostCents,
+        defaultMarginPercent:
+          marginPct != null && Number.isFinite(marginPct) ? marginPct : null,
         type,
         isGstApplicable: isGstApplicable,
       };
@@ -200,12 +224,53 @@ export default function CreateProductScreen() {
           </View>
         </View>
 
-        {/* Unit Price */}
+        {/* Pricing: cost + margin % → sell (internal cost never on customer PDF) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Pricing</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Unit Price *</Text>
+            <Text style={styles.label}>Cost (internal)</Text>
+            <View style={styles.priceInputRow}>
+              <Text style={styles.currencyPrefix}>$</Text>
+              <TextInput
+                style={[styles.input, styles.priceInput]}
+                value={costDisplay}
+                onChangeText={(t) => {
+                  setCostDisplay(t);
+                  const c = parsePriceToCents(t);
+                  const m = parseFloat(marginDisplay.replace(/[^0-9.]/g, ''));
+                  if (c > 0 && Number.isFinite(m) && marginDisplay.trim()) {
+                    setUnitPriceDisplay((c * (1 + m / 100) / 100).toFixed(2));
+                  }
+                }}
+                placeholder="0.00"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Margin %</Text>
+            <TextInput
+              style={styles.input}
+              value={marginDisplay}
+              onChangeText={(t) => {
+                setMarginDisplay(t);
+                const c = parsePriceToCents(costDisplay);
+                const m = parseFloat(t.replace(/[^0-9.]/g, ''));
+                if (c > 0 && Number.isFinite(m) && t.trim()) {
+                  setUnitPriceDisplay((c * (1 + m / 100) / 100).toFixed(2));
+                }
+              }}
+              placeholder="30"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="decimal-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Sell price *</Text>
             <View style={styles.priceInputRow}>
               <Text style={styles.currencyPrefix}>$</Text>
               <TextInput
@@ -217,7 +282,9 @@ export default function CreateProductScreen() {
                 keyboardType="decimal-pad"
               />
             </View>
-            <Text style={styles.hint}>Enter amount in dollars (excl. GST)</Text>
+            <Text style={styles.hint}>
+              Customer sees sell price only. Cost + margin stay internal.
+            </Text>
           </View>
         </View>
 

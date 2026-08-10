@@ -28,7 +28,12 @@ const router = Router();
 
 const lineItemSchema = z.object({
   description: z.string().min(1, 'Description is required'),
+  /** Customer-facing sell amount (cents). Recalculated from cost+margin% when both set. */
   amount: z.number().int().min(0, 'Amount must be positive (in cents)'),
+  /** Direct cost cents — internal only, never on PDF/email */
+  cost: z.number().int().min(0).nullable().optional(),
+  /** Markup percent on cost (e.g. 30 = 30%) — internal only */
+  marginPercent: z.number().min(0).max(1000).nullable().optional(),
 });
 
 const discountTypeSchema = z.enum(['none', 'fixed', 'percent']);

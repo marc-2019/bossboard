@@ -13,12 +13,43 @@ import {
   InvoiceCreateInput,
   InvoiceUpdateInput,
   InvoiceDiscountType,
+  normalizePricedLineItem,
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
 import { decryptField } from '../utils/field-crypto.js';
 
 const GST_RATE = 0.15; // NZ GST rate
+
+/** Parse line_items JSON preserving optional cost/marginPercent (internal). */
+function parseLineItems(raw: unknown): InvoiceLineItem[] {
+  const arr: unknown[] =
+    typeof raw === 'string'
+      ? (JSON.parse(raw) as unknown[])
+      : Array.isArray(raw)
+        ? raw
+        : [];
+  return arr.map((item) => {
+    const row = item as Record<string, unknown>;
+    const cost =
+      row.cost != null && Number.isFinite(Number(row.cost))
+        ? Math.round(Number(row.cost))
+        : null;
+    const marginPercent =
+      row.marginPercent != null && Number.isFinite(Number(row.marginPercent))
+        ? Number(row.marginPercent)
+        : row.margin_percent != null && Number.isFinite(Number(row.margin_percent))
+          ? Number(row.margin_percent)
+          : null;
+    return {
+      id: String(row.id || uuidv4()),
+      description: String(row.description || ''),
+      amount: Math.round(Number(row.amount) || 0),
+      cost,
+      marginPercent,
+    };
+  });
+}
 
 export interface InvoiceTotalsInput {
   lineItems: { description: string; amount: number }[];
@@ -176,15 +207,25 @@ export async function createInvoice(
     includeGst = true;
   }
 
-  // Add IDs to line items
-  const lineItems: InvoiceLineItem[] = input.lineItems.map((item) => ({
-    id: uuidv4(),
-    description: item.description,
-    amount: item.amount,
-  }));
+  // Normalize line items: cost + margin% → sell amount; cost/margin internal only
+  const lineItems: InvoiceLineItem[] = input.lineItems.map((item) => {
+    const normalized = normalizePricedLineItem({
+      description: item.description,
+      amount: item.amount,
+      cost: item.cost,
+      marginPercent: item.marginPercent,
+    });
+    return {
+      id: uuidv4(),
+      description: normalized.description,
+      amount: normalized.amount,
+      cost: normalized.cost,
+      marginPercent: normalized.marginPercent,
+    };
+  });
 
   const totals = calculateTotals({
-    lineItems: input.lineItems,
+    lineItems,
     includeGst,
     discountType: input.discountType,
     discountValue: input.discountValue,
@@ -265,9 +306,7 @@ function transformInvoice(row: Record<string, unknown>): Invoice {
     clientPhone: row.client_phone as string | null,
     swmsId: row.swms_id as string | null,
     jobDescription: row.job_description as string | null,
-    lineItems: typeof row.line_items === 'string'
-      ? JSON.parse(row.line_items)
-      : (row.line_items as InvoiceLineItem[]) || [],
+    lineItems: parseLineItems(row.line_items),
     subtotal: row.subtotal as number,
     discountType: ((row.discount_type as InvoiceDiscountType) || 'none') as InvoiceDiscountType,
     discountValue: (row.discount_value as number) ?? 0,
@@ -483,11 +522,28 @@ export async function updateInvoice(
     if (key === 'lineItems' && value !== undefined) {
       lineItemsTouched = true;
       totalsTouched = true;
-      nextLineItems = (value as { description: string; amount: number }[]).map((item) => ({
-        id: uuidv4(),
-        description: item.description,
-        amount: item.amount,
-      }));
+      nextLineItems = (
+        value as {
+          description: string;
+          amount: number;
+          cost?: number | null;
+          marginPercent?: number | null;
+        }[]
+      ).map((item) => {
+        const normalized = normalizePricedLineItem({
+          description: item.description,
+          amount: item.amount,
+          cost: item.cost,
+          marginPercent: item.marginPercent,
+        });
+        return {
+          id: uuidv4(),
+          description: normalized.description,
+          amount: normalized.amount,
+          cost: normalized.cost,
+          marginPercent: normalized.marginPercent,
+        };
+      });
     } else if (key === 'includeGst' && value !== undefined) {
       totalsTouched = true;
       includeGst = Boolean(value);

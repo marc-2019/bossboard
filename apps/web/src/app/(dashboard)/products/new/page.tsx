@@ -14,10 +14,23 @@ export default function NewProductPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [priceDollars, setPriceDollars] = useState('');
+  const [costDollars, setCostDollars] = useState('');
+  const [marginPercent, setMarginPercent] = useState('');
   const [type, setType] = useState<'fixed' | 'variable'>('fixed');
   const [isGstApplicable, setIsGstApplicable] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // When cost + margin change, keep sell price in sync
+  const onCostOrMargin = (cost: string, margin: string) => {
+    setCostDollars(cost);
+    setMarginPercent(margin);
+    const c = Number(cost.trim());
+    const m = Number(margin.trim());
+    if (Number.isFinite(c) && c >= 0 && Number.isFinite(m) && m >= 0 && margin.trim()) {
+      setPriceDollars((Math.round(c * (1 + m / 100) * 100) / 100).toFixed(2));
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -31,7 +44,28 @@ export default function NewProductPage() {
       setError('Enter a valid unit price (0 or more).');
       return;
     }
-    const unitPrice = Math.round(num * 100);
+    let unitPrice = Math.round(num * 100);
+    let unitCost: number | null = null;
+    let defaultMarginPercent: number | null = null;
+    if (costDollars.trim()) {
+      const c = Number(costDollars.trim());
+      if (!Number.isFinite(c) || c < 0) {
+        setError('Cost must be 0 or more.');
+        return;
+      }
+      unitCost = Math.round(c * 100);
+    }
+    if (marginPercent.trim()) {
+      const m = Number(marginPercent.trim());
+      if (!Number.isFinite(m) || m < 0) {
+        setError('Margin % must be 0 or more.');
+        return;
+      }
+      defaultMarginPercent = m;
+    }
+    if (unitCost != null && defaultMarginPercent != null) {
+      unitPrice = Math.round(unitCost * (1 + defaultMarginPercent / 100));
+    }
 
     setSubmitting(true);
     try {
@@ -39,6 +73,8 @@ export default function NewProductPage() {
         name: name.trim(),
         description: description.trim() || undefined,
         unitPrice,
+        unitCost,
+        defaultMarginPercent,
         type,
         isGstApplicable,
       });
@@ -84,17 +120,42 @@ export default function NewProductPage() {
               placeholder="Shown on invoice line if set"
             />
           </div>
-          <Input
-            label="Default unit price (NZD)"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            value={priceDollars}
-            onChange={(e) => setPriceDollars(e.target.value)}
-            placeholder="0.00"
-            required
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Input
+              label="Cost (NZD, internal)"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={costDollars}
+              onChange={(e) => onCostOrMargin(e.target.value, marginPercent)}
+              placeholder="0.00"
+            />
+            <Input
+              label="Margin %"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min="0"
+              value={marginPercent}
+              onChange={(e) => onCostOrMargin(costDollars, e.target.value)}
+              placeholder="30"
+            />
+            <Input
+              label="Sell price (NZD)"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={priceDollars}
+              onChange={(e) => setPriceDollars(e.target.value)}
+              placeholder="0.00"
+              required
+            />
+          </div>
+          <p className="text-xs text-gray-500 -mt-2">
+            Cost + margin % calculate sell price. Customers only ever see sell price on invoices.
+          </p>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
             <select

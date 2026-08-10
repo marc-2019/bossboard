@@ -319,7 +319,12 @@ export interface Invoice {
 export interface InvoiceLineItem {
   id: string;
   description: string;
+  /** Customer-facing sell amount in cents */
   amount: number;
+  /** Direct cost in cents (internal only — never on PDF/email) */
+  cost?: number | null;
+  /** Markup percent on cost (e.g. 30 = 30%). Internal only. */
+  marginPercent?: number | null;
 }
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
@@ -332,7 +337,12 @@ export interface InvoiceCreateInput {
   clientPhone?: string;
   swmsId?: string;
   jobDescription?: string;
-  lineItems: { description: string; amount: number }[];
+  lineItems: {
+    description: string;
+    amount: number;
+    cost?: number | null;
+    marginPercent?: number | null;
+  }[];
   includeGst?: boolean;
   /** none | fixed | percent — default none */
   discountType?: InvoiceDiscountType;
@@ -363,7 +373,12 @@ export interface InvoiceUpdateInput {
   clientPhone?: string;
   swmsId?: string | null;
   jobDescription?: string;
-  lineItems?: { description: string; amount: number }[];
+  lineItems?: {
+    description: string;
+    amount: number;
+    cost?: number | null;
+    marginPercent?: number | null;
+  }[];
   includeGst?: boolean;
   discountType?: InvoiceDiscountType;
   discountValue?: number;
@@ -493,7 +508,12 @@ export interface ProductService {
   userId: string;
   name: string;
   description: string | null;
+  /** Default sell price in cents (customer-facing) */
   unitPrice: number;
+  /** Direct cost in cents (internal) */
+  unitCost: number | null;
+  /** Default margin % on cost (e.g. 30 = 30%) */
+  defaultMarginPercent: number | null;
   type: ProductType;
   isGstApplicable: boolean;
   isActive: boolean;
@@ -505,6 +525,8 @@ export interface ProductServiceCreateInput {
   name: string;
   description?: string;
   unitPrice: number;
+  unitCost?: number | null;
+  defaultMarginPercent?: number | null;
   type?: ProductType;
   isGstApplicable?: boolean;
 }
@@ -513,6 +535,8 @@ export interface ProductServiceUpdateInput {
   name?: string;
   description?: string | null;
   unitPrice?: number;
+  unitCost?: number | null;
+  defaultMarginPercent?: number | null;
   type?: ProductType;
   isGstApplicable?: boolean;
   isActive?: boolean;

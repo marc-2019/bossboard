@@ -339,7 +339,12 @@ export const invoicesApi = {
     customerId?: string;
     swmsId?: string;
     jobDescription?: string;
-    lineItems: { description: string; amount: number }[];
+    lineItems: {
+      description: string;
+      amount: number;
+      cost?: number | null;
+      marginPercent?: number | null;
+    }[];
     includeGst?: boolean;
     dueDate?: string;
     bankAccountName?: string;
@@ -392,7 +397,12 @@ export const quotesApi = {
     clientPhone?: string;
     customerId?: string;
     jobDescription?: string;
-    lineItems: { description: string; amount: number }[];
+    lineItems: {
+      description: string;
+      amount: number;
+      cost?: number | null;
+      marginPercent?: number | null;
+    }[];
     includeGst?: boolean;
     validUntil?: string;
     bankAccountName?: string;
@@ -528,6 +538,8 @@ export const productsApi = {
     name: string;
     description?: string;
     unitPrice: number;
+    unitCost?: number | null;
+    defaultMarginPercent?: number | null;
     type?: 'fixed' | 'variable';
     isGstApplicable?: boolean;
   }) => api.post('/api/v1/products', data),

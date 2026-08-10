@@ -490,14 +490,31 @@ export default function InvoiceDetailPage() {
           {invoice.lineItems.length === 0 && (
             <li className="px-6 py-4 text-sm text-gray-500">No line items.</li>
           )}
-          {invoice.lineItems.map((item) => (
-            <li key={item.id} className="px-6 py-3 flex items-start justify-between gap-4">
-              <span className="text-sm text-gray-800">{item.description}</span>
-              <span className="text-sm font-medium text-gray-900 shrink-0">
-                {formatCents(item.amount)}
-              </span>
-            </li>
-          ))}
+          {invoice.lineItems.map((item) => {
+            const hasCost = item.cost != null && Number(item.cost) >= 0;
+            const margin$ =
+              hasCost ? Number(item.amount) - Number(item.cost) : null;
+            return (
+              <li key={item.id} className="px-6 py-3 space-y-1">
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-sm text-gray-800">{item.description}</span>
+                  <span className="text-sm font-medium text-gray-900 shrink-0">
+                    {formatCents(item.amount)}
+                  </span>
+                </div>
+                {hasCost && (
+                  <p className="text-xs text-amber-800">
+                    Internal: cost {formatCents(Number(item.cost))}
+                    {item.marginPercent != null
+                      ? ` · margin ${item.marginPercent}%`
+                      : ''}
+                    {margin$ != null ? ` · markup ${formatCents(margin$)}` : ''}
+                    <span className="text-gray-400"> · not on PDF</span>
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
         <div className="px-6 py-4 border-t border-border-light bg-gray-50 space-y-1">
           <div className="flex justify-between text-sm text-gray-700">
@@ -525,6 +542,40 @@ export default function InvoiceDetailPage() {
             <span>Total</span>
             <span>{formatCents(invoice.total)}</span>
           </div>
+          {(() => {
+            const linesWithCost = invoice.lineItems.filter(
+              (li) => li.cost != null && Number(li.cost) >= 0,
+            );
+            if (linesWithCost.length === 0) return null;
+            const totalCost = linesWithCost.reduce(
+              (s, li) => s + Number(li.cost),
+              0,
+            );
+            const totalSell = invoice.lineItems.reduce(
+              (s, li) => s + Number(li.amount || 0),
+              0,
+            );
+            const markup = totalSell - totalCost;
+            const pct =
+              totalCost > 0
+                ? Math.round((markup / totalCost) * 10000) / 100
+                : null;
+            return (
+              <div className="mt-3 pt-3 border-t border-amber-200/80 space-y-1 text-sm text-amber-950">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+                  Internal profit (not on customer invoice)
+                </p>
+                <div className="flex justify-between">
+                  <span>Total cost</span>
+                  <span>{formatCents(totalCost)}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Markup{pct != null ? ` (${pct}%)` : ''}</span>
+                  <span>{formatCents(markup)}</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </Card>
 

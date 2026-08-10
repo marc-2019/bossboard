@@ -15,16 +15,27 @@ import {
   type CreateInvoiceInput,
 } from '@/lib/api-client';
 import type { Customer, ProductService } from '@bossboard/shared';
+import {
+  sellAmountFromCostMargin,
+  computeInvoiceProfit,
+} from '@bossboard/shared';
 import { ArrowLeft, Plus, Trash2, User, Package } from 'lucide-react';
 
 interface LineItemRow {
   description: string;
   amountDollars: string;
+  costDollars: string;
+  marginPercent: string;
 }
 
 type NotesSource = 'company' | 'client' | 'custom' | 'blank';
 
-const emptyLine = (): LineItemRow => ({ description: '', amountDollars: '' });
+const emptyLine = (): LineItemRow => ({
+  description: '',
+  amountDollars: '',
+  costDollars: '',
+  marginPercent: '',
+});
 
 export default function NewInvoicePage() {
   const router = useRouter();
@@ -127,18 +138,52 @@ export default function NewInvoicePage() {
     if (!productId) return;
     const p = products.find((x) => x.id === productId);
     if (!p) return;
-    const dollars = (Number(p.unitPrice || 0) / 100).toFixed(2);
+    const costCents = p.unitCost != null ? Number(p.unitCost) : null;
+    const margin =
+      p.defaultMarginPercent != null ? Number(p.defaultMarginPercent) : null;
+    let sellCents = Number(p.unitPrice || 0);
+    if (costCents != null && costCents >= 0 && margin != null) {
+      sellCents = sellAmountFromCostMargin(costCents, margin);
+    }
+    const dollars = (sellCents / 100).toFixed(2);
     const desc = (p.description || p.name || '').trim();
     setLineItems((rows) => {
       const onlyEmpty =
-        rows.length === 1 && !rows[0].description.trim() && !rows[0].amountDollars.trim();
-      const next = { description: desc, amountDollars: dollars };
+        rows.length === 1 &&
+        !rows[0].description.trim() &&
+        !rows[0].amountDollars.trim() &&
+        !rows[0].costDollars.trim();
+      const next: LineItemRow = {
+        description: desc,
+        amountDollars: dollars,
+        costDollars: costCents != null ? (costCents / 100).toFixed(2) : '',
+        marginPercent: margin != null ? String(margin) : '',
+      };
       return onlyEmpty ? [next] : [...rows, next];
     });
   };
 
   const updateLine = (idx: number, patch: Partial<LineItemRow>) => {
-    setLineItems((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+    setLineItems((rows) =>
+      rows.map((r, i) => {
+        if (i !== idx) return r;
+        const next = { ...r, ...patch };
+        // When cost and margin % both set, sell amount follows
+        const cost = dollarsToCents(next.costDollars);
+        const margin = next.marginPercent.trim()
+          ? Number(next.marginPercent.trim())
+          : NaN;
+        if (
+          cost != null &&
+          Number.isFinite(margin) &&
+          margin >= 0 &&
+          ('costDollars' in patch || 'marginPercent' in patch)
+        ) {
+          next.amountDollars = (sellAmountFromCostMargin(cost, margin) / 100).toFixed(2);
+        }
+        return next;
+      }),
+    );
   };
   const addLine = () => setLineItems((rows) => [...rows, emptyLine()]);
   const removeLine = (idx: number) =>
@@ -148,6 +193,15 @@ export default function NewInvoicePage() {
     const cents = dollarsToCents(r.amountDollars);
     return sum + (cents ?? 0);
   }, 0);
+  const profitPreview = computeInvoiceProfit(
+    lineItems.map((r) => ({
+      amount: dollarsToCents(r.amountDollars) ?? 0,
+      cost: dollarsToCents(r.costDollars),
+      marginPercent: r.marginPercent.trim()
+        ? Number(r.marginPercent.trim())
+        : null,
+    })),
+  );
   const discountCents = computeDiscountCents(discountType, discountInput, subtotalCents);
   const taxableCents = subtotalCents - discountCents;
   const gstCents = includeGst ? Math.round(taxableCents * 0.15) : 0;
@@ -166,17 +220,29 @@ export default function NewInvoicePage() {
     const cleanedItems: CreateInvoiceInput['lineItems'] = [];
     for (const row of lineItems) {
       const desc = row.description.trim();
-      const cents = dollarsToCents(row.amountDollars);
-      if (!desc && cents === null) continue;
+      let cents = dollarsToCents(row.amountDollars);
+      const cost = dollarsToCents(row.costDollars);
+      const marginRaw = row.marginPercent.trim();
+      const margin = marginRaw ? Number(marginRaw) : null;
+      if (cost != null && margin != null && Number.isFinite(margin)) {
+        cents = sellAmountFromCostMargin(cost, margin);
+      }
+      if (!desc && cents === null && cost === null) continue;
       if (!desc) {
         setError('Every line item needs a description.');
         return;
       }
       if (cents === null) {
-        setError(`Line "${desc}" needs a valid amount.`);
+        setError(`Line "${desc}" needs a valid sell amount (or cost + margin %).`);
         return;
       }
-      cleanedItems.push({ description: desc, amount: cents });
+      cleanedItems.push({
+        description: desc,
+        amount: cents,
+        cost: cost,
+        marginPercent:
+          margin != null && Number.isFinite(margin) ? margin : null,
+      });
     }
     if (cleanedItems.length === 0) {
       setError('Add at least one line item.');
@@ -377,14 +443,17 @@ export default function NewInvoicePage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              Default price fills in — change the amount on the line if this job is different.
+              Cost + margin % set sell amount (customer only sees the sell price).
             </p>
           </div>
 
           <ul className="space-y-3">
             {lineItems.map((row, idx) => (
-              <li key={idx} className="flex items-end gap-2">
-                <div className="flex-1">
+              <li
+                key={idx}
+                className="flex flex-wrap items-end gap-2 p-3 rounded-lg border border-border-light bg-gray-50/50"
+              >
+                <div className="flex-1 min-w-[12rem]">
                   <Input
                     label={idx === 0 ? 'Description' : undefined}
                     value={row.description}
@@ -392,9 +461,33 @@ export default function NewInvoicePage() {
                     placeholder="What did you do?"
                   />
                 </div>
-                <div className="w-32">
+                <div className="w-28">
                   <Input
-                    label={idx === 0 ? 'Amount (NZD)' : undefined}
+                    label={idx === 0 ? 'Cost (internal)' : undefined}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={row.costDollars}
+                    onChange={(e) => updateLine(idx, { costDollars: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="w-24">
+                  <Input
+                    label={idx === 0 ? 'Margin %' : undefined}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    min="0"
+                    value={row.marginPercent}
+                    onChange={(e) => updateLine(idx, { marginPercent: e.target.value })}
+                    placeholder="30"
+                  />
+                </div>
+                <div className="w-28">
+                  <Input
+                    label={idx === 0 ? 'Sell (NZD)' : undefined}
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -417,6 +510,33 @@ export default function NewInvoicePage() {
               </li>
             ))}
           </ul>
+          <p className="mt-2 text-xs text-gray-500">
+            Cost and margin stay on your draft only — PDF and email show sell amounts only.
+          </p>
+          {profitPreview.linesWithCost > 0 && (
+            <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-100 text-sm text-amber-950 space-y-1">
+              <p className="font-medium text-xs uppercase tracking-wide text-amber-800">
+                Internal profit (not on invoice)
+              </p>
+              <div className="flex justify-between">
+                <span>Total cost</span>
+                <span>{formatCents(profitPreview.totalCost)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Total sell</span>
+                <span>{formatCents(profitPreview.totalSell)}</span>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <span>
+                  Markup
+                  {profitPreview.overallMarginPercent != null
+                    ? ` (${profitPreview.overallMarginPercent}%)`
+                    : ''}
+                </span>
+                <span>{formatCents(profitPreview.totalMargin)}</span>
+              </div>
+            </div>
+          )}
 
           <label className="mt-4 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input

@@ -139,8 +139,12 @@ export const authClient = {
 export interface InvoiceLineItemInput {
   /** Line description shown on invoice */
   description: string;
-  /** Amount in cents (integer). $5.99 → 599. */
+  /** Sell amount in cents (customer-facing). $5.99 → 599. */
   amount: number;
+  /** Direct cost cents — internal only */
+  cost?: number | null;
+  /** Markup % on cost — internal only */
+  marginPercent?: number | null;
 }
 
 export type InvoiceDiscountType = 'none' | 'fixed' | 'percent';
@@ -791,8 +795,12 @@ export type CustomerCreateInput = {
 export type ProductCreateInput = {
   name: string;
   description?: string;
-  /** Unit price in cents */
+  /** Sell unit price in cents */
   unitPrice: number;
+  /** Direct cost cents (internal) */
+  unitCost?: number | null;
+  /** Default margin % on cost */
+  defaultMarginPercent?: number | null;
   type?: 'fixed' | 'variable';
   isGstApplicable?: boolean;
 };

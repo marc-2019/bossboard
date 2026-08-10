@@ -16,6 +16,8 @@ module.exports = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@bossboard/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    '^@bossboard/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',
   },
   collectCoverageFrom: [
     'src/**/*.ts',

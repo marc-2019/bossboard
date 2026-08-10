@@ -34,6 +34,8 @@ interface LineItem {
   id: string;
   description: string;
   amount: string;
+  cost: string;
+  marginPercent: string;
 }
 
 interface Customer {
@@ -51,6 +53,8 @@ interface Product {
   name: string;
   description: string | null;
   unit_price: number;
+  unit_cost?: number | null;
+  default_margin_percent?: number | null;
   type: 'fixed' | 'variable';
   is_gst_applicable: boolean;
 }
@@ -100,6 +104,8 @@ export default function CreateInvoiceScreen() {
           ? params.jobDescription.slice(0, 120)
           : '',
       amount: '',
+      cost: '',
+      marginPercent: '',
     },
   ]);
   const [includeGst, setIncludeGst] = useState(true);
@@ -272,10 +278,22 @@ export default function CreateInvoiceScreen() {
   }
 
   function addProductAsLineItem(product: Product) {
+    const costCents =
+      product.unit_cost != null ? Number(product.unit_cost) : null;
+    const margin =
+      product.default_margin_percent != null
+        ? Number(product.default_margin_percent)
+        : null;
+    let sellCents = product.unit_price;
+    if (costCents != null && margin != null) {
+      sellCents = Math.round(costCents * (1 + margin / 100));
+    }
     const newItem: LineItem = {
       id: Date.now().toString(),
       description: product.description || product.name,
-      amount: (product.unit_price / 100).toFixed(2),
+      amount: (sellCents / 100).toFixed(2),
+      cost: costCents != null ? (costCents / 100).toFixed(2) : '',
+      marginPercent: margin != null ? String(margin) : '',
     };
     // Replace empty first item or append
     if (lineItems.length === 1 && !lineItems[0].description && !lineItems[0].amount) {
@@ -290,7 +308,13 @@ export default function CreateInvoiceScreen() {
   function addLineItem() {
     setLineItems([
       ...lineItems,
-      { id: Date.now().toString(), description: '', amount: '' },
+      {
+        id: Date.now().toString(),
+        description: '',
+        amount: '',
+        cost: '',
+        marginPercent: '',
+      },
     ]);
   }
 
@@ -300,11 +324,24 @@ export default function CreateInvoiceScreen() {
     }
   }
 
-  function updateLineItem(id: string, field: 'description' | 'amount', value: string) {
+  function updateLineItem(
+    id: string,
+    field: 'description' | 'amount' | 'cost' | 'marginPercent',
+    value: string,
+  ) {
     setLineItems(
-      lineItems.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
+      lineItems.map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item, [field]: value };
+        if (field === 'cost' || field === 'marginPercent') {
+          const c = parseAmount(next.cost);
+          const m = parseFloat(next.marginPercent.replace(/[^0-9.]/g, ''));
+          if (c > 0 && Number.isFinite(m) && next.marginPercent.trim()) {
+            next.amount = (c * (1 + m / 100) / 100).toFixed(2);
+          }
+        }
+        return next;
+      }),
     );
   }
 
@@ -370,10 +407,23 @@ export default function CreateInvoiceScreen() {
         clientPhone: clientPhone.trim() || undefined,
         jobDescription: jobDescription.trim() || undefined,
         swmsId: linkedSwmsId,
-        lineItems: validLineItems.map((item) => ({
-          description: item.description.trim(),
-          amount: parseAmount(item.amount),
-        })),
+        lineItems: validLineItems.map((item) => {
+          const cost = item.cost.trim() ? parseAmount(item.cost) : null;
+          const margin = item.marginPercent.trim()
+            ? parseFloat(item.marginPercent.replace(/[^0-9.]/g, ''))
+            : null;
+          let amount = parseAmount(item.amount);
+          if (cost != null && margin != null && Number.isFinite(margin)) {
+            amount = Math.round(cost * (1 + margin / 100));
+          }
+          return {
+            description: item.description.trim(),
+            amount,
+            cost,
+            marginPercent:
+              margin != null && Number.isFinite(margin) ? margin : null,
+          };
+        }),
         includeGst,
         dueDate: dueDate || undefined,
         bankAccountName: bankAccountName.trim() || undefined,
@@ -422,7 +472,7 @@ export default function CreateInvoiceScreen() {
             onPress: () => {
               clearCustomer();
               setJobDescription('');
-              setLineItems([{ id: '1', description: '', amount: '' }]);
+              setLineItems([{ id: '1', description: '', amount: '', cost: '', marginPercent: '' }]);
               // Keep bank details, company details, GST setting
             },
           },
@@ -603,7 +653,29 @@ export default function CreateInvoiceScreen() {
                   placeholderTextColor="#9CA3AF"
                 />
                 <View style={styles.amountRow}>
-                  <Text style={styles.currencyPrefix}>$</Text>
+                  <Text style={styles.currencyPrefix}>Cost $</Text>
+                  <TextInput
+                    style={[styles.input, styles.amountInput]}
+                    value={item.cost}
+                    onChangeText={(text) => updateLineItem(item.id, 'cost', text)}
+                    placeholder="0.00"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="decimal-pad"
+                  />
+                  <Text style={[styles.currencyPrefix, { marginLeft: 8 }]}>%</Text>
+                  <TextInput
+                    style={[styles.input, styles.amountInput]}
+                    value={item.marginPercent}
+                    onChangeText={(text) =>
+                      updateLineItem(item.id, 'marginPercent', text)
+                    }
+                    placeholder="30"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.amountRow}>
+                  <Text style={styles.currencyPrefix}>Sell $</Text>
                   <TextInput
                     style={[styles.input, styles.amountInput]}
                     value={item.amount}
@@ -621,6 +693,9 @@ export default function CreateInvoiceScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
+                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
+                  Cost + margin internal only — PDF shows sell
+                </Text>
               </View>
             </View>
           ))}

@@ -16,12 +16,23 @@ import {
  * Transform DB row to ProductService type with proper casing
  */
 function transformProduct(row: Record<string, unknown>): ProductService {
+  const marginRaw = row.default_margin_percent;
+  const defaultMarginPercent =
+    marginRaw === null || marginRaw === undefined
+      ? null
+      : Number(marginRaw);
+
   return {
     id: row.id as string,
     userId: row.user_id as string,
     name: row.name as string,
     description: row.description as string | null,
     unitPrice: row.unit_price as number,
+    unitCost: (row.unit_cost as number | null) ?? null,
+    defaultMarginPercent:
+      defaultMarginPercent != null && Number.isFinite(defaultMarginPercent)
+        ? defaultMarginPercent
+        : null,
     type: row.type as ProductType,
     isGstApplicable: row.is_gst_applicable as boolean,
     isActive: row.is_active as boolean,
@@ -40,6 +51,8 @@ function transformForMobile(product: ProductService): Record<string, unknown> {
     name: product.name,
     description: product.description,
     unit_price: product.unitPrice,
+    unit_cost: product.unitCost,
+    default_margin_percent: product.defaultMarginPercent,
     type: product.type,
     is_gst_applicable: product.isGstApplicable,
     is_active: product.isActive,
@@ -59,10 +72,10 @@ export async function createProduct(
 
   const result = await db.query<Record<string, unknown>>(
     `INSERT INTO products_services (
-      id, user_id, name, description, unit_price,
+      id, user_id, name, description, unit_price, unit_cost, default_margin_percent,
       type, is_gst_applicable
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *`,
     [
       productId,
@@ -70,6 +83,10 @@ export async function createProduct(
       input.name,
       input.description || null,
       input.unitPrice,
+      input.unitCost != null && input.unitCost >= 0 ? Math.round(input.unitCost) : null,
+      input.defaultMarginPercent != null && Number.isFinite(input.defaultMarginPercent)
+        ? input.defaultMarginPercent
+        : null,
       input.type || 'fixed',
       input.isGstApplicable !== undefined ? input.isGstApplicable : true,
     ]
@@ -166,6 +183,8 @@ export async function updateProduct(
     name: 'name',
     description: 'description',
     unitPrice: 'unit_price',
+    unitCost: 'unit_cost',
+    defaultMarginPercent: 'default_margin_percent',
     type: 'type',
     isGstApplicable: 'is_gst_applicable',
     isActive: 'is_active',
