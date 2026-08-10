@@ -97,11 +97,14 @@ async function runCycle() {
 
 let lastCycle = { at: null, results: [] };
 let cycleInFlight = false;
+/** Prefer re-running if last successful cycle is older than this (ms). */
+const STALE_MS = Math.max(60_000, Math.floor(INTERVAL_MS * 0.75));
 
-async function safeCycle() {
+async function safeCycle(reason = 'timer') {
   if (cycleInFlight) return;
   cycleInFlight = true;
   try {
+    console.log(`[ilert-pinger] cycle start (${reason})`);
     const out = await runCycle();
     lastCycle = { at: new Date().toISOString(), results: out.results };
   } catch (err) {
@@ -111,12 +114,30 @@ async function safeCycle() {
   }
 }
 
+function lastCycleAgeMs() {
+  if (!lastCycle.at) return Number.POSITIVE_INFINITY;
+  return Date.now() - Date.parse(lastCycle.at);
+}
+
+/** Recursive timeout is more reliable than setInterval if a cycle overruns. */
+function scheduleNext() {
+  setTimeout(() => {
+    void safeCycle('timer').finally(scheduleNext);
+  }, INTERVAL_MS);
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === '/health' || req.url === '/') {
+    // Railway hits /health every ~30s — use that as a backup wake so heartbeats
+    // keep flowing even if the process was idle/suspended.
+    if (lastCycleAgeMs() >= STALE_MS) {
+      void safeCycle('health-stale');
+    }
     const body = JSON.stringify({
       status: 'ok',
       service: 'ilert-health-pinger',
       lastCycle,
+      lastCycleAgeSec: Math.round(lastCycleAgeMs() / 1000),
       targets: loadTargets().map((t) => t.name),
     });
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -133,6 +154,5 @@ server.listen(PORT, () => {
   console.log(
     `[ilert-pinger] targets (${names.length}): ${names.join(', ') || '(none)'}`,
   );
-  void safeCycle();
-  setInterval(() => void safeCycle(), INTERVAL_MS);
+  void safeCycle('boot').finally(scheduleNext);
 });
