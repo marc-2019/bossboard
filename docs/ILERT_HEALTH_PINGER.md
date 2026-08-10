@@ -10,12 +10,20 @@ host loses network, heartbeats **expire** even if Railway apps are healthy.
 
 ## Fix
 
-Cloud-side pinger in **bossboard-api** cron (`apps/api/src/services/ilert-health-pinger.ts`):
+Cloud-side pinger as a **dedicated Railway service** `ilert-pinger`
+(`services/ilert-pinger/`) — not on bossboard-api (API monorepo deploy is
+CJS/ESM-fragile; this tiny Node service is independent):
 
 1. Probe public health URL  
 2. Only if healthy → ping ilert heartbeat  
 
-Runs every **2 minutes** when enabled.
+Runs every **2 minutes** (+ once on boot). Public status:
+`https://ilert-pinger-production.up.railway.app/health`
+
+There is also optional code in **bossboard-api** cron
+(`apps/api/src/services/ilert-health-pinger.ts`) if that process is built
+with the feature and `ILERT_HEALTH_PINGER_ENABLED=true` — prefer the
+standalone service as the production path.
 
 ## Railway env vars
 

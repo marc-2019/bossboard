@@ -1,0 +1,11 @@
+{
+  "name": "ilert-health-pinger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloud-side health→ilert heartbeat pinger (avoids home-internet false downs)",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  }
+}
