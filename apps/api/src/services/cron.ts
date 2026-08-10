@@ -3,13 +3,16 @@
  * Scheduled tasks for BossBoard
  *
  * Runs:
- * - Daily cert expiry check at 8:00 AM NZST (20:00 UTC previous day)
+ * - Daily cert expiry check at 8:00 AM NZST
+ * - Optional ilert health→heartbeat pinger (every 2 min, cloud-side)
  */
 
 import cron, { type ScheduledTask } from 'node-cron';
 import notificationsService from './notifications.js';
+import { runIlertHealthPings } from './ilert-health-pinger.js';
 
 let certExpiryJob: ScheduledTask | null = null;
+let ilertHealthJob: ScheduledTask | null = null;
 
 /**
  * Start all cron jobs
@@ -32,6 +35,27 @@ function start(): void {
   });
 
   console.log('[Cron] Cert expiry check scheduled (daily at 8:00 AM NZST)');
+
+  // Cloud ilert pinger: health check then heartbeat (avoids home-internet false downs)
+  if (
+    process.env.ILERT_HEALTH_PINGER_ENABLED === 'true' ||
+    process.env.ILERT_HEALTH_PINGER_ENABLED === '1'
+  ) {
+    ilertHealthJob = cron.schedule('*/2 * * * *', async () => {
+      try {
+        await runIlertHealthPings();
+      } catch (error) {
+        console.error('[Cron] ilert health pinger failed:', error);
+      }
+    });
+    // Fire once on boot so status recovers immediately after deploy
+    void runIlertHealthPings().catch((err) =>
+      console.error('[Cron] ilert health pinger boot run failed:', err),
+    );
+    console.log('[Cron] ilert health→heartbeat pinger scheduled (every 2 min)');
+  } else {
+    console.log('[Cron] ilert health pinger disabled (set ILERT_HEALTH_PINGER_ENABLED=true)');
+  }
 }
 
 /**
@@ -41,8 +65,12 @@ function stop(): void {
   if (certExpiryJob) {
     certExpiryJob.stop();
     certExpiryJob = null;
-    console.log('[Cron] All scheduled tasks stopped');
   }
+  if (ilertHealthJob) {
+    ilertHealthJob.stop();
+    ilertHealthJob = null;
+  }
+  console.log('[Cron] All scheduled tasks stopped');
 }
 
 /**
@@ -59,4 +87,5 @@ export default {
   start,
   stop,
   runCertExpiryCheckNow,
+  runIlertHealthPings,
 };
