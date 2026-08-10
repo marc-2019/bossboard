@@ -526,10 +526,10 @@ export default function InvoiceDetailScreen() {
         )}
       </View>
 
-      {/* Notes */}
+      {/* Customer notes — same text appears on PDF & email */}
       {invoice.notes && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Notes</Text>
+          <Text style={styles.cardTitle}>Customer notes (PDF & email)</Text>
           <Text style={styles.notes}>{invoice.notes}</Text>
         </View>
       )}

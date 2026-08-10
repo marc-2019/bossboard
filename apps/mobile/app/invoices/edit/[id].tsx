@@ -21,6 +21,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { invoicesApi } from '../../../src/services/api';
 import { safeGoBack } from '../../../src/utils/navigation';
+import {
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+} from '@bossboard/shared';
 
 interface LineItem {
   id: string;
@@ -209,6 +213,11 @@ export default function EditInvoiceScreen() {
 
     if (validLineItems.length === 0) {
       Alert.alert('Error', 'Please add at least one line item with a description and amount');
+      return;
+    }
+
+    if (looksLikeInternalInvoiceNotes(notes)) {
+      Alert.alert('Customer notes', INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE);
       return;
     }
 
@@ -551,16 +560,19 @@ export default function EditInvoiceScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Notes</Text>
+          <Text style={styles.label}>Customer notes (PDF & email)</Text>
           <TextInput
             style={[styles.input, styles.multiline]}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Payment terms, thank-you message…"
+            placeholder="e.g. Thank you for your business. Please pay by the due date."
             placeholderTextColor="#9CA3AF"
             multiline
             numberOfLines={3}
           />
+          <Text style={styles.hint}>
+            Shown on the customer PDF and email — not for system test or seed text.
+          </Text>
         </View>
 
         <TouchableOpacity
@@ -695,6 +707,12 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 6,
     marginTop: 10,
+  },
+  hint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 6,
+    lineHeight: 16,
   },
   input: {
     borderWidth: 1,

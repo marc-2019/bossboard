@@ -29,6 +29,10 @@ import {
   swmsApi,
 } from '../../src/services/api';
 import { safeGoBack } from '../../src/utils/navigation';
+import {
+  looksLikeInternalInvoiceNotes,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+} from '@bossboard/shared';
 
 interface LineItem {
   id: string;
@@ -394,6 +398,11 @@ export default function CreateInvoiceScreen() {
 
     if (validLineItems.length === 0) {
       Alert.alert('Error', 'Please add at least one line item with a description and amount');
+      return;
+    }
+
+    if (looksLikeInternalInvoiceNotes(notes)) {
+      Alert.alert('Customer notes', INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE);
       return;
     }
 
@@ -905,19 +914,24 @@ export default function CreateInvoiceScreen() {
           </View>
         </View>
 
-        {/* Notes */}
+        {/* Customer notes — appear on PDF & email */}
         <View style={styles.section}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Notes</Text>
+            <Text style={styles.label}>Customer notes (PDF & email)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Any additional notes for the client"
+              placeholder="e.g. Thank you for your business. Please pay by the due date."
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
             />
+            <Text style={styles.hint}>
+              The customer sees this on the invoice PDF and email. Use payment thanks or
+              terms — not system test / seed notes. Leave blank if not needed. Cost and
+              margin stay internal on line items.
+            </Text>
           </View>
         </View>
 
@@ -1196,6 +1210,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#374151',
     marginBottom: 6,
+  },
+  hint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 6,
+    lineHeight: 16,
   },
   input: {
     backgroundColor: '#fff',
