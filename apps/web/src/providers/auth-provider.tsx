@@ -40,8 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = async (email: string, password: string) => {
-    await authClient.login(email, password);
-    await refreshUser();
+    // Prefer user from login response so a slow/failed /me cannot hang or wipe session.
+    const data = await authClient.login(email, password);
+    if (data?.user) {
+      setUser(data.user);
+    } else {
+      await refreshUser();
+    }
   };
 
   const register = async (data: {
@@ -50,8 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name?: string;
     referralCode?: string;
   }) => {
-    await authClient.register(data);
-    await refreshUser();
+    const result = await authClient.register(data);
+    if (result?.user) {
+      setUser(result.user);
+    } else {
+      await refreshUser();
+    }
   };
 
   const logout = async () => {

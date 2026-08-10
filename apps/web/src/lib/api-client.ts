@@ -17,19 +17,50 @@ export class ApiError extends Error {
 
 async function clientFetch<T>(
   endpoint: string,
-  options: { method?: string; body?: unknown } = {},
+  options: { method?: string; body?: unknown; timeoutMs?: number } = {},
   _retried = false,
 ): Promise<T> {
-  const { method = 'GET', body } = options;
+  const { method = 'GET', body, timeoutMs = 25_000 } = options;
 
-  const res = await fetch(endpoint, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: 'same-origin',
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const json = await res.json();
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'same-origin',
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiError(0, 'TIMEOUT', 'Request timed out. Check your connection and try again.');
+    }
+    throw new ApiError(
+      0,
+      'NETWORK_ERROR',
+      'Network error — could not reach BossBoard. Check your connection and try again.',
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  let json: { success?: boolean; error?: string; message?: string; data?: unknown } = {};
+  const text = await res.text();
+  if (text) {
+    try {
+      json = JSON.parse(text) as typeof json;
+    } catch {
+      throw new ApiError(
+        res.status,
+        'INVALID_RESPONSE',
+        res.ok ? 'Unexpected response from server' : `Request failed (${res.status})`,
+      );
+    }
+  }
 
   // Access cookie is 15m; refresh is 7d. One silent refresh + retry for idle forms.
   if (
@@ -64,14 +95,21 @@ async function clientFetch<T>(
 /** Auth API (calls Next.js proxy routes, not Express directly) */
 export const authClient = {
   login: (email: string, password: string) =>
-    clientFetch('/api/auth/login', { method: 'POST', body: { email, password } }),
+    clientFetch<{ user: import('@bossboard/shared').User }>('/api/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    }),
 
   register: (data: {
     email: string;
     password: string;
     name?: string;
     referralCode?: string;
-  }) => clientFetch('/api/auth/register', { method: 'POST', body: data }),
+  }) =>
+    clientFetch<{ user: import('@bossboard/shared').User }>('/api/auth/register', {
+      method: 'POST',
+      body: data,
+    }),
 
   logout: () =>
     clientFetch('/api/auth/logout', { method: 'POST' }),
