@@ -15,6 +15,7 @@ import {
 import { createError } from '../middleware/error.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
 import { createInvoice } from './invoices.js';
+import { decryptField } from '../utils/field-crypto.js';
 
 const GST_RATE = 0.15; // NZ GST rate
 
@@ -212,17 +213,17 @@ function transformQuote(row: Record<string, unknown>): Quote {
     status: row.status as QuoteStatus,
     validUntil: row.valid_until as string | null,
     convertedInvoiceId: row.converted_invoice_id as string | null,
-    bankAccountName: row.bank_account_name as string | null,
-    bankAccountNumber: row.bank_account_number as string | null,
-    intlBankAccountName: row.intl_bank_account_name as string | null,
-    intlIban: row.intl_iban as string | null,
-    intlSwiftBic: row.intl_swift_bic as string | null,
-    intlBankName: row.intl_bank_name as string | null,
-    intlBankAddress: row.intl_bank_address as string | null,
+    bankAccountName: decryptField(row.bank_account_name as string | null),
+    bankAccountNumber: decryptField(row.bank_account_number as string | null),
+    intlBankAccountName: decryptField(row.intl_bank_account_name as string | null),
+    intlIban: decryptField(row.intl_iban as string | null),
+    intlSwiftBic: decryptField(row.intl_swift_bic as string | null),
+    intlBankName: decryptField(row.intl_bank_name as string | null),
+    intlBankAddress: decryptField(row.intl_bank_address as string | null),
     companyName: row.company_name as string | null,
-    companyAddress: row.company_address as string | null,
-    irdNumber: row.ird_number as string | null,
-    gstNumber: row.gst_number as string | null,
+    companyAddress: decryptField(row.company_address as string | null),
+    irdNumber: decryptField(row.ird_number as string | null),
+    gstNumber: decryptField(row.gst_number as string | null),
     notes: row.notes as string | null,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
