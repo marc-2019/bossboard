@@ -31,12 +31,25 @@ ILERT_HB_BOSSBOARD_WEB=https://api.ilert.com/api/heartbeats/<secret>
 ILERT_HEALTH_BOSSBOARD_WEB=https://bossboard.instilligent.com/
 ```
 
-Optional same pattern for other products once health URLs are known:
+Also configured (health + heartbeat pairs):
 
-- `ILERT_HB_MODULAR_COMPLIANCE` + `ILERT_HEALTH_MODULAR_COMPLIANCE`
-- `ILERT_HB_MASTERING_MOSS` + `ILERT_HEALTH_MASTERING_MOSS`
+```bash
+# Modular Compliance (launched)
+ILERT_HB_MODULAR_COMPLIANCE=https://api.ilert.com/api/heartbeats/<secret>
+ILERT_HEALTH_MODULAR_COMPLIANCE=https://app.modularcompliance.com/api/health
+
+# Mastering-MOSS (maritime safety)
+ILERT_HB_MASTERING_MOSS=https://api.ilert.com/api/heartbeats/<secret>
+ILERT_HEALTH_MASTERING_MOSS=https://masteringmoss.co.nz/health
+
+# TradeMate NZ (shares BossBoard API health for now)
+ILERT_HB_TRADEMATE_NZ=https://api.ilert.com/api/heartbeats/<secret>
+ILERT_HEALTH_TRADEMATE_NZ=https://api.instilligent.com/health
+```
+
+Optional when ready:
+
 - `ILERT_HB_R3_FLEET` + `ILERT_HEALTH_R3_FLEET`
-- `ILERT_HB_TRADEMATE_NZ` + `ILERT_HEALTH_TRADEMATE_NZ` (can share API health)
 
 **Never commit heartbeat URLs** — treat as secrets.
 
