@@ -328,6 +328,7 @@ export async function generateQuotePDF(quote: Quote): Promise<Buffer> {
     bankAccountName: quote.bankAccountName,
     bankAccountNumber: quote.bankAccountNumber,
     notes: quote.notes,
+    internalMemo: quote.internalMemo ?? null,
     customerId: quote.customerId,
     recurringInvoiceId: null,
     includeGst: quote.includeGst,
