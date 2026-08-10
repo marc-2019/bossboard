@@ -205,12 +205,21 @@ describe('Subscription Service', () => {
       expect(result.allowed).toBe(true);
     });
 
-    it('should allow for team tier in beta (inherits unlimited from tradie limits)', async () => {
-      // In beta mode, getTierLimits returns tradie limits where teamMembers=null (unlimited)
-      mockDbQuery.mockResolvedValue({ rows: [{ count: '5' }] });
+    it('should allow for team tier in beta (keeps Team seats, not forced to Tradie null)', async () => {
+      // Product intent: under BETA_MODE, free/tradie unlock Tradie features, but Team
+      // retains multi-member seats (teamMembers: 5), not tradie null.
+      mockDbQuery.mockResolvedValue({ rows: [{ count: '3' }] });
 
       const result = await canAddTeamMember('user-1', 'team');
       expect(result.allowed).toBe(true);
+    });
+
+    it('should enforce team seat cap for team tier even in beta', async () => {
+      mockDbQuery.mockResolvedValue({ rows: [{ count: '5' }] });
+
+      const result = await canAddTeamMember('user-1', 'team');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toMatch(/up to 5/i);
     });
   });
 
