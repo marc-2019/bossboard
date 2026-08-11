@@ -17,7 +17,7 @@ import {
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
-import { decryptField } from '../utils/field-crypto.js';
+import { decryptForDisplay, encryptField } from '../utils/field-crypto.js';
 
 const GST_RATE = 0.15; // NZ GST rate
 
@@ -218,6 +218,18 @@ export async function createInvoice(
     includeGst = true;
   }
 
+  // Store bank/PII encrypted at rest (plaintext from profile/client → encrypt)
+  bankAccountName = encryptField(bankAccountName);
+  bankAccountNumber = encryptField(bankAccountNumber);
+  intlBankAccountName = encryptField(intlBankAccountName);
+  intlIban = encryptField(intlIban);
+  intlSwiftBic = encryptField(intlSwiftBic);
+  intlBankName = encryptField(intlBankName);
+  intlBankAddress = encryptField(intlBankAddress);
+  companyAddress = encryptField(companyAddress);
+  irdNumber = encryptField(irdNumber);
+  gstNumber = encryptField(gstNumber);
+
   // Normalize line items: cost + margin% → sell amount; cost/margin internal only
   const lineItems: InvoiceLineItem[] = input.lineItems.map((item) => {
     const normalized = normalizePricedLineItem({
@@ -333,24 +345,24 @@ function transformInvoice(row: Record<string, unknown>): Invoice {
     status: row.status as InvoiceStatus,
     dueDate: row.due_date as string | null,
     paidAt: row.paid_at as Date | null,
-    // Decrypt bank/PII columns (enc:v1:… at rest; plaintext pass-through for legacy)
-    bankAccountName: decryptField(row.bank_account_name as string | null),
-    bankAccountNumber: decryptField(row.bank_account_number as string | null),
+    // Decrypt bank/PII (never surface enc:v1:… to UI/PDF/email)
+    bankAccountName: decryptForDisplay(row.bank_account_name as string | null),
+    bankAccountNumber: decryptForDisplay(row.bank_account_number as string | null),
     notes: row.notes as string | null,
     internalMemo: (row.internal_memo as string | null) ?? null,
     // Enhanced fields
     customerId: row.customer_id as string | null,
     recurringInvoiceId: row.recurring_invoice_id as string | null,
     includeGst: (row.include_gst as boolean) ?? true,
-    intlBankAccountName: decryptField(row.intl_bank_account_name as string | null),
-    intlIban: decryptField(row.intl_iban as string | null),
-    intlSwiftBic: decryptField(row.intl_swift_bic as string | null),
-    intlBankName: decryptField(row.intl_bank_name as string | null),
-    intlBankAddress: decryptField(row.intl_bank_address as string | null),
+    intlBankAccountName: decryptForDisplay(row.intl_bank_account_name as string | null),
+    intlIban: decryptForDisplay(row.intl_iban as string | null),
+    intlSwiftBic: decryptForDisplay(row.intl_swift_bic as string | null),
+    intlBankName: decryptForDisplay(row.intl_bank_name as string | null),
+    intlBankAddress: decryptForDisplay(row.intl_bank_address as string | null),
     companyName: row.company_name as string | null,
-    companyAddress: decryptField(row.company_address as string | null),
-    irdNumber: decryptField(row.ird_number as string | null),
-    gstNumber: decryptField(row.gst_number as string | null),
+    companyAddress: decryptForDisplay(row.company_address as string | null),
+    irdNumber: decryptForDisplay(row.ird_number as string | null),
+    gstNumber: decryptForDisplay(row.gst_number as string | null),
     shareToken: row.share_token as string | null,
     // Payment gateway fields (Phase 1 — Stripe Payment Links)
     paymentProvider: (row.payment_provider as Invoice['paymentProvider']) ?? null,
@@ -589,7 +601,28 @@ export async function updateInvoice(
       totalsTouched = true;
     } else if (fieldMap[key] && value !== undefined) {
       fields.push(`${fieldMap[key]} = $${paramIndex++}`);
-      values.push(value);
+      // Encrypt bank/PII columns at rest
+      const sensitive = new Set([
+        'bankAccountName',
+        'bankAccountNumber',
+        'intlBankAccountName',
+        'intlIban',
+        'intlSwiftBic',
+        'intlBankName',
+        'intlBankAddress',
+        'companyAddress',
+        'irdNumber',
+        'gstNumber',
+      ]);
+      if (sensitive.has(key)) {
+        values.push(
+          value === null || value === ''
+            ? null
+            : encryptField(String(value)),
+        );
+      } else {
+        values.push(value);
+      }
     }
   }
 
@@ -885,9 +918,17 @@ export async function attachStripePaymentLink(params: {
 export async function getInvoiceByShareToken(token: string): Promise<Record<string, unknown> | null> {
   const result = await db.query<Record<string, unknown>>(
     `SELECT i.*,
-            bp.company_name, bp.company_address, bp.company_phone, bp.company_email,
-            bp.ird_number, bp.gst_number, bp.logo_url,
-            bp.intl_bank_account_name, bp.intl_iban, bp.intl_swift_bic, bp.intl_bank_name
+            bp.company_name AS bp_company_name,
+            bp.company_address AS bp_company_address,
+            bp.company_phone AS bp_company_phone,
+            bp.company_email AS bp_company_email,
+            bp.ird_number AS bp_ird_number,
+            bp.gst_number AS bp_gst_number,
+            bp.logo_url AS bp_logo_url,
+            bp.intl_bank_account_name AS bp_intl_bank_account_name,
+            bp.intl_iban AS bp_intl_iban,
+            bp.intl_swift_bic AS bp_intl_swift_bic,
+            bp.intl_bank_name AS bp_intl_bank_name
      FROM invoices i
      LEFT JOIN business_profiles bp ON bp.user_id = i.user_id
      WHERE i.share_token = $1`,
@@ -895,7 +936,34 @@ export async function getInvoiceByShareToken(token: string): Promise<Record<stri
   );
 
   if (result.rows.length === 0) return null;
-  return result.rows[0];
+  const row = result.rows[0];
+  const invoice = transformInvoice(row);
+  // Public share payload: decrypted invoice + optional profile overlay
+  return {
+    ...transformForMobile(invoice),
+    company_name: invoice.companyName || (row.bp_company_name as string | null),
+    company_address:
+      invoice.companyAddress ||
+      decryptForDisplay(row.bp_company_address as string | null),
+    company_phone: decryptForDisplay(row.bp_company_phone as string | null),
+    company_email: decryptForDisplay(row.bp_company_email as string | null),
+    ird_number:
+      invoice.irdNumber || decryptForDisplay(row.bp_ird_number as string | null),
+    gst_number:
+      invoice.gstNumber || decryptForDisplay(row.bp_gst_number as string | null),
+    logo_url: row.bp_logo_url as string | null,
+    intl_bank_account_name:
+      invoice.intlBankAccountName ||
+      decryptForDisplay(row.bp_intl_bank_account_name as string | null),
+    intl_iban:
+      invoice.intlIban || decryptForDisplay(row.bp_intl_iban as string | null),
+    intl_swift_bic:
+      invoice.intlSwiftBic ||
+      decryptForDisplay(row.bp_intl_swift_bic as string | null),
+    intl_bank_name:
+      invoice.intlBankName ||
+      decryptForDisplay(row.bp_intl_bank_name as string | null),
+  };
 }
 
 export default {

@@ -39,10 +39,22 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
 RUN npm install --workspace=packages/shared --workspace=apps/api
 
-# Build shared package first (API depends on its compiled output)
+# Build shared package first (API depends on its compiled output).
+# Emit CommonJS so apps/api (CJS) can require('@bossboard/shared') in production.
 COPY packages/shared/src ./packages/shared/src
 COPY packages/shared/tsconfig.json ./packages/shared/
-RUN npm run build --workspace=packages/shared
+RUN node -e "\
+const fs=require('fs');\
+const pkg=JSON.parse(fs.readFileSync('packages/shared/package.json','utf8'));\
+delete pkg.type;\
+pkg.main='./dist/index.js';\
+pkg.exports={'.':'./dist/index.js','./types':'./dist/types/index.js','./theme':'./dist/theme/colors.js','./utils':'./dist/utils/format.js'};\
+fs.writeFileSync('packages/shared/package.json', JSON.stringify(pkg,null,2));\
+const ts=JSON.parse(fs.readFileSync('packages/shared/tsconfig.json','utf8'));\
+ts.compilerOptions=Object.assign({}, ts.compilerOptions, {module:'CommonJS', moduleResolution:'Node'});\
+fs.writeFileSync('packages/shared/tsconfig.json', JSON.stringify(ts,null,2));\
+" \
+  && npm run build --workspace=packages/shared
 
 # Build API
 COPY apps/api/tsconfig.json ./apps/api/
@@ -88,7 +100,7 @@ USER node
 # production deps so packages/shared/node_modules is never created by npm)
 COPY --chown=node:node --from=deps /app/node_modules ./node_modules
 COPY --chown=node:node --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-# Compiled shared package
+# Compiled shared package (CJS package.json from builder — no "type":"module")
 COPY --chown=node:node --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --chown=node:node --from=builder /app/packages/shared/package.json ./packages/shared/
 # Compiled API

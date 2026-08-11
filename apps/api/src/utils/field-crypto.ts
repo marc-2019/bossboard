@@ -101,6 +101,7 @@ export function encryptField(plain: string | null | undefined): string | null {
 
 /**
  * Decrypt a field. Pass-through for legacy plaintext (no prefix).
+ * Never returns ciphertext — customer-facing surfaces must not show enc:v1:…
  */
 export function decryptField(stored: string | null | undefined): string | null {
   if (stored === null || stored === undefined || stored === '') return null;
@@ -121,11 +122,25 @@ export function decryptField(stored: string | null | undefined): string | null {
     const data = Buffer.from(dataB64, 'base64');
     const decipher = crypto.createDecipheriv(ALGO, key, iv);
     decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+    const plain = Buffer.concat([decipher.update(data), decipher.final()]).toString(
+      'utf8',
+    );
+    // Defense in depth: never bubble ciphertext if nested/corrupt
+    if (isEncryptedValue(plain)) return null;
+    return plain;
   } catch (err) {
     console.error('[field-crypto] Decrypt failed:', err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+/**
+ * For display on invoices/PDF/email: decrypt, or null if still looks encrypted.
+ */
+export function decryptForDisplay(stored: string | null | undefined): string | null {
+  const v = decryptField(stored);
+  if (v && isEncryptedValue(v)) return null;
+  return v;
 }
 
 /** Blind index for equality search (email). Not reversible. */
