@@ -37,7 +37,18 @@ jest.mock('../../middleware/auth.js', () => ({
 }));
 
 jest.mock('../../config/index.js', () => ({
-  config: { appName: 'BossBoard', port: 29001 },
+  // isDevelopment: true → check-expiry uses JWT auth (mocked above) for local tests
+  config: { appName: 'BossBoard', port: 29001, isDevelopment: true },
+}));
+
+jest.mock('../../middleware/serviceToken.js', () => ({
+  authenticateServiceToken: function (_req: any, res: any, _next: any) {
+    res.status(401).json({
+      success: false,
+      error: 'UNAUTHORIZED',
+      message: 'Invalid or missing service token',
+    });
+  },
 }));
 
 import notificationRoutes from '../../routes/notifications.js';

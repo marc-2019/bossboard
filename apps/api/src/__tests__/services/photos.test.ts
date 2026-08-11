@@ -55,7 +55,10 @@ beforeEach(() => {
 
 describe('createPhoto', () => {
   it('inserts a photo and returns the mobile shape with a file URL', async () => {
-    mockDbQuery.mockResolvedValueOnce({ rows: [makeRow()] });
+    // 1) ownership check  2) insert
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'inv-1' }] })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
 
     const result = await photosService.createPhoto('user-1', {
       entityType: 'invoice',
@@ -71,12 +74,14 @@ describe('createPhoto', () => {
     expect(result.id).toBe('photo-1');
     expect(result.url).toBe('/api/v1/photos/photo-1/file');
     expect(result.entity_type).toBe('invoice');
-    const params = mockDbQuery.mock.calls[0][1] as unknown[];
-    expect(params[6]).toBe('image/png'); // explicit mime
+    const insertParams = mockDbQuery.mock.calls[1][1] as unknown[];
+    expect(insertParams[6]).toBe('image/png'); // explicit mime
   });
 
   it('defaults mime type and optional fields', async () => {
-    mockDbQuery.mockResolvedValueOnce({ rows: [makeRow()] });
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'job-1' }] })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
 
     await photosService.createPhoto('user-1', {
       entityType: 'job_log',
@@ -85,11 +90,25 @@ describe('createPhoto', () => {
       path: '/tmp/x.jpg',
     });
 
-    const params = mockDbQuery.mock.calls[0][1] as unknown[];
-    expect(params[5]).toBeNull(); // originalFilename
-    expect(params[6]).toBe('image/jpeg'); // default mime
-    expect(params[7]).toBeNull(); // fileSize
-    expect(params[9]).toBeNull(); // caption
+    const insertParams = mockDbQuery.mock.calls[1][1] as unknown[];
+    expect(insertParams[5]).toBeNull(); // originalFilename
+    expect(insertParams[6]).toBe('image/jpeg'); // default mime
+    expect(insertParams[7]).toBeNull(); // fileSize
+    expect(insertParams[9]).toBeNull(); // caption
+  });
+
+  it('rejects photo when entity is not owned by user', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [] });
+    await expect(
+      photosService.createPhoto('user-1', {
+        entityType: 'invoice',
+        entityId: 'other-users-inv',
+        filename: 'x.jpg',
+        path: '/tmp/x.jpg',
+      }),
+    ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' });
+    // Only ownership query — no insert
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
   });
 });
 

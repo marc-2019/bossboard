@@ -9,6 +9,7 @@ import { config } from '../config/index.js';
 import invoicesService from '../services/invoices.js';
 import documentsService, { DOCUMENT_DISCLAIMER } from '../services/documents.js';
 import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
+import { isPathInside } from '../utils/path-safe.js';
 
 const router = Router();
 
@@ -117,7 +118,7 @@ router.get('/invoices/:token/documents/:docId/file', async (req: Request, res: R
     }
     const resolved = path.resolve(doc.storagePath);
     const root = path.resolve(documentsService.getDocumentsUploadDir());
-    if (!resolved.startsWith(root)) {
+    if (!isPathInside(root, resolved)) {
       res.status(400).send('Invalid path');
       return;
     }

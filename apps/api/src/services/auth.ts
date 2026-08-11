@@ -125,7 +125,9 @@ export async function login(input: UserLoginInput): Promise<{ user: User; tokens
 export async function refreshToken(token: string): Promise<AuthTokens> {
   try {
     // Verify refresh token
-    const decoded = jwt.verify(token, config.jwt.refreshSecret) as JwtPayload;
+    const decoded = jwt.verify(token, config.jwt.refreshSecret, {
+      algorithms: ['HS256'],
+    }) as JwtPayload;
 
     // Check if token is stored and not revoked
     const result = await db.query<{ id: string; user_id: string }>(
@@ -485,10 +487,12 @@ async function generateTokens(user: User): Promise<AuthTokens> {
 
   const accessToken = jwt.sign(payload, config.jwt.secret, {
     expiresIn: config.jwt.accessTokenExpiry,
+    algorithm: 'HS256',
   });
 
   const refreshToken = jwt.sign(payload, config.jwt.refreshSecret, {
     expiresIn: config.jwt.refreshTokenExpiry,
+    algorithm: 'HS256',
   });
 
   return {

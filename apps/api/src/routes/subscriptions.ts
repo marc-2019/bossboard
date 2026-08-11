@@ -151,6 +151,33 @@ const checkoutSchema = z.object({
 });
 
 /**
+ * Prevent open redirects after Stripe Checkout — only allow configured app
+ * domain, stripe return URL host, and localhost (dev).
+ */
+function sanitizeCheckoutRedirectUrl(requested: string | undefined, fallback: string): string {
+  if (!requested) return fallback;
+  try {
+    const parsed = new URL(requested);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return fallback;
+    // Disallow credentials in URL
+    if (parsed.username || parsed.password) return fallback;
+    const allowedHosts = new Set<string>(['localhost', '127.0.0.1']);
+    try {
+      if (config.appDomain) allowedHosts.add(new URL(config.appDomain).hostname);
+    } catch { /* ignore bad APP_DOMAIN */ }
+    try {
+      if (config.stripe.returnUrl) allowedHosts.add(new URL(config.stripe.returnUrl).hostname);
+    } catch { /* ignore */ }
+    // Also allow common BossBoard production hosts if env incomplete
+    allowedHosts.add('bossboard.instilligent.com');
+    if (!allowedHosts.has(parsed.hostname)) return fallback;
+    return requested;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * POST /api/v1/subscriptions/checkout
  * Create a Stripe Checkout session for upgrading to Tradie or Team tier.
  *
@@ -196,14 +223,22 @@ router.post('/checkout', async (req: Request, res: Response, next: NextFunction)
 
     const { email, name } = userResult.rows[0];
     const appReturnUrl = config.stripe.returnUrl;
+    const safeSuccess = sanitizeCheckoutRedirectUrl(
+      successUrl,
+      `${appReturnUrl}/subscription/success`,
+    );
+    const safeCancel = sanitizeCheckoutRedirectUrl(
+      cancelUrl,
+      `${appReturnUrl}/subscription/cancel`,
+    );
 
     const result = await createCheckoutSession({
       userId,
       userEmail: email,
       userName: name,
       tier,
-      successUrl: successUrl ?? `${appReturnUrl}/subscription/success`,
-      cancelUrl: cancelUrl ?? `${appReturnUrl}/subscription/cancel`,
+      successUrl: safeSuccess,
+      cancelUrl: safeCancel,
     });
 
     res.json({

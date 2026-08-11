@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
+import { authenticateServiceToken } from '../middleware/serviceToken.js';
 import { config } from '../config/index.js';
 import notificationsService from '../services/notifications.js';
 import cronService from '../services/cron.js';
@@ -130,27 +131,37 @@ router.post('/test', authenticate, async (req: Request, res: Response, next: Nex
 
 /**
  * POST /api/v1/notifications/check-expiry - Manually trigger cert expiry check
- * (Admin/debug endpoint)
+ * for ALL users. Restricted to service token (ops/CF) — never any logged-in user.
+ * In development only, allow JWT auth for local debugging.
  */
-router.post('/check-expiry', authenticate, async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await cronService.runCertExpiryCheckNow();
-
-    res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error: any) {
-    if (error.statusCode) {
-      res.status(error.statusCode).json({
-        success: false,
-        error: error.code,
-        message: error.message,
-      });
-      return;
+router.post(
+  '/check-expiry',
+  (req: Request, res: Response, next: NextFunction) => {
+    if (config.isDevelopment) {
+      return authenticate(req, res, next);
     }
-    next(error);
-  }
-});
+    return authenticateServiceToken(req, res, next);
+  },
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await cronService.runCertExpiryCheckNow();
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      if (error.statusCode) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.code,
+          message: error.message,
+        });
+        return;
+      }
+      next(error);
+    }
+  },
+);
 
 export default router;

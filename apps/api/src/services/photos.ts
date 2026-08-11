@@ -54,6 +54,44 @@ function transformForMobile(photo: Photo): Record<string, unknown> {
   };
 }
 
+/** Map photo entity types to owner-scoped tables (prevent attaching to foreign rows). */
+const ENTITY_TABLE: Record<PhotoEntityType, string> = {
+  swms: 'swms_documents',
+  invoice: 'invoices',
+  expense: 'expenses',
+  job_log: 'job_logs',
+  certification: 'certifications',
+  quote: 'quotes',
+};
+
+/**
+ * Ensure the target entity exists and belongs to this user (tenancy).
+ */
+async function assertEntityOwnedByUser(
+  userId: string,
+  entityType: PhotoEntityType,
+  entityId: string,
+): Promise<void> {
+  const table = ENTITY_TABLE[entityType];
+  if (!table) {
+    const err = new Error('Invalid entity type') as Error & { statusCode?: number; code?: string };
+    err.statusCode = 400;
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+  // table name is from a fixed allowlist map, not user input
+  const result = await db.query(
+    `SELECT id FROM ${table} WHERE id = $1 AND user_id = $2`,
+    [entityId, userId],
+  );
+  if (result.rows.length === 0) {
+    const err = new Error('Entity not found') as Error & { statusCode?: number; code?: string };
+    err.statusCode = 404;
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+}
+
 /**
  * Create a photo record after file upload
  */
@@ -61,6 +99,8 @@ async function createPhoto(
   userId: string,
   input: CreatePhotoInput
 ): Promise<Record<string, unknown>> {
+  await assertEntityOwnedByUser(userId, input.entityType, input.entityId);
+
   const id = uuidv4();
 
   const result = await db.query<Record<string, unknown>>(

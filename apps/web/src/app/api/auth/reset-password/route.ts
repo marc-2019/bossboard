@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_URL } from '@/lib/constants';
+import { proxyAuthHeaders } from '@/lib/auth-proxy';
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,7 +8,7 @@ export async function POST(request: NextRequest) {
 
     const res = await fetch(`${API_URL}/api/v1/auth/reset-password`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: proxyAuthHeaders(request),
       body: JSON.stringify(body),
     });
 

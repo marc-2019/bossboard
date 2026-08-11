@@ -112,6 +112,8 @@ describe('config', () => {
       JWT_SECRET: 'js',
       JWT_REFRESH_SECRET: 'jrs',
       DATABASE_URL: 'postgresql://u:p@db/x',
+      // Present in production; value is a test placeholder (not a real key).
+      FIELD_ENCRYPTION_KEY: 'test-placeholder-field-encryption-key-not-a-real-secret',
     };
 
     it('passes with required vars present (BETA_MODE unset → beta defaults)', () => {
@@ -129,6 +131,13 @@ describe('config', () => {
     it('throws when a required var is missing in production', () => {
       expect(() => loadConfig({ NODE_ENV: 'production', JWT_REFRESH_SECRET: 'jrs', DATABASE_URL: 'x' })).toThrow(
         /JWT_SECRET environment variable is required in production/
+      );
+    });
+
+    it('throws when FIELD_ENCRYPTION_KEY is missing in production', () => {
+      const { FIELD_ENCRYPTION_KEY: _drop, ...withoutKey } = prodBase;
+      expect(() => loadConfig(withoutKey)).toThrow(
+        /FIELD_ENCRYPTION_KEY is required in production/,
       );
     });
 
