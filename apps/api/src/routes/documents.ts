@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import documentsService, { DOCUMENT_DISCLAIMER } from '../services/documents.js';
 import { authenticate } from '../middleware/auth.js';
+import { isPathInside } from '../utils/path-safe.js';
 
 const router = Router();
 
@@ -213,7 +214,7 @@ router.get('/:id/file', authenticate, async (req: Request, res: Response, next: 
     }
     const resolved = path.resolve(doc.storagePath);
     const root = path.resolve(documentsService.getDocumentsUploadDir());
-    if (!resolved.startsWith(root)) {
+    if (!isPathInside(root, resolved)) {
       res.status(400).json({ success: false, error: 'INVALID_PATH', message: 'Invalid file path' });
       return;
     }

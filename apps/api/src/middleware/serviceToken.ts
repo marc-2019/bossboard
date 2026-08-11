@@ -4,8 +4,20 @@
  * against FEEDBACK_SERVICE_TOKEN (or generic SERVICE_TOKEN) env.
  */
 
+import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { config } from '../config/index.js';
+
+function timingSafeEqualString(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) {
+    // Compare against self to keep constant-ish work when lengths differ
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 export function authenticateServiceToken(
   req: Request,
@@ -27,7 +39,7 @@ export function authenticateServiceToken(
   const xToken = (req.headers['x-service-token'] as string | undefined)?.trim() || '';
   const provided = bearer || xToken;
 
-  if (!provided || provided !== expected) {
+  if (!provided || !timingSafeEqualString(provided, expected)) {
     res.status(401).json({
       success: false,
       error: 'UNAUTHORIZED',

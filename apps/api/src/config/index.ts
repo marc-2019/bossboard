@@ -133,6 +133,12 @@ if (!config.isDevelopment) {
       throw new Error('STRIPE_PRICE_ID_TRADIE is required in production when BETA_MODE=false');
     }
   }
+  // Field encryption is required for customer/business PII at rest
+  if (!process.env.FIELD_ENCRYPTION_KEY) {
+    throw new Error(
+      'FIELD_ENCRYPTION_KEY is required in production for PII field encryption',
+    );
+  }
   // Warn about missing but non-fatal vars
   if (!process.env.CORS_ORIGINS) {
     console.warn('WARNING: CORS_ORIGINS not set in production — defaulting to deny-all');

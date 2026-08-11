@@ -12,6 +12,7 @@ import photosService from '../services/photos.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, requireFeature } from '../middleware/subscription.js';
 import { PhotoEntityType } from '../types/index.js';
+import { isPathInside } from '../utils/path-safe.js';
 
 const router = Router();
 
@@ -179,9 +180,10 @@ router.get('/:id/file', authenticate, async (req: Request, res: Response, next: 
     }
 
     // Path traversal guard: ensure resolved path is within the upload directory
-    const UPLOAD_DIR = path.resolve('./uploads/photos');
+    // (strict containment — not naive startsWith, which allows /uploads/photos_evil)
+    const UPLOAD_DIR = photosService.getUploadDir();
     const resolvedPath = path.resolve(photo.path);
-    if (!resolvedPath.startsWith(UPLOAD_DIR)) {
+    if (!isPathInside(UPLOAD_DIR, resolvedPath)) {
       res.status(403).json({
         success: false,
         error: 'FORBIDDEN',

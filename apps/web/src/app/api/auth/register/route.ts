@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_URL, ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from '@/lib/constants';
+import { proxyAuthHeaders, shouldUseSecureCookies } from '@/lib/auth-proxy';
 
 function attachAuthCookies(
   response: NextResponse,
   accessToken: string,
   refreshToken: string,
+  secure: boolean,
 ) {
-  const secure = process.env.NODE_ENV === 'production';
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
     httpOnly: true,
     secure,
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const res = await fetch(`${API_URL}/api/v1/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: proxyAuthHeaders(request),
       body: JSON.stringify(body),
       cache: 'no-store',
     });
@@ -59,7 +60,12 @@ export async function POST(request: NextRequest) {
       success: true,
       data: { user: json.data.user },
     });
-    return attachAuthCookies(response, accessToken, refreshToken);
+    return attachAuthCookies(
+      response,
+      accessToken,
+      refreshToken,
+      shouldUseSecureCookies(request),
+    );
   } catch (err) {
     console.error('[auth/register] proxy error:', err instanceof Error ? err.message : err);
     return NextResponse.json(
