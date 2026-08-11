@@ -4,13 +4,19 @@
  */
 
 import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 
 // Get API URL from environment variable (set via eas.json per build profile)
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
   || Constants.expoConfig?.extra?.apiUrl
   || 'http://localhost:29000';
 
+const REFRESH_KEY = 'bossboard_refresh_token';
+const TOKEN_KEY = 'bossboard_access_token';
+
 let authToken: string | null = null;
+/** Prevent parallel 401s from stampeding refresh */
+let refreshInFlight: Promise<boolean> | null = null;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
@@ -18,6 +24,48 @@ export function setAuthToken(token: string | null) {
 
 export function getAuthToken(): string | null {
   return authToken;
+}
+
+/**
+ * Silent access-token refresh (used when API returns 401 Token expired).
+ * Mirrors web BFF refresh so invoice detail doesn't fail mid-session.
+ */
+async function trySilentRefresh(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY);
+      if (!refreshToken) return false;
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'User-Agent': 'BossBoardMobile/0.5.0',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { tokens?: { accessToken?: string; refreshToken?: string } };
+      };
+      if (!res.ok || !json.success || !json.data?.tokens?.accessToken) {
+        return false;
+      }
+      const { accessToken, refreshToken: newRefresh } = json.data.tokens;
+      authToken = accessToken;
+      await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+      if (newRefresh) {
+        await SecureStore.setItemAsync(REFRESH_KEY, newRefresh);
+      }
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 interface RequestConfig {
@@ -116,7 +164,11 @@ function getCacheKey(endpoint: string, method: string, body?: unknown): string {
   return `${method}:${endpoint}:${body ? JSON.stringify(body) : ''}`;
 }
 
-async function request<T = any>(endpoint: string, config: RequestConfig = {}): Promise<ApiResponse<T>> {
+async function request<T = any>(
+  endpoint: string,
+  config: RequestConfig = {},
+  _didRefresh = false,
+): Promise<ApiResponse<T>> {
   const {
     method = 'GET',
     body,
@@ -133,18 +185,21 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
     return requestCache.get(cacheKey) as Promise<ApiResponse<T>>;
   }
 
-  const requestHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...headers,
-  };
-
-  if (authToken) {
-    requestHeaders['Authorization'] = `Bearer ${authToken}`;
-  }
-
   let lastError: unknown;
 
-  const executeRequest = async (attemptNumber: number): Promise<ApiResponse<T>> => {
+  const executeRequest = async (): Promise<ApiResponse<T>> => {
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      // Explicit UA — some edge/WAF configs are harsh on empty/Python-like signatures
+      'User-Agent': 'BossBoardMobile/0.5.0',
+      Accept: 'application/json',
+      ...headers,
+    };
+
+    if (authToken) {
+      requestHeaders['Authorization'] = `Bearer ${authToken}`;
+    }
+
     try {
       // Create fetch promise with timeout
       const fetchPromise = fetch(`${API_BASE_URL}${endpoint}`, {
@@ -200,7 +255,7 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
   // Retry logic
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const resultPromise = executeRequest(attempt);
+      const resultPromise = executeRequest();
 
       // Cache GET requests
       if (cacheKey) {
@@ -221,6 +276,20 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
       // Clear failed request from cache
       if (cacheKey) {
         requestCache.delete(cacheKey);
+      }
+
+      // One silent refresh + retry on expired/invalid access token (not on refresh endpoint itself)
+      if (
+        !_didRefresh &&
+        error instanceof ApiError &&
+        error.status === 401 &&
+        !endpoint.includes('/auth/refresh') &&
+        !endpoint.includes('/auth/login')
+      ) {
+        const refreshed = await trySilentRefresh();
+        if (refreshed) {
+          return request<T>(endpoint, config, true);
+        }
       }
 
       // Don't retry on last attempt

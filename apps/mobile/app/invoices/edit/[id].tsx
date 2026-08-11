@@ -147,10 +147,18 @@ export default function EditInvoiceScreen() {
       setLineItems(
         lines.length > 0 ? lines : [{ id: '1', description: '', amount: '' }]
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to load invoice for edit:', error);
       setLoadError(true);
-      Alert.alert('Error', 'Failed to load invoice');
+      const err = error as { message?: string; status?: number };
+      Alert.alert(
+        'Error',
+        err?.message && err.message !== 'API request failed'
+          ? err.message
+          : err?.status
+            ? `Failed to load invoice (${err.status})`
+            : 'Failed to load invoice',
+      );
     } finally {
       setIsLoading(false);
     }

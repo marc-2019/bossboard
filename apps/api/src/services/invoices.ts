@@ -446,8 +446,24 @@ export async function getInvoiceByIdRaw(
   const row = result.rows[0];
   // Self-heal: if bank/PII still look encrypted after decrypt attempt fails,
   // re-copy plaintext from business profile and re-encrypt for storage.
-  await maybeRepairEncryptedBankFields(row, userId);
-  return transformInvoice(row);
+  // Never fail the read if repair/encrypt throws — customer must still open invoice.
+  try {
+    await maybeRepairEncryptedBankFields(row, userId);
+  } catch (err) {
+    console.error(
+      '[invoices] bank field repair threw (continuing with decrypt-only):',
+      err instanceof Error ? err.message : err,
+    );
+  }
+  try {
+    return transformInvoice(row);
+  } catch (err) {
+    console.error(
+      '[invoices] transformInvoice failed:',
+      err instanceof Error ? err.message : err,
+    );
+    throw err;
+  }
 }
 
 /**
@@ -535,7 +551,17 @@ async function maybeRepairEncryptedBankFields(
     const plain = repaired[c];
     // Never write ciphertext back as if it were plain
     if (plain && isEncryptedValue(plain)) continue;
-    const stored = plain ? encryptField(plain) : null;
+    let stored: string | null = null;
+    try {
+      stored = plain ? encryptField(plain) : null;
+    } catch (err) {
+      console.error(
+        `[invoices] encryptField failed for ${c}:`,
+        err instanceof Error ? err.message : err,
+      );
+      // Keep prior row value so transformInvoice can still decryptForDisplay
+      continue;
+    }
     sets.push(`${c} = $${i++}`);
     vals.push(stored);
     row[c] = stored;
