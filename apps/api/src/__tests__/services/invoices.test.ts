@@ -49,7 +49,10 @@ jest.mock('../../middleware/error.js', () => ({
 jest.mock('../../config/index.js', () => ({
   config: {
     port: 29001,
+    // Tests encrypt bank/PII at rest the same as production
     isDevelopment: false,
+    fieldEncryptionKey: Buffer.alloc(32, 9).toString('base64'),
+    jwt: { secret: 'test-jwt-secret-for-field-crypto' },
   },
 }));
 
@@ -71,6 +74,7 @@ import {
   generateShareToken,
   getNextInvoiceNumber,
 } from '../../services/invoices.js';
+import { _resetFieldCryptoForTests } from '../../utils/field-crypto.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -137,6 +141,7 @@ function makeCreateInput(overrides: Record<string, unknown> = {}): any {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  _resetFieldCryptoForTests();
   // getNextInvoiceNumber uses db.transaction — set up a pass-through by default
   const mockClientQuery = jest.fn();
   mockDbTransaction.mockImplementation(async (callback: (client: any) => Promise<unknown>) => {
