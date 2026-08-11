@@ -1,6 +1,6 @@
 # BB SaaS — free month + friend referral
 
-**Status:** Implemented (migration `019_saas_referral.sql`, API `/api/v1/referrals/*`, web Settings + `/r/{code}`).  
+**Status:** Implemented (migration `019_saas_referral.sql`, API `/api/v1/referrals/*`, web Settings + `/r/{code}`, **mobile Settings → Invite a mate**, one-time post–invoice-send share prompt for paid users).  
 **Not** the same as client-invoice discounts (tradie → their customer).
 
 ## Offer (public)
@@ -31,9 +31,10 @@
    - IAP: extend `subscription_expires_at` or store offer codes; dual-rail documented.
 
 3. **API / UI**
-   - Paid user: Settings → “Invite a mate” → copy link (`/r/{code}` or checkout `?ref=`)
+   - Paid user: Settings → “Invite a mate” → copy/share link (`/r/{code}` or checkout `?ref=`) — **web + mobile**
+   - Mobile: after first successful Mark as Sent / Email invoice (paid only), one-time “Share invite” alert
    - Referee: signup/checkout captures code; on first successful paid activation, grant both sides +1 month (capped at 12).
-   - Display remaining free months on billing page.
+   - Display remaining free months on billing page / invite screen.
 
 4. **Abuse**
    - Referrer must be paid at grant time.

@@ -21,6 +21,14 @@ export default function SettingsLayout() {
         name="bank-details"
         options={withBackHeader('Bank Details', { fallback: '/settings' })}
       />
+      <Stack.Screen
+        name="invite-mate"
+        options={withBackHeader('Invite a mate', { fallback: '/settings' })}
+      />
+      <Stack.Screen
+        name="feedback"
+        options={withBackHeader('Send Feedback', { fallback: '/settings' })}
+      />
     </Stack>
   );
 }

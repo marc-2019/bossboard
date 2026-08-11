@@ -6,6 +6,7 @@
 import PDFDocument from 'pdfkit';
 import { config } from '../config/index.js';
 import { Invoice, InvoiceLineItem, Quote } from '../types/index.js';
+import { customerFacingInvoiceStatus } from '../utils/invoiceCustomerFacing.js';
 
 /** Convert cents to formatted NZD string */
 function formatCurrency(cents: number): string {
@@ -124,20 +125,30 @@ function drawHeader(doc: InstanceType<typeof PDFDocument>, invoice: Invoice, pag
   doc.font('Helvetica');
   doc.text(formatDate(invoice.createdAt), rightX + 80, detailsY + 14);
 
+  // Right-column Y offset after Date line
+  let rightDetailY = detailsY + 14;
+
   if (invoice.dueDate) {
+    rightDetailY += 14;
     doc.font('Helvetica-Bold');
-    doc.text('Due Date:', rightX, detailsY + 28);
+    doc.text('Due Date:', rightX, rightDetailY);
     doc.font('Helvetica');
-    doc.text(formatDate(invoice.dueDate), rightX + 80, detailsY + 28);
+    doc.text(formatDate(invoice.dueDate), rightX + 80, rightDetailY);
   }
 
-  doc.font('Helvetica-Bold');
-  doc.text('Status:', rightX, detailsY + (invoice.dueDate ? 42 : 28));
-  doc.font('Helvetica');
-  doc.text(invoice.status.toUpperCase(), rightX + 80, detailsY + (invoice.dueDate ? 42 : 28));
+  // Only show status that matters to the customer (PAID / OVERDUE).
+  // Never print DRAFT or SENT on a client-facing PDF.
+  const customerStatus = customerFacingInvoiceStatus(invoice.status);
+  if (customerStatus) {
+    rightDetailY += 14;
+    doc.font('Helvetica-Bold');
+    doc.text('Status:', rightX, rightDetailY);
+    doc.font('Helvetica');
+    doc.text(customerStatus, rightX + 80, rightDetailY);
+  }
 
   // Move below whichever column is taller
-  const maxY = Math.max(leftY, detailsY + (invoice.dueDate ? 56 : 42));
+  const maxY = Math.max(leftY, rightDetailY + 14);
   doc.y = maxY;
 
   // Divider line

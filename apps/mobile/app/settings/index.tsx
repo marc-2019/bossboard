@@ -114,6 +114,13 @@ export default function SettingsScreen() {
       title: 'Subscription',
       items: [
         { id: 'subscription', icon: 'diamond-outline', label: 'Manage Plan', showChevron: true, onPress: () => router.push('/subscription' as any) },
+        {
+          id: 'invite-mate',
+          icon: 'gift-outline',
+          label: 'Invite a mate (free month)',
+          showChevron: true,
+          onPress: () => router.push('/settings/invite-mate' as any),
+        },
       ],
     },
     {

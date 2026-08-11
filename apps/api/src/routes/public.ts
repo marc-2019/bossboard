@@ -10,6 +10,7 @@ import invoicesService from '../services/invoices.js';
 import documentsService, { DOCUMENT_DISCLAIMER } from '../services/documents.js';
 import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
 import { isPathInside } from '../utils/path-safe.js';
+import { customerFacingInvoiceStatus } from '../utils/invoiceCustomerFacing.js';
 
 const router = Router();
 
@@ -193,8 +194,12 @@ function renderInvoicePage(
   shareToken: string = '',
 ): string {
   const lineItems = (inv.line_items as Array<{ description: string; amount: number }>) || [];
-  const statusClass = inv.status === 'paid' ? 'status-paid' : inv.status === 'overdue' ? 'status-overdue' : 'status-sent';
-  const statusLabel = String(inv.status || 'draft').toUpperCase();
+  // Customer-facing only: PAID / OVERDUE. Never show DRAFT or SENT to clients.
+  const statusLabel = customerFacingInvoiceStatus(
+    inv.status === null || inv.status === undefined ? null : String(inv.status)
+  );
+  const statusClass =
+    statusLabel === 'PAID' ? 'status-paid' : statusLabel === 'OVERDUE' ? 'status-overdue' : '';
 
   let lineItemsHtml = '';
   for (const item of lineItems) {
@@ -284,7 +289,11 @@ function renderInvoicePage(
         <div class="invoice-meta">
           <h1>INVOICE</h1>
           <p class="invoice-number">${escapeHtml(inv.invoice_number)}</p>
-          <span class="status ${statusClass}">${statusLabel}</span>
+          ${
+            statusLabel
+              ? `<span class="status ${statusClass}">${statusLabel}</span>`
+              : ''
+          }
         </div>
       </div>
 
