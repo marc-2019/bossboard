@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { invoicesApi, getAuthToken } from '../../src/services/api';
+import { maybePromptReferralAfterInvoiceSend } from '../../src/services/referralShare';
 import PhotoAttachments from '../../src/components/PhotoAttachments';
 import { safeGoBack } from '../../src/utils/navigation';
 
@@ -139,7 +140,14 @@ export default function InvoiceDetailScreen() {
               const response = await invoicesApi.markAsSent(id);
               if (response.data.success) {
                 setInvoice(response.data.data.invoice);
-                Alert.alert('Success', 'Invoice marked as sent');
+                Alert.alert('Success', 'Invoice marked as sent', [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      void maybePromptReferralAfterInvoiceSend();
+                    },
+                  },
+                ]);
               }
             } catch (error) {
               Alert.alert('Error', 'Failed to update invoice');
@@ -277,7 +285,14 @@ export default function InvoiceDetailScreen() {
                 const successMsg = bcc
                   ? `Invoice emailed to ${recipientEmail}\n\nA copy was BCC’d to ${bcc}`
                   : response.data.message || `Invoice emailed to ${recipientEmail}`;
-                Alert.alert('Success', successMsg);
+                Alert.alert('Success', successMsg, [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      void maybePromptReferralAfterInvoiceSend();
+                    },
+                  },
+                ]);
               }
             } catch (error: unknown) {
               const apiError = error as { code?: string; message?: string };

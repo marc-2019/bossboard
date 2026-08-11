@@ -389,9 +389,27 @@ describe('generateInvoicePDF — content', () => {
     expect(mockTextCalls).toContain('Roof repair materials');
   });
 
-  it('uppercases the invoice status', async () => {
+  it('omits draft and sent status on customer PDF', async () => {
+    await generateInvoicePDF(makeInvoice({ status: 'draft' }));
+    expect(mockTextCalls).not.toContain('DRAFT');
+    expect(mockTextCalls).not.toContain('Status:');
+
+    mockTextCalls.length = 0;
     await generateInvoicePDF(makeInvoice({ status: 'sent' }));
-    expect(mockTextCalls).toContain('SENT');
+    expect(mockTextCalls).not.toContain('SENT');
+    expect(mockTextCalls).not.toContain('Status:');
+  });
+
+  it('shows PAID status on customer PDF', async () => {
+    await generateInvoicePDF(makeInvoice({ status: 'paid' }));
+    expect(mockTextCalls).toContain('Status:');
+    expect(mockTextCalls).toContain('PAID');
+  });
+
+  it('shows OVERDUE status on customer PDF', async () => {
+    await generateInvoicePDF(makeInvoice({ status: 'overdue' }));
+    expect(mockTextCalls).toContain('Status:');
+    expect(mockTextCalls).toContain('OVERDUE');
   });
 
   it('includes company name when provided', async () => {

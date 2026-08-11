@@ -16,6 +16,27 @@ jest.mock('../../services/invoices.js', () => ({
   },
 }));
 
+// documents service pulls ESM uuid — mock so public routes load in Jest
+jest.mock('../../services/documents.js', () => ({
+  __esModule: true,
+  DOCUMENT_DISCLAIMER: 'Disclaimer',
+  default: {
+    listDocumentsForInvoice: jest.fn().mockResolvedValue([]),
+    getDocument: jest.fn(),
+    getDocumentsUploadDir: jest.fn().mockReturnValue('/tmp'),
+  },
+}));
+
+jest.mock('../../services/stripe.js', () => ({
+  __esModule: true,
+  getOrCreateInvoicePaymentLink: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../../utils/path-safe.js', () => ({
+  __esModule: true,
+  isPathInside: jest.fn().mockReturnValue(true),
+}));
+
 jest.mock('../../config/index.js', () => ({
   config: { appName: 'BossBoard', port: 29001 },
 }));
@@ -171,6 +192,32 @@ describe('Public Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('OVERDUE');
+    });
+
+    it('should not show DRAFT or SENT status to customers', async () => {
+      mockGetInvoiceByShareToken.mockResolvedValue({
+        ...mockInvoice,
+        status: 'draft',
+      });
+
+      const draftRes = await request(app).get(
+        '/api/v1/public/invoices/validtoken12345678'
+      );
+      expect(draftRes.status).toBe(200);
+      expect(draftRes.text).not.toContain('DRAFT');
+
+      mockGetInvoiceByShareToken.mockResolvedValue({
+        ...mockInvoice,
+        status: 'sent',
+      });
+      const sentRes = await request(app).get(
+        '/api/v1/public/invoices/validtoken12345678'
+      );
+      expect(sentRes.status).toBe(200);
+      expect(sentRes.text).not.toContain('DRAFT');
+      // SENT badge must not appear; invoice content still renders
+      expect(sentRes.text).not.toMatch(/class="status[^"]*"[^>]*>SENT</);
+      expect(sentRes.text).toContain('INV-0001');
     });
 
     it('should return 404 HTML page when invoice not found', async () => {

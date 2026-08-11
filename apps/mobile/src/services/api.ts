@@ -875,4 +875,35 @@ export const feedbackApi = {
   }) => api.post('/api/v1/feedback', payload),
 };
 
+// =============================================================================
+// REFERRALS API — SaaS free-month friend invite
+// =============================================================================
+
+export type ReferralMe = {
+  eligible: boolean;
+  code: string | null;
+  shareUrl: string | null;
+  freeMonthsBalance: number;
+  pendingReferralCode: string | null;
+  stats: { pending: number; activated: number };
+  offerCopy: string;
+};
+
+export const referralsApi = {
+  me: () =>
+    api.get<{ success: boolean; data: ReferralMe }>('/api/v1/referrals/me'),
+
+  attach: (code: string) =>
+    api.post<{ success: boolean; data: { code: string; status: string }; message?: string }>(
+      '/api/v1/referrals/attach',
+      { code }
+    ),
+
+  lookup: (code: string) =>
+    api.get<{
+      success: boolean;
+      data: { code: string; referrerName: string | null; offerCopy: string };
+    }>(`/api/v1/referrals/lookup/${encodeURIComponent(code)}`),
+};
+
 export default api;
