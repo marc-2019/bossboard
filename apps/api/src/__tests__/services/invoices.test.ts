@@ -707,8 +707,10 @@ describe('getInvoiceStats', () => {
 describe('generateShareToken', () => {
   it('generates and persists a new 64-char hex token', async () => {
     mockDbQuery
-      .mockResolvedValueOnce({ rows: [{ id: 'inv-uuid-1', share_token: null }] }) // no existing token
-      .mockResolvedValueOnce({ rowCount: 1 });                                     // UPDATE
+      .mockResolvedValueOnce({
+        rows: [{ id: 'inv-uuid-1', share_token: null, status: 'sent' }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 }); // UPDATE share_token
 
     const token = await generateShareToken('inv-uuid-1', 'user-1');
 
@@ -717,10 +719,25 @@ describe('generateShareToken', () => {
     expect(mockDbQuery).toHaveBeenCalledTimes(2);
   });
 
+  it('marks draft as sent when creating a share link', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 'inv-uuid-1', share_token: null, status: 'draft' }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 }) // draft → sent
+      .mockResolvedValueOnce({ rowCount: 1 }); // share_token
+
+    const token = await generateShareToken('inv-uuid-1', 'user-1');
+    expect(token).not.toBeNull();
+    expect(mockDbQuery).toHaveBeenCalledTimes(3);
+    const markSentSql = String(mockDbQuery.mock.calls[1][0]);
+    expect(markSentSql).toMatch(/status = 'sent'/);
+  });
+
   it('returns the existing token without re-generating', async () => {
     const existingToken = 'a'.repeat(64);
     mockDbQuery.mockResolvedValueOnce({
-      rows: [{ id: 'inv-uuid-1', share_token: existingToken }],
+      rows: [{ id: 'inv-uuid-1', share_token: existingToken, status: 'sent' }],
     });
 
     const token = await generateShareToken('inv-uuid-1', 'user-1');
@@ -728,6 +745,19 @@ describe('generateShareToken', () => {
     expect(token).toBe(existingToken);
     // Should NOT call UPDATE (only one DB call)
     expect(mockDbQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks existing-token draft as sent without re-generating token', async () => {
+    const existingToken = 'b'.repeat(64);
+    mockDbQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 'inv-uuid-1', share_token: existingToken, status: 'draft' }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 }); // draft → sent
+
+    const token = await generateShareToken('inv-uuid-1', 'user-1');
+    expect(token).toBe(existingToken);
+    expect(mockDbQuery).toHaveBeenCalledTimes(2);
   });
 
   it('returns null when invoice not found or belongs to another user', async () => {

@@ -250,10 +250,12 @@ export const invoicesClient = {
     ),
 
   share: (id: string) =>
-    clientFetch<{ shareToken: string; shareUrl: string }>(
-      `/api/invoices/${id}/share`,
-      { method: 'POST' },
-    ),
+    clientFetch<{
+      shareToken?: string;
+      token?: string;
+      shareUrl: string;
+      invoice?: import('@bossboard/shared').Invoice;
+    }>(`/api/invoices/${id}/share`, { method: 'POST' }),
 
   /** Returns the absolute URL for the PDF download endpoint. The browser
    *  fetches the PDF directly via this URL so it triggers the native

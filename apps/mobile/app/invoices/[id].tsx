@@ -319,13 +319,27 @@ export default function InvoiceDetailScreen() {
     try {
       const response = await invoicesApi.generateShareLink(id);
       if (response.data.success) {
-        const { shareUrl } = response.data.data;
+        const payload = response.data.data as {
+          shareUrl: string;
+          invoice?: { status?: string };
+        };
+        const { shareUrl } = payload;
+        // API auto-marks draft → sent on client share handoff
+        if (payload.invoice?.status) {
+          setInvoice({
+            ...invoice,
+            status: payload.invoice.status as typeof invoice.status,
+          });
+        } else if (invoice.status === 'draft') {
+          setInvoice({ ...invoice, status: 'sent' });
+        }
         const message = `Invoice ${invoice.invoice_number} from ${invoice.company_name || 'BossBoard'}\nTotal: ${formatCurrency(invoice.total)}\n\nView invoice: ${shareUrl}`;
 
         await Share.share({
           message,
           url: shareUrl,
         });
+        void maybePromptReferralAfterInvoiceSend();
       }
     } catch (error) {
       console.error('Failed to generate share link:', error);

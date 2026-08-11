@@ -893,16 +893,31 @@ export async function getInvoiceStats(userId: string): Promise<{
 }
 
 /**
- * Generate a share token for an invoice (for public shareable link)
+ * Generate a share token for an invoice (for public shareable link).
+ * Sharing a draft auto-marks it as **sent** (same idea as email) so the
+ * tradie’s workflow matches a real client-facing handoff.
  */
 export async function generateShareToken(invoiceId: string, userId: string): Promise<string | null> {
   // First check invoice exists and belongs to user
-  const existing = await db.query<{ id: string; share_token: string | null }>(
-    'SELECT id, share_token FROM invoices WHERE id = $1 AND user_id = $2',
+  const existing = await db.query<{
+    id: string;
+    share_token: string | null;
+    status: string;
+  }>(
+    'SELECT id, share_token, status FROM invoices WHERE id = $1 AND user_id = $2',
     [invoiceId, userId]
   );
 
   if (existing.rows.length === 0) return null;
+
+  // Public share = client handoff: draft → sent (email path already does this)
+  if (existing.rows[0].status === 'draft') {
+    await db.query(
+      `UPDATE invoices SET status = 'sent', updated_at = NOW()
+       WHERE id = $1 AND user_id = $2 AND status = 'draft'`,
+      [invoiceId, userId]
+    );
+  }
 
   // Return existing token if already generated
   if (existing.rows[0].share_token) {
@@ -913,7 +928,7 @@ export async function generateShareToken(invoiceId: string, userId: string): Pro
   const token = crypto.randomBytes(32).toString('hex');
 
   await db.query(
-    'UPDATE invoices SET share_token = $1 WHERE id = $2 AND user_id = $3',
+    'UPDATE invoices SET share_token = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
     [token, invoiceId, userId]
   );
 
