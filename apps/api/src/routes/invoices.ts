@@ -484,9 +484,12 @@ router.post('/:id/share', authenticate, async (req: Request, res: Response, next
     const baseUrl = process.env.API_BASE_URL || `http://localhost:${config.port}`;
     const shareUrl = `${baseUrl}/api/v1/public/invoices/${token}`;
 
+    // Refresh invoice so clients see draft → sent after share handoff
+    const invoice = await invoicesService.getInvoiceById(id, req.user!.userId);
+
     res.json({
       success: true,
-      data: { shareUrl, token },
+      data: { shareUrl, token, invoice },
       message: 'Share link generated',
     });
   } catch (error) {

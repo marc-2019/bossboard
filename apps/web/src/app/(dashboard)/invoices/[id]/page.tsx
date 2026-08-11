@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
 import { invoicesClient, recurringInvoicesClient, ApiError } from '@/lib/api-client';
+import { maybePromptReferralAfterInvoiceSend } from '@/lib/referral-share';
 import { PhotoUploader } from '@/components/ui/photo-uploader';
 import type { Invoice } from '@bossboard/shared';
 import {
@@ -94,6 +95,7 @@ export default function InvoiceDetailPage() {
     name: string,
     fn: () => Promise<{ invoice: Invoice }>,
     successMsg: string,
+    opts?: { promptReferral?: boolean },
   ) => {
     if (!id || actionBusy) return;
     setActionBusy(name);
@@ -103,6 +105,9 @@ export default function InvoiceDetailPage() {
       const data = await fn();
       setInvoice(data.invoice);
       setActionMessage(successMsg);
+      if (opts?.promptReferral) {
+        void maybePromptReferralAfterInvoiceSend();
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : `Could not ${name}.`);
     } finally {
@@ -111,7 +116,12 @@ export default function InvoiceDetailPage() {
   };
 
   const onMarkSent = () =>
-    runAction('mark as sent', () => invoicesClient.markSent(id!), 'Invoice marked as sent.');
+    runAction(
+      'mark as sent',
+      () => invoicesClient.markSent(id!),
+      'Invoice marked as sent.',
+      { promptReferral: true },
+    );
 
   const onMarkPaid = () =>
     runAction('mark as paid', () => invoicesClient.markPaid(id!), 'Invoice marked as paid.');
@@ -181,6 +191,7 @@ export default function InvoiceDetailPage() {
       setActionMessage(`Invoice emailed to ${recipient.trim()}.${bccNote}`);
       setEmailFormOpen(false);
       setCustomMessage('');
+      void maybePromptReferralAfterInvoiceSend();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not email invoice.');
     } finally {
@@ -205,9 +216,17 @@ export default function InvoiceDetailPage() {
   const onShare = async () => {
     if (!id || shareBusy) return;
     setShareBusy(true);
+    setError(null);
     try {
       const data = await invoicesClient.share(id);
       setShareUrl(data.shareUrl);
+      // API auto-marks draft → sent on first client share
+      if (data.invoice) {
+        setInvoice(data.invoice);
+      } else if (invoice?.status === 'draft') {
+        setInvoice({ ...invoice, status: 'sent' });
+      }
+      setActionMessage('Client share link ready. Draft invoices are marked as sent when shared.');
       try {
         await navigator.clipboard.writeText(data.shareUrl);
         setCopied(true);
@@ -216,6 +235,7 @@ export default function InvoiceDetailPage() {
         // Clipboard may be blocked (insecure origin / no permission).
         // The URL is still shown in the panel for manual copy.
       }
+      void maybePromptReferralAfterInvoiceSend();
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setError(err.message);

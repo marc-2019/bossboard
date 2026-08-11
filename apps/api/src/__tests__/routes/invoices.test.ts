@@ -302,12 +302,14 @@ describe('Invoice Routes', () => {
   describe('POST /api/v1/invoices/:id/share', () => {
     it('should generate a shareable link', async () => {
       mockGenerateShareToken.mockResolvedValue('share-token-123');
+      mockGetInvoiceById.mockResolvedValue({ id: 'inv-1', status: 'sent' });
 
       const response = await request(app).post('/api/v1/invoices/inv-1/share');
 
       expect(response.status).toBe(200);
       expect(response.body.data.token).toBe('share-token-123');
       expect(response.body.data.shareUrl).toContain('share-token-123');
+      expect(response.body.data.invoice?.status).toBe('sent');
     });
 
     it('should return 404 when invoice not found', async () => {
