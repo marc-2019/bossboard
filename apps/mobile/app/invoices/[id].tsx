@@ -60,7 +60,8 @@ interface Invoice {
 }
 
 export default function InvoiceDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string | string[] }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,14 +72,33 @@ export default function InvoiceDetailScreen() {
   }, [id]);
 
   async function loadInvoice() {
+    if (!id) {
+      setIsLoading(false);
+      Alert.alert('Error', 'Missing invoice id');
+      return;
+    }
     try {
       const response = await invoicesApi.get(id);
-      if (response.data.success) {
-        setInvoice(response.data.data.invoice);
+      if (response.data.success && response.data.data?.invoice) {
+        const inv = response.data.data.invoice as Invoice;
+        // Guard render: never crash on missing line_items
+        if (!Array.isArray(inv.line_items)) {
+          inv.line_items = [];
+        }
+        setInvoice(inv);
+      } else {
+        Alert.alert('Error', 'Invoice not found or could not be loaded');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to load invoice:', error);
-      Alert.alert('Error', 'Failed to load invoice');
+      const err = error as { message?: string; status?: number; code?: string };
+      const detail =
+        err?.message && err.message !== 'API request failed'
+          ? err.message
+          : err?.status
+            ? `Request failed (${err.status}${err.code ? ` ${err.code}` : ''})`
+            : 'Failed to load invoice';
+      Alert.alert('Error', detail);
     } finally {
       setIsLoading(false);
     }
@@ -435,7 +455,7 @@ export default function InvoiceDetailScreen() {
       {/* Line Items */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Items</Text>
-        {invoice.line_items.map((item) => (
+        {(invoice.line_items || []).map((item) => (
           <View key={item.id} style={styles.lineItem}>
             <Text style={styles.lineItemDescription}>{item.description}</Text>
             <Text style={styles.lineItemAmount}>{formatCurrency(item.amount)}</Text>

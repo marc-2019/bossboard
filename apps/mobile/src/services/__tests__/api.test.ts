@@ -11,6 +11,13 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+jest.mock('expo-secure-store', () => ({
+  __esModule: true,
+  getItemAsync: jest.fn(async () => null),
+  setItemAsync: jest.fn(async () => undefined),
+  deleteItemAsync: jest.fn(async () => undefined),
+}));
+
 import {
   api,
   setAuthToken,
