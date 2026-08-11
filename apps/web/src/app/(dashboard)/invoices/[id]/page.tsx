@@ -41,6 +41,13 @@ function formatCents(cents: number): string {
   return nzd.format(cents / 100);
 }
 
+/** Never show field-encryption ciphertext on customer-facing pay details. */
+function displayBankField(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.startsWith('enc:v1:')) return null;
+  return value;
+}
+
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -589,19 +596,49 @@ export default function InvoiceDetailPage() {
         </div>
       </Card>
 
-      {(invoice.bankAccountName || invoice.bankAccountNumber) && (
-        <Card>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Pay to
-          </h2>
-          {invoice.bankAccountName && (
-            <p className="text-sm text-gray-800">{invoice.bankAccountName}</p>
-          )}
-          {invoice.bankAccountNumber && (
-            <p className="text-sm font-mono text-gray-800">{invoice.bankAccountNumber}</p>
-          )}
-        </Card>
-      )}
+      {(() => {
+        const payName = displayBankField(invoice.bankAccountName);
+        const payNumber = displayBankField(invoice.bankAccountNumber);
+        const rawBroken =
+          (!!invoice.bankAccountName &&
+            invoice.bankAccountName.startsWith('enc:v1:')) ||
+          (!!invoice.bankAccountNumber &&
+            invoice.bankAccountNumber.startsWith('enc:v1:'));
+        if (payName || payNumber) {
+          return (
+            <Card>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Pay to
+              </h2>
+              {payName && (
+                <p className="text-sm text-gray-800">{payName}</p>
+              )}
+              {payNumber && (
+                <p className="text-sm font-mono text-gray-800">{payNumber}</p>
+              )}
+            </Card>
+          );
+        }
+        if (rawBroken) {
+          return (
+            <Card className="border-amber-300 bg-amber-50/50">
+              <h2 className="text-sm font-semibold text-amber-900 uppercase tracking-wide mb-2">
+                Pay to
+              </h2>
+              <p className="text-sm text-amber-950 mb-2">
+                Payment account details could not be shown (a display bug with
+                encrypted bank fields). Hard-refresh this page. If they still
+                look wrong, open{' '}
+                <Link href="/settings" className="underline font-medium">
+                  Settings → bank details
+                </Link>
+                , save once, then re-open this invoice.
+              </p>
+            </Card>
+          );
+        }
+        return null;
+      })()}
 
       {invoice.internalMemo && (
         <Card className="border-amber-200 bg-amber-50/40">

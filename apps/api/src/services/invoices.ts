@@ -17,7 +17,12 @@ import {
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
-import { decryptForDisplay, encryptField } from '../utils/field-crypto.js';
+import {
+  decryptForDisplay,
+  decryptField,
+  encryptField,
+  isEncryptedValue,
+} from '../utils/field-crypto.js';
 
 const GST_RATE = 0.15; // NZ GST rate
 
@@ -438,7 +443,117 @@ export async function getInvoiceByIdRaw(
     return null;
   }
 
-  return transformInvoice(result.rows[0]);
+  const row = result.rows[0];
+  // Self-heal: if bank/PII still look encrypted after decrypt attempt fails,
+  // re-copy plaintext from business profile and re-encrypt for storage.
+  await maybeRepairEncryptedBankFields(row, userId);
+  return transformInvoice(row);
+}
+
+/**
+ * When invoice rows hold enc:v1:… bank details (legacy copy-from-profile bugs),
+ * rewrite them from the business profile so PDF/email/UI show real account info.
+ */
+async function maybeRepairEncryptedBankFields(
+  row: Record<string, unknown>,
+  userId: string,
+): Promise<void> {
+  const bankCols = [
+    'bank_account_name',
+    'bank_account_number',
+    'intl_bank_account_name',
+    'intl_iban',
+    'intl_swift_bic',
+    'intl_bank_name',
+    'intl_bank_address',
+    'company_address',
+    'ird_number',
+    'gst_number',
+  ] as const;
+
+  const needsRepair = bankCols.some((c) =>
+    isEncryptedValue(row[c] as string | null),
+  );
+  if (!needsRepair) return;
+
+  // Prefer decrypting existing invoice values
+  const repaired: Record<string, string | null> = {};
+  let anyDecrypted = false;
+  for (const c of bankCols) {
+    const raw = row[c] as string | null;
+    if (!isEncryptedValue(raw)) {
+      repaired[c] = raw;
+      continue;
+    }
+    const plain = decryptField(raw);
+    if (plain) {
+      repaired[c] = plain;
+      anyDecrypted = true;
+    } else {
+      repaired[c] = null;
+    }
+  }
+
+  // Fill gaps from business profile
+  if (
+    !repaired.bank_account_name ||
+    !repaired.bank_account_number ||
+    !anyDecrypted
+  ) {
+    try {
+      const profile = await getBankDetailsForInvoice(userId);
+      if (profile) {
+        repaired.bank_account_name =
+          repaired.bank_account_name || profile.bankAccountName;
+        repaired.bank_account_number =
+          repaired.bank_account_number || profile.bankAccountNumber;
+        repaired.intl_bank_account_name =
+          repaired.intl_bank_account_name || profile.intlBankAccountName;
+        repaired.intl_iban = repaired.intl_iban || profile.intlIban;
+        repaired.intl_swift_bic =
+          repaired.intl_swift_bic || profile.intlSwiftBic;
+        repaired.intl_bank_name =
+          repaired.intl_bank_name || profile.intlBankName;
+        repaired.intl_bank_address =
+          repaired.intl_bank_address || profile.intlBankAddress;
+        repaired.company_address =
+          repaired.company_address || profile.companyAddress;
+        repaired.ird_number = repaired.ird_number || profile.irdNumber;
+        repaired.gst_number = repaired.gst_number || profile.gstNumber;
+      }
+    } catch {
+      /* profile optional */
+    }
+  }
+
+  // Persist re-encrypted values + update row in-memory for this request
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  let i = 1;
+  for (const c of bankCols) {
+    if (repaired[c] === undefined) continue;
+    const plain = repaired[c];
+    // Never write ciphertext back as if it were plain
+    if (plain && isEncryptedValue(plain)) continue;
+    const stored = plain ? encryptField(plain) : null;
+    sets.push(`${c} = $${i++}`);
+    vals.push(stored);
+    row[c] = stored;
+  }
+  if (sets.length === 0) return;
+  vals.push(row.id, userId);
+  try {
+    await db.query(
+      `UPDATE invoices SET ${sets.join(', ')}, updated_at = NOW()
+       WHERE id = $${i++} AND user_id = $${i}`,
+      vals,
+    );
+  } catch (err) {
+    console.error(
+      '[invoices] bank field repair failed:',
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 /**
