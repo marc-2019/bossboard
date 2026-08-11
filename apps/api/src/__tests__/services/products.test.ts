@@ -61,9 +61,10 @@ describe('createProduct', () => {
     expect(result.unit_price).toBe(9500);
     expect(result.is_gst_applicable).toBe(false);
     const params = mockDbQuery.mock.calls[0][1] as unknown[];
-    // id, userId, name, desc, unitPrice, unitCost, margin%, type, isGst
-    expect(params[7]).toBe('variable'); // type
-    expect(params[8]).toBe(false); // isGstApplicable explicit
+    // id, userId, name, desc, unitPrice, unitCost, unitCostIsAnnual, margin%, type, isGst
+    expect(params[6]).toBe(false); // unitCostIsAnnual default
+    expect(params[8]).toBe('variable'); // type
+    expect(params[9]).toBe(false); // isGstApplicable explicit
   });
 
   it('defaults type to fixed and isGstApplicable to true', async () => {
@@ -71,8 +72,9 @@ describe('createProduct', () => {
     await createProduct('user-1', { name: 'Callout fee', unitPrice: 9500 });
     const params = mockDbQuery.mock.calls[0][1] as unknown[];
     expect(params[3]).toBeNull(); // description default
-    expect(params[7]).toBe('fixed');
-    expect(params[8]).toBe(true);
+    expect(params[6]).toBe(false); // unitCostIsAnnual
+    expect(params[8]).toBe('fixed');
+    expect(params[9]).toBe(true);
   });
 });
 
