@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import * as SecureStore from '../utils/storage';
-import { api, setAuthToken, notificationsApi } from '../services/api';
+import { api, authApi, setAuthToken, notificationsApi, NetworkError, TimeoutError, ApiError } from '../services/api';
 
 interface User {
   id: string;
@@ -131,18 +131,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    const response = await api.post('/api/v1/auth/login', { email, password });
+    const trimmedEmail = email.trim().toLowerCase();
 
-    if (!response.data.success) {
-      throw new Error(response.data.message || 'Login failed');
+    try {
+      const response = await authApi.login({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Login failed');
+      }
+
+      const { user: userData, tokens } = response.data.data;
+
+      await storeTokens(tokens.accessToken, tokens.refreshToken);
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(userData));
+      setAuthToken(tokens.accessToken);
+      setUser(userData);
+    } catch (error) {
+      // Surface actionable copy for App Review / users (Guideline 2.1(a))
+      if (error instanceof NetworkError) {
+        throw new Error(
+          error.message ||
+            'Cannot reach BossBoard servers. Confirm internet access and try again.'
+        );
+      }
+      if (error instanceof TimeoutError) {
+        throw new Error('Login timed out. Please try again on a stable connection.');
+      }
+      if (error instanceof ApiError) {
+        throw new Error(error.message || 'Login failed');
+      }
+      throw error;
     }
-
-    const { user: userData, tokens } = response.data.data;
-
-    await storeTokens(tokens.accessToken, tokens.refreshToken);
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(userData));
-    setAuthToken(tokens.accessToken);
-    setUser(userData);
   }
 
   async function register(data: RegisterData): Promise<string> {

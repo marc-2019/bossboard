@@ -36,17 +36,49 @@ jest.mock('../../utils/storage', () => ({
   deleteItemAsync: jest.fn(),
 }));
 
-jest.mock('../../services/api', () => ({
-  api: {
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-  },
-  setAuthToken: jest.fn(),
-  notificationsApi: {
-    removePushToken: jest.fn(),
-  },
-}));
+jest.mock('../../services/api', () => {
+  class NetworkError extends Error {
+    code: string;
+    constructor(message: string, code = 'NETWORK_ERROR') {
+      super(message);
+      this.name = 'NetworkError';
+      this.code = code;
+    }
+  }
+  class TimeoutError extends Error {
+    constructor(message = 'Request timeout') {
+      super(message);
+      this.name = 'TimeoutError';
+    }
+  }
+  class ApiError extends Error {
+    status: number;
+    code: string;
+    constructor(message: string, status: number, code = 'API_ERROR') {
+      super(message);
+      this.name = 'ApiError';
+      this.status = status;
+      this.code = code;
+    }
+  }
+  return {
+    api: {
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+    },
+    authApi: {
+      login: jest.fn(),
+    },
+    setAuthToken: jest.fn(),
+    notificationsApi: {
+      removePushToken: jest.fn(),
+    },
+    NetworkError,
+    TimeoutError,
+    ApiError,
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Import subject under test (after mocks)
@@ -54,7 +86,7 @@ jest.mock('../../services/api', () => ({
 
 import { AuthProvider, useAuth } from '../AuthContext';
 import * as storage from '../../utils/storage';
-import { api, setAuthToken, notificationsApi } from '../../services/api';
+import { api, authApi, setAuthToken, notificationsApi } from '../../services/api';
 
 // Typed accessors to the mocks
 const mockGetItem = storage.getItemAsync as jest.Mock;
@@ -63,6 +95,7 @@ const mockDeleteItem = storage.deleteItemAsync as jest.Mock;
 const mockApiGet = (api as any).get as jest.Mock;
 const mockApiPost = (api as any).post as jest.Mock;
 const mockApiPut = (api as any).put as jest.Mock;
+const mockAuthLogin = (authApi as any).login as jest.Mock;
 const mockSetAuthToken = setAuthToken as jest.Mock;
 const mockRemovePushToken = (notificationsApi as any).removePushToken as jest.Mock;
 
@@ -231,7 +264,7 @@ describe('AuthContext', () => {
       const { result } = renderHook(() => useAuth(), { wrapper });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      mockApiPost.mockResolvedValueOnce(ok({ user: baseUser, tokens: baseTokens }));
+      mockAuthLogin.mockResolvedValueOnce(ok({ user: baseUser, tokens: baseTokens }));
 
       await act(async () => {
         await result.current.login('test@example.com', 'password123');
@@ -242,13 +275,17 @@ describe('AuthContext', () => {
       expect(mockStore[TOKEN_KEY]).toBe(baseTokens.accessToken);
       expect(mockStore[REFRESH_KEY]).toBe(baseTokens.refreshToken);
       expect(mockSetAuthToken).toHaveBeenCalledWith(baseTokens.accessToken);
+      expect(mockAuthLogin).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123',
+      });
     });
 
     it('throws on API success: false response', async () => {
       const { result } = renderHook(() => useAuth(), { wrapper });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      mockApiPost.mockResolvedValueOnce(fail('Invalid credentials'));
+      mockAuthLogin.mockResolvedValueOnce(fail('Invalid credentials'));
 
       await expect(
         act(async () => result.current.login('bad@example.com', 'wrong'))
@@ -261,7 +298,7 @@ describe('AuthContext', () => {
       const { result } = renderHook(() => useAuth(), { wrapper });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      mockApiPost.mockRejectedValueOnce(new Error('Network error'));
+      mockAuthLogin.mockRejectedValueOnce(new Error('Network error'));
 
       await expect(
         act(async () => result.current.login('test@example.com', 'pass'))

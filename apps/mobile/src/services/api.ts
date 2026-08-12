@@ -6,10 +6,50 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-// Get API URL from environment variable (set via eas.json per build profile)
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
-  || Constants.expoConfig?.extra?.apiUrl
-  || 'http://localhost:29000';
+/**
+ * Production API must never silently fall back to localhost.
+ * Apple review (and real devices) report that as a "network connection" failure
+ * while Wi‑Fi shows connected — classic Guideline 2.1 false-negative.
+ *
+ * Resolution order:
+ *  1. EXPO_PUBLIC_API_URL (eas.json build profile)
+ *  2. app.json / app.config extra.apiUrl
+ *  3. __DEV__ → local API; release → production
+ */
+const PRODUCTION_API_URL = 'https://api.instilligent.com';
+const DEV_API_URL = 'http://localhost:29000';
+
+function resolveApiBaseUrl(): string {
+  const fromEnv = (process.env.EXPO_PUBLIC_API_URL || '').trim();
+  const fromExtra = String(
+    (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl || ''
+  ).trim();
+  const candidate = fromEnv || fromExtra;
+
+  if (candidate) {
+    // Guard: never ship a release binary that points at loopback
+    if (
+      !__DEV__ &&
+      (/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(candidate) ||
+        candidate.startsWith('http://192.168.'))
+    ) {
+      console.warn(
+        `[API] Ignoring non-public API URL in release build: ${candidate} → ${PRODUCTION_API_URL}`
+      );
+      return PRODUCTION_API_URL;
+    }
+    return candidate.replace(/\/$/, '');
+  }
+
+  return __DEV__ ? DEV_API_URL : PRODUCTION_API_URL;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+/** Exposed for diagnostics / support screens */
+export function getApiBaseUrl(): string {
+  return API_BASE_URL;
+}
 
 const REFRESH_KEY = 'bossboard_refresh_token';
 const TOKEN_KEY = 'bossboard_access_token';
@@ -239,16 +279,22 @@ async function request<T = any>(
         throw error;
       }
 
-      // Network/fetch errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new NetworkError('Network request failed - check internet connection', 'NETWORK_ERROR');
+      // React Native fetch failures: TypeError "Network request failed" (often no "fetch" substring)
+      const msg = error instanceof Error ? error.message : String(error);
+      const isRnNetworkFail =
+        error instanceof TypeError ||
+        /network request failed|failed to fetch|could not connect|timed out|The Internet connection appears to be offline/i.test(
+          msg
+        );
+
+      if (isRnNetworkFail) {
+        throw new NetworkError(
+          `Cannot reach BossBoard servers (${API_BASE_URL}). Check Wi‑Fi/cellular, or try again in a moment.`,
+          'NETWORK_ERROR'
+        );
       }
 
-      // Unknown error
-      throw new NetworkError(
-        error instanceof Error ? error.message : 'Unknown error occurred',
-        'UNKNOWN_ERROR'
-      );
+      throw new NetworkError(msg || 'Unknown error occurred', 'UNKNOWN_ERROR');
     }
   };
 
@@ -332,8 +378,16 @@ export const authApi = {
   register: (data: { email: string; password: string; name?: string; phone?: string; tradeType?: string; businessName?: string }) =>
     api.post('/api/v1/auth/register', data),
 
+  /** Login: longer timeout, limited retries — avoids multi-minute "network" spin on Apple review. */
   login: (data: { email: string; password: string }) =>
-    api.post('/api/v1/auth/login', data),
+    request('/api/v1/auth/login', {
+      method: 'POST',
+      body: data,
+      timeout: 45_000,
+      retries: 2,
+      retryDelay: 800,
+      skipRetryOn: [400, 401, 403, 404, 422, 429],
+    }),
 
   refreshToken: (refreshToken: string) =>
     api.post('/api/v1/auth/refresh', { refreshToken }),
