@@ -77,7 +77,6 @@
         "sku": "nz.instilligent.bossboard",
         "language": "en-NZ",
         "companyName": "Instilligent Limited",
-        "ascApiKeyPath": "/home/marc/.eas/keys/AuthKey_HWW83C8VGS.p8",
         "ascApiKeyId": "HWW83C8VGS",
         "ascApiKeyIssuerId": "69a6de88-9efd-47e3-e053-5b8c7c11a4d1"
       },

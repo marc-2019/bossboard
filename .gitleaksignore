@@ -12,3 +12,4 @@
 # Purging it from history requires a Marc-owned git filter-repo + force-push,
 # which is out of scope for autonomous remediation. Accepted as a dead value.
 9d2a49ebf8b5eaeba177a5c477ad123cf748f1d2:.claude/settings.local.json:jwt:25
+f29b8241c78794ceddb84ff662b639abc53a17e9:apps/mobile/eas.json:generic-api-key:82
