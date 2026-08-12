@@ -17,7 +17,9 @@
     "export:web": "expo export --platform web",
     "e2e:install-maestro": "curl -Ls 'https://get.maestro.mobile.dev' | bash",
     "e2e:mobile": "maestro test .maestro/",
-    "e2e:mobile:single": "maestro test"
+    "e2e:mobile:single": "maestro test",
+    "eas-build-post-install": "node ./scripts/eas-patch-rniap-podspec.js && npm run build --workspace=@bossboard/shared --prefix ../..",
+    "postinstall": "node ./scripts/eas-patch-rniap-podspec.js"
   },
   "dependencies": {
     "@bossboard/shared": "*",

@@ -7,7 +7,9 @@
     "base": {
       "node": "20.19.4",
       "env": {
-        "APP_ENV": "production"
+        "APP_ENV": "production",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_ALLOW_FAILURE": "true"
       }
     },
     "development": {
@@ -38,7 +40,9 @@
       "env": {
         "APP_ENV": "preview",
         "EXPO_PUBLIC_API_URL": "https://api.instilligent.com",
-        "EXPO_PUBLIC_IAP_ENABLED": "true"
+        "EXPO_PUBLIC_IAP_ENABLED": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "channel": "preview"
     },
@@ -57,7 +61,9 @@
       "env": {
         "APP_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://api.instilligent.com",
-        "EXPO_PUBLIC_IAP_ENABLED": "true"
+        "EXPO_PUBLIC_IAP_ENABLED": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "channel": "production"
     }
@@ -70,7 +76,10 @@
         "appleTeamId": "9735SSXD8B",
         "sku": "nz.instilligent.bossboard",
         "language": "en-NZ",
-        "companyName": "Instilligent Limited"
+        "companyName": "Instilligent Limited",
+        "ascApiKeyPath": "/home/marc/.eas/keys/AuthKey_HWW83C8VGS.p8",
+        "ascApiKeyId": "HWW83C8VGS",
+        "ascApiKeyIssuerId": "69a6de88-9efd-47e3-e053-5b8c7c11a4d1"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
@@ -96,4 +105,3 @@
     }
   }
 }
-
