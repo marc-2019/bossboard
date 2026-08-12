@@ -260,6 +260,8 @@ export default function InvoiceDetailScreen() {
       } else {
         Alert.alert('Success', 'PDF saved to ' + download.uri);
       }
+      // Tradie-facing only — never on the PDF itself
+      void maybePromptReferralAfterInvoiceSend();
     } catch (error) {
       console.error('Failed to download PDF:', error);
       Alert.alert('Error', 'Failed to download invoice PDF');
