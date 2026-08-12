@@ -411,6 +411,22 @@ export const quotesClient = {
       await clientFetch<unknown>(`/api/quotes/${id}/convert`, { method: 'POST' }),
     ),
 
+  markAsSent: async (id: string) =>
+    deepCamelize<QuoteEnvelope>(
+      await clientFetch<unknown>(`/api/quotes/${id}/send`, { method: 'POST' }),
+    ),
+
+  email: async (
+    id: string,
+    data: { recipientEmail: string; customMessage?: string },
+  ) =>
+    deepCamelize<QuoteEnvelope & { messageId?: string; bccEmail?: string | null }>(
+      await clientFetch<unknown>(`/api/quotes/${id}/email`, {
+        method: 'POST',
+        body: data,
+      }),
+    ),
+
   /** Absolute URL for the quote PDF download endpoint. */
   pdfUrl: (id: string) => `/api/quotes/${id}/pdf`,
 };

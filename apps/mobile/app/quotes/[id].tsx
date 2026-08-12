@@ -115,23 +115,69 @@ export default function QuoteDetailScreen() {
     return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
-  async function handleMarkAsSent() {
+  async function handleSendToClient() {
     if (!quote) return;
-    Alert.alert('Mark as Sent', 'Mark this quote as sent to the client?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Mark Sent',
-        onPress: async () => {
-          try {
-            const response = await quotesApi.markAsSent(quote.id);
-            const updated = (response.data as any).data?.quote;
-            if (updated) setQuote(updated);
-          } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to update quote');
-          }
+    // Real client send: share the PDF (Messages/Mail/etc), then mark draft → sent.
+    Alert.alert(
+      'Send quote',
+      quote.client_email
+        ? `Share the PDF with ${quote.client_name}, or email it if you use the Email action after this update on web.`
+        : `Share the PDF quote with ${quote.client_name} via the share sheet.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Share PDF',
+          onPress: async () => {
+            try {
+              await handleDownloadPDF();
+              if (quote.status === 'draft') {
+                const response = await quotesApi.markAsSent(quote.id);
+                const updated = (response.data as any).data?.quote;
+                if (updated) setQuote(updated);
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to send quote');
+            }
+          },
         },
-      },
-    ]);
+        ...(quote.status === 'draft'
+          ? [
+              {
+                text: 'Mark sent only',
+                onPress: async () => {
+                  try {
+                    const response = await quotesApi.markAsSent(quote.id);
+                    const updated = (response.data as any).data?.quote;
+                    if (updated) setQuote(updated);
+                  } catch (err: any) {
+                    Alert.alert('Error', err.message || 'Failed to update quote');
+                  }
+                },
+              },
+            ]
+          : []),
+      ]
+    );
+  }
+
+  async function handleEmailQuote() {
+    if (!quote) return;
+    const email = quote.client_email?.trim();
+    if (!email) {
+      Alert.alert(
+        'No client email',
+        'Add a client email on this quote (edit on web, or recreate with email) to send by email.'
+      );
+      return;
+    }
+    try {
+      const response = await quotesApi.email(quote.id, { recipientEmail: email });
+      const updated = (response.data as any).data?.quote;
+      if (updated) setQuote(updated);
+      Alert.alert('Sent', `Quote emailed to ${email}`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to email quote');
+    }
   }
 
   async function handleMarkAsAccepted() {
@@ -489,30 +535,31 @@ export default function QuoteDetailScreen() {
           </View>
         )}
 
-        {/* Photos */}
+        {/* Photos — attach while draft/sent (auth-backed load so thumbs are tappable) */}
         <View style={styles.card}>
           <PhotoAttachments
             entityType="quote"
             entityId={id!}
-            editable={quote.status === 'draft'}
+            editable={quote.status === 'draft' || quote.status === 'sent'}
           />
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          {/* Draft: Send + Edit */}
-          {quote.status === 'draft' && (
+          {/* Draft / sent: real send paths */}
+          {(quote.status === 'draft' || quote.status === 'sent') && (
             <>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleMarkAsSent}>
-                <Ionicons name="send-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.primaryButtonText}>Mark as Sent</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => Alert.alert('Edit', 'Edit functionality coming soon')}
-              >
-                <Ionicons name="create-outline" size={18} color="#8B5CF6" />
-                <Text style={styles.secondaryButtonText}>Edit Quote</Text>
+              {quote.status === 'draft' && (
+                <TouchableOpacity style={styles.primaryButton} onPress={handleSendToClient}>
+                  <Ionicons name="send-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.primaryButtonText}>Send quote</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.secondaryButton} onPress={handleEmailQuote}>
+                <Ionicons name="mail-outline" size={18} color="#8B5CF6" />
+                <Text style={styles.secondaryButtonText}>
+                  {quote.client_email ? 'Email PDF to client' : 'Email PDF (needs email)'}
+                </Text>
               </TouchableOpacity>
             </>
           )}

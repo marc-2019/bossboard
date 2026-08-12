@@ -7,6 +7,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import quotesService from '../services/quotes.js';
 import pdfService from '../services/pdf.js';
+import emailService from '../services/email.js';
+import { getBusinessProfile } from '../services/business-profile.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, requireFeature } from '../middleware/subscription.js';
 import {
@@ -306,6 +308,103 @@ router.post('/:id/send', authenticate, async (req: Request, res: Response, next:
     next(error);
   }
 });
+
+/**
+ * POST /api/v1/quotes/:id/email
+ * Email quote PDF to client (marks draft → sent)
+ */
+router.post(
+  '/:id/email',
+  authenticate,
+  attachSubscription,
+  requireFeature('emailInvoice'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.params.id as string;
+      const { recipientEmail, customMessage } = req.body as {
+        recipientEmail?: string;
+        customMessage?: string;
+      };
+
+      if (!recipientEmail || !z.string().email().safeParse(recipientEmail).success) {
+        res.status(400).json({
+          success: false,
+          error: 'VALIDATION_ERROR',
+          message: 'A valid recipient email address is required',
+        });
+        return;
+      }
+
+      if (!emailService.isEmailConfigured()) {
+        res.status(503).json({
+          success: false,
+          error: 'EMAIL_NOT_CONFIGURED',
+          message: 'Email sending is not configured. Set RESEND_API_KEY environment variable.',
+        });
+        return;
+      }
+
+      const quote = await quotesService.getQuoteByIdRaw(id, req.user!.userId);
+      if (!quote) {
+        res.status(404).json({
+          success: false,
+          error: 'NOT_FOUND',
+          message: 'Quote not found',
+        });
+        return;
+      }
+
+      if (looksLikeInternalInvoiceNotes(quote.notes)) {
+        res.status(400).json({
+          success: false,
+          error: 'NOTES_NOT_CUSTOMER_READY',
+          message: INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+        });
+        return;
+      }
+
+      const profile = await getBusinessProfile(req.user!.userId);
+      const senderName = (profile?.company_name as string) || '';
+      const bccEmail = emailService.resolveInvoiceBcc({
+        invoiceBccEmail: (profile?.invoice_bcc_email as string) || null,
+        companyEmail: (profile?.company_email as string) || null,
+        userEmail: req.user?.email || null,
+        recipientEmail,
+      });
+
+      const pdfBuffer = await pdfService.generateQuotePDF(quote);
+      const result = await emailService.sendQuoteEmail(
+        quote,
+        pdfBuffer,
+        recipientEmail,
+        senderName,
+        customMessage,
+        bccEmail ? { bcc: bccEmail } : undefined
+      );
+
+      if (quote.status === 'draft') {
+        await quotesService.markAsSent(id, req.user!.userId);
+      }
+
+      const updated = await quotesService.getQuoteById(id, req.user!.userId);
+      const message = bccEmail
+        ? `Quote emailed to ${recipientEmail} (BCC ${bccEmail})`
+        : `Quote emailed to ${recipientEmail}`;
+
+      res.json({
+        success: true,
+        data: {
+          quote: updated,
+          messageId: result.messageId,
+          bccEmail: bccEmail || null,
+        },
+        message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 /**
  * POST /api/v1/quotes/:id/accept

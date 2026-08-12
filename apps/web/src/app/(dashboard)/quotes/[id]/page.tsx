@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
 import { quotesClient, ApiError } from '@/lib/api-client';
 import type { Quote } from '@bossboard/shared';
-import { ArrowLeft, FileCheck, Pencil, Download } from 'lucide-react';
+import { ArrowLeft, FileCheck, Pencil, Download, Send, Mail } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
@@ -35,7 +35,12 @@ export default function QuoteDetailPage() {
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [convertBusy, setConvertBusy] = useState(false);
+  const [actionBusy, setActionBusy] = useState<'send' | 'email' | null>(null);
+  const [emailFormOpen, setEmailFormOpen] = useState(false);
+  const [recipient, setRecipient] = useState('');
+  const [customMessage, setCustomMessage] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -43,7 +48,10 @@ export default function QuoteDetailPage() {
     quotesClient
       .get(id)
       .then((data) => {
-        if (!cancelled) setQuote(data.quote);
+        if (!cancelled) {
+          setQuote(data.quote);
+          if (data.quote.clientEmail) setRecipient(data.quote.clientEmail);
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -75,6 +83,52 @@ export default function QuoteDetailPage() {
     }
   };
 
+  const onMarkAsSent = async () => {
+    if (!id || actionBusy) return;
+    setActionBusy('send');
+    setError(null);
+    setActionMessage(null);
+    try {
+      const data = await quotesClient.markAsSent(id);
+      setQuote(data.quote);
+      setActionMessage('Quote marked as sent. Share the PDF with your client if you have not already.');
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.message : 'Could not mark quote as sent.');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const onEmail = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!id || actionBusy) return;
+    if (!recipient.trim()) {
+      setError('Recipient email is required.');
+      return;
+    }
+    setActionBusy('email');
+    setError(null);
+    setActionMessage(null);
+    try {
+      const data = await quotesClient.email(id, {
+        recipientEmail: recipient.trim(),
+        customMessage: customMessage.trim() || undefined,
+      });
+      setQuote(data.quote);
+      const bccNote =
+        data.bccEmail && typeof data.bccEmail === 'string'
+          ? ` A copy was BCC’d to ${data.bccEmail}.`
+          : '';
+      setActionMessage(`Quote emailed to ${recipient.trim()}.${bccNote}`);
+      setEmailFormOpen(false);
+      setCustomMessage('');
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.message : 'Could not email quote.');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
   if (error && !quote) {
     return (
       <div>
@@ -98,6 +152,10 @@ export default function QuoteDetailPage() {
   }
 
   const alreadyConverted = !!quote.convertedInvoiceId;
+  const canSend = quote.status === 'draft' && !alreadyConverted;
+  const canEmail =
+    !alreadyConverted &&
+    (quote.status === 'draft' || quote.status === 'sent' || quote.status === 'accepted');
 
   return (
     <div className="space-y-6">
@@ -115,6 +173,33 @@ export default function QuoteDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
+            {canSend && (
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                loading={actionBusy === 'send'}
+                onClick={onMarkAsSent}
+              >
+                <Send size={14} className="mr-1.5" />
+                Mark as sent
+              </Button>
+            )}
+            {canEmail && (
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  setEmailFormOpen((o) => !o);
+                  setError(null);
+                  if (quote.clientEmail) setRecipient(quote.clientEmail);
+                }}
+              >
+                <Mail size={14} className="mr-1.5" />
+                Email quote
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -160,6 +245,60 @@ export default function QuoteDetailPage() {
         {error && quote && (
           <p className="text-sm text-danger mt-3">{error}</p>
         )}
+        {actionMessage && (
+          <p className="text-sm text-green-700 mt-3 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+            {actionMessage}
+          </p>
+        )}
+
+        {emailFormOpen && (
+          <form onSubmit={onEmail} className="mt-4 p-4 border border-border rounded-lg bg-gray-50 space-y-3">
+            <p className="text-sm text-gray-700 font-medium">
+              Email the quote PDF to your client. Drafts are marked as sent automatically.
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="quote-recipient">
+                Recipient email
+              </label>
+              <input
+                id="quote-recipient"
+                type="email"
+                required
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                className="w-full max-w-md rounded-lg border border-border px-3 py-2 text-sm"
+                placeholder="client@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="quote-msg">
+                Optional message
+              </label>
+              <textarea
+                id="quote-msg"
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                rows={2}
+                className="w-full max-w-md rounded-lg border border-border px-3 py-2 text-sm"
+                placeholder="Thanks for the opportunity — quote attached."
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" size="md" loading={actionBusy === 'email'}>
+                <Send size={14} className="mr-1.5" />
+                Send email
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={() => setEmailFormOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,40 +342,36 @@ export default function QuoteDetailPage() {
         </Card>
       )}
 
-      <Card className="!p-0 overflow-hidden">
-        <div className="px-6 py-4 border-b border-border-light">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Line items
-          </h2>
+      <Card>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+          Line items
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b border-border">
+                <th className="py-2 pr-3 font-medium">Description</th>
+                <th className="py-2 text-right font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(quote.lineItems || []).map((item) => (
+                <tr key={item.id} className="border-b border-gray-100">
+                  <td className="py-2 pr-3 text-gray-900">{item.description}</td>
+                  <td className="py-2 text-right text-gray-900 tabular-nums">
+                    {formatCents(item.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <ul className="divide-y divide-border-light">
-          {quote.lineItems.length === 0 && (
-            <li className="px-6 py-4 text-sm text-gray-500">No line items.</li>
-          )}
-          {quote.lineItems.map((item) => (
-            <li key={item.id} className="px-6 py-3 flex items-start justify-between gap-4">
-              <span className="text-sm text-gray-800">{item.description}</span>
-              <span className="text-sm font-medium text-gray-900 shrink-0">
-                {formatCents(item.amount)}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="px-6 py-4 border-t border-border-light bg-gray-50 space-y-1">
-          <div className="flex justify-between text-sm text-gray-700">
-            <span>Subtotal</span>
-            <span>{formatCents(quote.subtotal)}</span>
-          </div>
+        <div className="mt-4 space-y-1 text-sm text-right">
+          <p className="text-gray-600">Subtotal: {formatCents(quote.subtotal)}</p>
           {quote.includeGst && (
-            <div className="flex justify-between text-sm text-gray-700">
-              <span>GST (15%)</span>
-              <span>{formatCents(quote.gstAmount)}</span>
-            </div>
+            <p className="text-gray-600">GST: {formatCents(quote.gstAmount)}</p>
           )}
-          <div className="flex justify-between text-base font-semibold text-gray-900 pt-1">
-            <span>Total</span>
-            <span>{formatCents(quote.total)}</span>
-          </div>
+          <p className="text-lg font-semibold text-gray-900">Total: {formatCents(quote.total)}</p>
         </div>
       </Card>
 
@@ -265,10 +400,10 @@ function BackLink() {
   return (
     <Link
       href="/quotes"
-      className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+      className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-2"
     >
-      <ArrowLeft size={14} />
-      Back to quotes
+      <ArrowLeft size={16} />
+      Quotes
     </Link>
   );
 }

@@ -17,8 +17,9 @@ import {
   Dimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
-import { photosApi } from '../services/api';
+import { photosApi, getAuthToken } from '../services/api';
 
 interface PhotoItem {
   id: string;
@@ -46,22 +47,49 @@ export default function PhotoAttachments({
   editable = true,
 }: PhotoAttachmentsProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  /** Local file URIs with auth already applied — remote /file needs Bearer. */
+  const [localUris, setLocalUris] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<PhotoItem | null>(null);
+
+  const hydrateLocalUris = useCallback(async (list: PhotoItem[]) => {
+    const token = getAuthToken();
+    const next: Record<string, string> = {};
+    await Promise.all(
+      list.map(async (photo) => {
+        try {
+          const dest = `${FileSystem.cacheDirectory}photo-${photo.id}`;
+          const result = await FileSystem.downloadAsync(
+            photosApi.getFileUrl(photo.id),
+            dest,
+            token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+          );
+          if (result.status === 200) {
+            next[photo.id] = result.uri;
+          }
+        } catch {
+          // leave missing — UI shows placeholder
+        }
+      })
+    );
+    setLocalUris(next);
+  }, []);
 
   const loadPhotos = useCallback(async () => {
     try {
       const response = await photosApi.listByEntity(entityType, entityId);
       if (response.data.success) {
-        setPhotos(response.data.data.photos || []);
+        const list = response.data.data.photos || [];
+        setPhotos(list);
+        void hydrateLocalUris(list);
       }
     } catch {
       // Silently fail - photos are supplementary
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId]);
+  }, [entityType, entityId, hydrateLocalUris]);
 
   useEffect(() => {
     loadPhotos();
@@ -176,30 +204,47 @@ export default function PhotoAttachments({
       </View>
 
       {photos.length === 0 ? (
-        <TouchableOpacity style={styles.emptyCard} onPress={showAddOptions}>
-          <Ionicons name="images-outline" size={32} color="#9CA3AF" />
-          <Text style={styles.emptyText}>Tap to add photos</Text>
-        </TouchableOpacity>
+        editable ? (
+          <TouchableOpacity
+            style={styles.emptyCard}
+            onPress={showAddOptions}
+            disabled={isUploading}
+            accessibilityRole="button"
+            accessibilityLabel="Add photos"
+          >
+            <Ionicons name="images-outline" size={32} color="#9CA3AF" />
+            <Text style={styles.emptyText}>Tap to add photos</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No photos</Text>
+          </View>
+        )
       ) : (
         <View style={styles.card}>
-          <ScrollView horizontal={false}>
-            <View style={styles.grid}>
-              {photos.map((photo) => (
+          <View style={styles.grid}>
+            {photos.map((photo) => {
+              const uri = localUris[photo.id];
+              return (
                 <TouchableOpacity
                   key={photo.id}
                   style={styles.thumb}
                   onPress={() => setPreviewPhoto(photo)}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="View photo"
                 >
-                  <Image
-                    source={{ uri: photosApi.getFileUrl(photo.id) }}
-                    style={styles.thumbImage}
-                    resizeMode="cover"
-                  />
+                  {uri ? (
+                    <Image source={{ uri }} style={styles.thumbImage} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.thumbImage, styles.thumbPlaceholder]}>
+                      <ActivityIndicator size="small" color="#9CA3AF" />
+                    </View>
+                  )}
                 </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+              );
+            })}
+          </View>
         </View>
       )}
 
@@ -228,11 +273,15 @@ export default function PhotoAttachments({
             )}
           </View>
           {previewPhoto && (
-            <Image
-              source={{ uri: photosApi.getFileUrl(previewPhoto.id) }}
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
+            localUris[previewPhoto.id] ? (
+              <Image
+                source={{ uri: localUris[previewPhoto.id] }}
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <ActivityIndicator size="large" color="#fff" />
+            )
           )}
           {previewPhoto?.caption && (
             <Text style={styles.captionText}>{previewPhoto.caption}</Text>
@@ -289,6 +338,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#9CA3AF',
+  },
+  thumbPlaceholder: {
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   card: {
     backgroundColor: '#fff',

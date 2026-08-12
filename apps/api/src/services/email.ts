@@ -5,7 +5,7 @@
 
 import { Resend } from 'resend';
 import { config } from '../config/index.js';
-import { Invoice } from '../types/index.js';
+import { Invoice, Quote } from '../types/index.js';
 
 let resendClient: Resend | null = null;
 
@@ -478,6 +478,101 @@ export async function sendInvoiceEmail(
   );
 }
 
+function quoteTemplate(
+  quote: Quote,
+  senderName: string,
+  customMessage?: string
+): { subject: string; html: string; text: string } {
+  const subject = customMessage
+    ? `Quote ${quote.quoteNumber} - ${customMessage}`
+    : `Quote ${quote.quoteNumber} from ${senderName || appName()}`;
+
+  const lineItemsHtml = (quote.lineItems || [])
+    .map(
+      (item) =>
+        `<tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #E5E7EB;">${item.description}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #E5E7EB; text-align: right;">${formatCurrency(item.amount)}</td>
+      </tr>`
+    )
+    .join('');
+
+  const validUntilHtml = quote.validUntil
+    ? `<p style="margin: 0 0 8px; color: #374151;"><strong>Valid until:</strong> ${new Date(quote.validUntil).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</p>`
+    : '';
+
+  const notesHtml = quote.notes
+    ? `<div style="margin-top: 16px; padding: 12px; background: #FFFBEB; border-radius: 8px;">
+        <p style="margin: 0; color: #92400E; font-size: 13px;">${quote.notes}</p>
+      </div>`
+    : '';
+
+  const body = `
+    <p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">Quote for:</p>
+    <p style="margin: 0 0 16px; color: #111827; font-size: 16px; font-weight: 600;">${quote.clientName}</p>
+    ${quote.jobDescription ? `<p style="margin: 0 0 16px; color: #374151; font-size: 14px;">${quote.jobDescription}</p>` : ''}
+    ${validUntilHtml}
+    <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+      <thead>
+        <tr style="background: #F9FAFB;">
+          <th style="padding: 10px 12px; text-align: left; font-size: 13px; color: #6B7280; border-bottom: 2px solid #E5E7EB;">Description</th>
+          <th style="padding: 10px 12px; text-align: right; font-size: 13px; color: #6B7280; border-bottom: 2px solid #E5E7EB;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${lineItemsHtml}</tbody>
+    </table>
+    <div style="margin-top: 16px; text-align: right;">
+      <p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">Subtotal: ${formatCurrency(quote.subtotal)}</p>
+      ${quote.includeGst ? `<p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">GST (15%): ${formatCurrency(quote.gstAmount)}</p>` : ''}
+      <p style="margin: 8px 0 0; color: #111827; font-size: 20px; font-weight: 700;">Total: ${formatCurrency(quote.total)}</p>
+    </div>
+    ${notesHtml}
+    <p style="margin: 20px 0 0; color: #6B7280; font-size: 13px;">Please find the full quote attached as a PDF.</p>`;
+
+  const footerText = `Sent via ${appName()}${senderName ? ` on behalf of ${senderName}` : ''}`;
+  const html = layout('#7C3AED', `Quote ${quote.quoteNumber}`, quote.companyName || '', body, footerText);
+
+  const text = [
+    `Quote ${quote.quoteNumber}`,
+    quote.companyName ? `From: ${quote.companyName}` : '',
+    '',
+    `For: ${quote.clientName}`,
+    quote.jobDescription ? `Job: ${quote.jobDescription}` : '',
+    quote.validUntil ? `Valid until: ${new Date(quote.validUntil).toLocaleDateString('en-NZ')}` : '',
+    '',
+    `Total: ${formatCurrency(quote.total)}`,
+    '',
+    'Full quote attached as PDF.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return { subject, html, text };
+}
+
+export async function sendQuoteEmail(
+  quote: Quote,
+  pdfBuffer: Buffer,
+  recipientEmail: string,
+  senderName: string,
+  customMessage?: string,
+  options?: { bcc?: string }
+): Promise<{ messageId: string }> {
+  const bccList =
+    options?.bcc &&
+    options.bcc.trim() &&
+    options.bcc.trim().toLowerCase() !== recipientEmail.trim().toLowerCase()
+      ? [options.bcc.trim()]
+      : undefined;
+
+  return send(
+    recipientEmail,
+    quoteTemplate(quote, senderName, customMessage),
+    [{ filename: `Quote-${quote.quoteNumber}.pdf`, content: pdfBuffer }],
+    bccList ? { bcc: bccList } : undefined
+  );
+}
+
 /**
  * Resolve BCC for invoice emails (best practice: business mailbox).
  * Chain: dedicated invoice_bcc_email → company_email → user login email.
@@ -539,6 +634,7 @@ export default {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
+  sendQuoteEmail,
   resolveInvoiceBcc,
   sendTradeConfirmation,
   sendPortfolioAlert,

@@ -496,6 +496,9 @@ export const quotesApi = {
 
   markAsSent: (id: string) => api.post(`/api/v1/quotes/${id}/send`),
 
+  email: (id: string, data: { recipientEmail: string; customMessage?: string }) =>
+    api.post(`/api/v1/quotes/${id}/email`, data),
+
   markAsAccepted: (id: string) => api.post(`/api/v1/quotes/${id}/accept`),
 
   markAsDeclined: (id: string) => api.post(`/api/v1/quotes/${id}/decline`),
