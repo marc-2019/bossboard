@@ -23,7 +23,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "nz.instilligent.bossboard",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "infoPlist": {
         "NSCameraUsageDescription": "BossBoard needs camera access to photograph receipts, job sites, and safety documentation for your records.",
         "NSPhotoLibraryUsageDescription": "BossBoard needs photo library access to attach receipt images, site photos, and documentation to invoices, expenses, and job logs.",

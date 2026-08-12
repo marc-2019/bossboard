@@ -109,3 +109,8 @@ delete-data-page.png
 /scripts/local-llm-tasks/
 data/wip-ledger.jsonl
 
+
+# Apple ASC keys (never commit)
+*.p8
+AuthKey_*.p8
+.eas/keys/
