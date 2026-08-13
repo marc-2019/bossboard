@@ -245,8 +245,8 @@ export default function DashboardPage() {
               Kia ora — let&apos;s get you set up
             </h2>
             <p className="text-gray-600 max-w-md mx-auto mb-8">
-              Pick a tile to start running your trade business from the dashboard.
-              You can always do more from the BossBoard mobile app.
+              Pick a tile to start running your trade business from this dashboard.
+              The mobile app covers the same work on site when you need it.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
               <Link
@@ -310,12 +310,13 @@ export default function DashboardPage() {
         <div className="py-6 px-4 text-center">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">Welcome to BossBoard web</h2>
           <p className="text-gray-600 max-w-xl mx-auto">
-            BossBoard is in beta. The web view shows your account dashboard;
-            day-to-day features (SWMS, invoices, quotes, expenses, job logs,
-            teams) live in the BossBoard mobile app.
+            BossBoard is in beta. This web app includes SWMS, invoices, quotes,
+            expenses, job logs, teams, and bank CSV matching. Use the mobile app
+            on site for clock-in, SWMS sign-off, and quick after-job invoicing.
           </p>
           <p className="text-sm text-gray-500 mt-3">
-            App Store + Google Play release coming soon.
+            App Store + Google Play listing is in progress — ask us for TestFlight
+            access if you want the iOS beta.
           </p>
         </div>
       </Card>
