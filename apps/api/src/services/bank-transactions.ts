@@ -12,7 +12,7 @@ import {
 } from '../types/index.js';
 
 /** Detected CSV export shape (header fingerprint). */
-export type BankCsvFormat = 'wise' | 'anz' | 'asb' | 'bnz' | 'generic';
+export type BankCsvFormat = 'wise' | 'anz' | 'asb' | 'bnz' | 'kiwibank' | 'generic';
 
 type ParsedBankTxn = {
   transactionId: string | null;
@@ -171,7 +171,7 @@ function buildHeaderMap(headerLine: string): Record<string, number> {
 
 /**
  * Detect export format from header fingerprint.
- * Fixtures document sample headers for wise / anz / asb / bnz.
+ * Fixtures document sample headers for wise / anz / asb / bnz / kiwibank.
  */
 export function detectBankCsvFormat(headerLine: string): BankCsvFormat {
   const keys = Object.keys(buildHeaderMap(headerLine));
@@ -211,6 +211,17 @@ export function detectBankCsvFormat(headerLine: string): BankCsvFormat {
     hasAny('this party account', 'other party account', 'payee', 'serial')
   ) {
     return 'bnz';
+  }
+
+  // Kiwibank internet banking CSV
+  // Account number,Account name,Date,Other Party,Particulars,Money In,Money Out,Balance
+  // Distinct from Westpac (signed Amount + Other Party) via Money In / Money Out.
+  if (
+    has('date') &&
+    has('money in', 'money out') &&
+    hasAny('other party', 'particulars')
+  ) {
+    return 'kiwibank';
   }
 
   return 'generic';
@@ -282,6 +293,27 @@ function resolveColumnIndices(
         h['tran type'] ?? -1,
       ].filter((i) => i >= 0),
       refIdx: h['reference'] ?? h['payment reference'] ?? h['particulars'] ?? -1,
+      balIdx: h['balance'] ?? h['running balance'] ?? -1,
+    };
+  }
+
+  if (format === 'kiwibank') {
+    return {
+      // No stable bank serial in classic export → content-hash de-dupe
+      idIdx: h['transaction id'] ?? h['serial'] ?? h['id'] ?? -1,
+      dateIdx: h['date'] ?? 0,
+      // Prefer split Money In / Money Out; fall back to signed Amount if present
+      amountIdx: h['money in'] != null || h['money out'] != null ? -1 : (h['amount'] ?? -1),
+      debitIdx: h['money out'] ?? h['debit'] ?? -1,
+      creditIdx: h['money in'] ?? h['credit'] ?? -1,
+      currencyIdx: h['currency'] ?? -1,
+      descParts: [
+        h['other party'] ?? -1,
+        h['payee'] ?? -1,
+        h['particulars'] ?? -1,
+      ].filter((i) => i >= 0),
+      refIdx:
+        h['particulars'] ?? h['reference'] ?? h['payment reference'] ?? h['code'] ?? -1,
       balIdx: h['balance'] ?? h['running balance'] ?? -1,
     };
   }

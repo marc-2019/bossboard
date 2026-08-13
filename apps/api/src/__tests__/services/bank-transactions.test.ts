@@ -2,7 +2,7 @@
  * Bank Transactions Service Tests
  *
  * Covers financial correctness paths:
- *   - parseBankCSV / uploadCSV: Wise, ANZ, ASB, BNZ formats; NZ dates; cents; invalid rows skipped
+ *   - parseBankCSV / uploadCSV: Wise, ANZ, ASB, BNZ, Kiwibank formats; NZ dates; cents; invalid rows skipped
  *   - detectBankCsvFormat: header fingerprints
  *   - uploadCSV: duplicate detection (PG error 23505), batch ID assignment, format field
  *   - autoMatch: exact amount + invoice-number ref → high; exact amount + client name → high;
@@ -130,6 +130,17 @@ const BNZ_CSV = `Date,Amount,Payee,Particulars,Code,Reference,Tran Type,This Par
 15/01/2026,1150.00,Acme Ltd,INV-0001,,INV-0001,D/C,12-3456-7890123-00,01-2345-6789012-00,bnz-serial-001,50,,BNZ,15/01/2026
 10/01/2026,-9.50,BNZ,Monthly fee,,,FEE,12-3456-7890123-00,,bnz-serial-002,20,,BNZ,10/01/2026`;
 
+/**
+ * Kiwibank internet banking CSV (classic Money In / Money Out export).
+ * Includes an opening-balance meta row (empty date) that must be skipped.
+ * Synthetic rows only — no real account numbers.
+ */
+const KIWIBANK_CSV = `Account number,Account name,Date,Other Party,Particulars,Money In,Money Out,Balance
+38-9001-0123456-00,Business Cheque,,Opening Balance Brought Forward,,,,1000.00
+38-9001-0123456-00,Business Cheque,15/01/2026,Acme Ltd,INV-0001,1150.00,,2150.00
+38-9001-0123456-00,Business Cheque,10/01/2026,Kiwibank,Monthly fee,,5.00,2145.00
+38-9001-0123456-00,Business Cheque,09/01/2026,"Smith & Sons, Ltd",INV-0010,1234.56,,3379.56`;
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -173,6 +184,14 @@ describe('detectBankCsvFormat', () => {
         'Date,Amount,Payee,Particulars,Code,Reference,Tran Type,This Party Account,Other Party Account,Serial,Transaction Code,Batch Number,Originating Bank/Branch,Processed Date'
       )
     ).toBe('bnz');
+  });
+
+  it('detects Kiwibank from Date + Money In/Out + Other Party/Particulars', () => {
+    expect(
+      detectBankCsvFormat(
+        'Account number,Account name,Date,Other Party,Particulars,Money In,Money Out,Balance'
+      )
+    ).toBe('kiwibank');
   });
 
   it('falls back to generic for simple Date/Amount headers', () => {
@@ -237,6 +256,31 @@ describe('parseBankCSV', () => {
     expect(transactions[1].amount).toBe(-950);
     expect(transactions[1].date).toBe('2026-01-10');
   });
+
+  it('parses Kiwibank fixture: Money In credit, Money Out debit, skips opening balance', () => {
+    const { format, transactions } = parseBankCSV(KIWIBANK_CSV);
+    expect(format).toBe('kiwibank');
+    // Opening balance row has no date → skipped
+    expect(transactions).toHaveLength(3);
+
+    expect(transactions[0].date).toBe('2026-01-15');
+    expect(transactions[0].amount).toBe(115000); // Money In
+    expect(transactions[0].currency).toBe('NZD');
+    expect(transactions[0].paymentReference).toBe('INV-0001');
+    expect(transactions[0].description).toMatch(/Acme Ltd/i);
+    expect(transactions[0].runningBalance).toBe(215000);
+    // No bank serial → content-hash de-dupe id
+    expect(transactions[0].transactionId).toMatch(/^[a-f0-9]{32}$/);
+
+    expect(transactions[1].date).toBe('2026-01-10');
+    expect(transactions[1].amount).toBe(-500); // Money Out → negative cents
+    expect(transactions[1].description).toMatch(/Kiwibank/i);
+
+    expect(transactions[2].date).toBe('2026-01-09');
+    expect(transactions[2].amount).toBe(123456);
+    expect(transactions[2].description).toMatch(/Smith & Sons/i);
+    expect(transactions[2].paymentReference).toBe('INV-0010');
+  });
 });
 
 // ===========================================================================
@@ -282,6 +326,22 @@ describe('uploadCSV', () => {
 
     const creditParams = mockDbQuery.mock.calls[0][1] as unknown[];
     expect(creditParams[2]).toBe('bnz-serial-001');
+    expect(creditParams[3]).toBe('2026-01-15');
+    expect(creditParams[4]).toBe(115000);
+    expect(creditParams[5]).toBe('NZD');
+    expect(creditParams[7]).toBe('INV-0001');
+  });
+
+  it('imports Kiwibank CSV and reports format kiwibank', async () => {
+    mockDbQuery.mockResolvedValue({ rows: [] });
+
+    const result = await uploadCSV('user-1', KIWIBANK_CSV, 'kiwibank_export.csv');
+
+    expect(result.format).toBe('kiwibank');
+    expect(result.imported).toBe(3); // opening balance skipped
+
+    const creditParams = mockDbQuery.mock.calls[0][1] as unknown[];
+    expect(String(creditParams[2])).toMatch(/^[a-f0-9]{32}$/); // content-hash id
     expect(creditParams[3]).toBe('2026-01-15');
     expect(creditParams[4]).toBe(115000);
     expect(creditParams[5]).toBe('NZD');
