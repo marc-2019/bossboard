@@ -12,7 +12,7 @@ import {
 } from '../types/index.js';
 
 /** Detected CSV export shape (header fingerprint). */
-export type BankCsvFormat = 'wise' | 'anz' | 'asb' | 'bnz' | 'generic';
+export type BankCsvFormat = 'wise' | 'anz' | 'asb' | 'bnz' | 'westpac' | 'generic';
 
 type ParsedBankTxn = {
   transactionId: string | null;
@@ -171,7 +171,7 @@ function buildHeaderMap(headerLine: string): Record<string, number> {
 
 /**
  * Detect export format from header fingerprint.
- * Fixtures document sample headers for wise / anz / asb / bnz.
+ * Fixtures document sample headers for wise / anz / asb / bnz / westpac.
  */
 export function detectBankCsvFormat(headerLine: string): BankCsvFormat {
   const keys = Object.keys(buildHeaderMap(headerLine));
@@ -211,6 +211,17 @@ export function detectBankCsvFormat(headerLine: string): BankCsvFormat {
     hasAny('this party account', 'other party account', 'payee', 'serial')
   ) {
     return 'bnz';
+  }
+
+  // Westpac NZ online banking / accounting export (documented common headers)
+  // Date,Amount,Other Party,Description,Reference,Particulars,Analysis Code
+  // "other party" is distinct from BNZ "other party account"
+  if (
+    has('date', 'amount') &&
+    has('other party') &&
+    hasAny('analysis code', 'particulars', 'description')
+  ) {
+    return 'westpac';
   }
 
   return 'generic';
@@ -280,6 +291,25 @@ function resolveColumnIndices(
         h['particulars'] ?? -1,
         h['code'] ?? -1,
         h['tran type'] ?? -1,
+      ].filter((i) => i >= 0),
+      refIdx: h['reference'] ?? h['payment reference'] ?? h['particulars'] ?? -1,
+      balIdx: h['balance'] ?? h['running balance'] ?? -1,
+    };
+  }
+
+  if (format === 'westpac') {
+    return {
+      // Analysis Code is a category code, not a stable txn id — prefer serial/id when present
+      idIdx: h['serial'] ?? h['transaction id'] ?? h['id'] ?? -1,
+      dateIdx: h['date'] ?? h['processed date'] ?? 0,
+      amountIdx: h['amount'] ?? -1,
+      debitIdx: h['debit'] ?? -1,
+      creditIdx: h['credit'] ?? -1,
+      currencyIdx: h['currency'] ?? -1,
+      descParts: [
+        h['other party'] ?? -1,
+        h['description'] ?? -1,
+        h['particulars'] ?? -1,
       ].filter((i) => i >= 0),
       refIdx: h['reference'] ?? h['payment reference'] ?? h['particulars'] ?? -1,
       balIdx: h['balance'] ?? h['running balance'] ?? -1,

@@ -2,7 +2,7 @@
  * Bank Transactions Service Tests
  *
  * Covers financial correctness paths:
- *   - parseBankCSV / uploadCSV: Wise, ANZ, ASB, BNZ formats; NZ dates; cents; invalid rows skipped
+ *   - parseBankCSV / uploadCSV: Wise, ANZ, ASB, BNZ, Westpac formats; NZ dates; cents; invalid rows skipped
  *   - detectBankCsvFormat: header fingerprints
  *   - uploadCSV: duplicate detection (PG error 23505), batch ID assignment, format field
  *   - autoMatch: exact amount + invoice-number ref → high; exact amount + client name → high;
@@ -130,6 +130,16 @@ const BNZ_CSV = `Date,Amount,Payee,Particulars,Code,Reference,Tran Type,This Par
 15/01/2026,1150.00,Acme Ltd,INV-0001,,INV-0001,D/C,12-3456-7890123-00,01-2345-6789012-00,bnz-serial-001,50,,BNZ,15/01/2026
 10/01/2026,-9.50,BNZ,Monthly fee,,,FEE,12-3456-7890123-00,,bnz-serial-002,20,,BNZ,10/01/2026`;
 
+/**
+ * Westpac NZ online banking / accounting export shape (documented common headers).
+ * Assumption (no live redacted sample): Saasu-documented Westpac NZ columns —
+ * Date, Amount, Other Party, Description, Reference, Particulars, Analysis Code.
+ * Analysis Code is a category code, not a unique txn id → content-hash when no serial/id.
+ */
+const WESTPAC_CSV = `Date,Amount,Other Party,Description,Reference,Particulars,Analysis Code
+15/01/2026,1150.00,Acme Ltd,Payment received,INV-0001,INV-0001,50
+10/01/2026,-12.00,WESTPAC,Account fee,,,20`;
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -173,6 +183,14 @@ describe('detectBankCsvFormat', () => {
         'Date,Amount,Payee,Particulars,Code,Reference,Tran Type,This Party Account,Other Party Account,Serial,Transaction Code,Batch Number,Originating Bank/Branch,Processed Date'
       )
     ).toBe('bnz');
+  });
+
+  it('detects Westpac NZ from Date/Amount/Other Party + Analysis Code style headers', () => {
+    expect(
+      detectBankCsvFormat(
+        'Date,Amount,Other Party,Description,Reference,Particulars,Analysis Code'
+      )
+    ).toBe('westpac');
   });
 
   it('falls back to generic for simple Date/Amount headers', () => {
@@ -237,6 +255,26 @@ describe('parseBankCSV', () => {
     expect(transactions[1].amount).toBe(-950);
     expect(transactions[1].date).toBe('2026-01-10');
   });
+
+  it('parses Westpac NZ fixture with NZ dates, cents, content-hash ids, and invoice ref', () => {
+    // Headers assumed from documented Westpac NZ export (not a live redacted sample)
+    const { format, transactions } = parseBankCSV(WESTPAC_CSV);
+    expect(format).toBe('westpac');
+    expect(transactions).toHaveLength(2);
+
+    expect(transactions[0].date).toBe('2026-01-15');
+    expect(transactions[0].amount).toBe(115000);
+    expect(transactions[0].currency).toBe('NZD');
+    expect(transactions[0].paymentReference).toBe('INV-0001');
+    expect(transactions[0].description).toMatch(/Acme Ltd/i);
+    // No bank serial → content-hash de-dupe id
+    expect(transactions[0].transactionId).toMatch(/^[a-f0-9]{32}$/);
+
+    expect(transactions[1].date).toBe('2026-01-10');
+    expect(transactions[1].amount).toBe(-1200);
+    expect(transactions[1].description).toMatch(/WESTPAC/i);
+    expect(transactions[1].transactionId).toMatch(/^[a-f0-9]{32}$/);
+  });
 });
 
 // ===========================================================================
@@ -282,6 +320,22 @@ describe('uploadCSV', () => {
 
     const creditParams = mockDbQuery.mock.calls[0][1] as unknown[];
     expect(creditParams[2]).toBe('bnz-serial-001');
+    expect(creditParams[3]).toBe('2026-01-15');
+    expect(creditParams[4]).toBe(115000);
+    expect(creditParams[5]).toBe('NZD');
+    expect(creditParams[7]).toBe('INV-0001');
+  });
+
+  it('imports Westpac NZ CSV and reports format westpac', async () => {
+    mockDbQuery.mockResolvedValue({ rows: [] });
+
+    const result = await uploadCSV('user-1', WESTPAC_CSV, 'westpac_export.csv');
+
+    expect(result.format).toBe('westpac');
+    expect(result.imported).toBe(2);
+
+    const creditParams = mockDbQuery.mock.calls[0][1] as unknown[];
+    expect(String(creditParams[2])).toMatch(/^[a-f0-9]{32}$/); // content-hash id
     expect(creditParams[3]).toBe('2026-01-15');
     expect(creditParams[4]).toBe(115000);
     expect(creditParams[5]).toBe('NZD');
