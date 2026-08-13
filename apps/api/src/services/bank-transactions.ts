@@ -1,14 +1,28 @@
 /**
  * Bank Transactions Service
- * Wise CSV import, transaction listing, and invoice reconciliation
+ * Multi-format bank CSV import (Wise + NZ banks), listing, invoice reconciliation
  */
 
+import { createHash } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import db from './database.js';
 import {
   BankTransaction,
   MatchConfidence,
 } from '../types/index.js';
+
+/** Detected CSV export shape (header fingerprint). */
+export type BankCsvFormat = 'wise' | 'anz' | 'asb' | 'bnz' | 'generic';
+
+type ParsedBankTxn = {
+  transactionId: string | null;
+  date: string;
+  amount: number;
+  currency: string;
+  description: string | null;
+  paymentReference: string | null;
+  runningBalance: number | null;
+};
 
 /**
  * Transform DB row to BankTransaction type
@@ -58,83 +72,6 @@ function transformForMobile(txn: BankTransaction): Record<string, unknown> {
     created_at: txn.createdAt,
     updated_at: txn.updatedAt,
   };
-}
-
-/**
- * Parse Wise CSV content into transaction rows.
- * Wise CSV columns (typical):
- * TransferWise ID, Date, Amount, Currency, Description, Payment Reference, Running Balance, ...
- */
-function parseWiseCSV(csvContent: string): {
-  transactionId: string | null;
-  date: string;
-  amount: number;
-  currency: string;
-  description: string | null;
-  paymentReference: string | null;
-  runningBalance: number | null;
-}[] {
-  const lines = csvContent.trim().split('\n');
-  if (lines.length < 2) return [];
-
-  // Parse header to find column indices
-  const header = parseCSVLine(lines[0]);
-  const headerMap: Record<string, number> = {};
-  header.forEach((col, idx) => {
-    headerMap[col.trim().toLowerCase()] = idx;
-  });
-
-  // Common Wise column name variations
-  const idIdx = headerMap['transferwise id'] ?? headerMap['id'] ?? headerMap['transaction id'] ?? -1;
-  const dateIdx = headerMap['date'] ?? headerMap['created on'] ?? 0;
-  const amountIdx = headerMap['amount'] ?? headerMap['source amount'] ?? 1;
-  const currencyIdx = headerMap['currency'] ?? headerMap['source currency'] ?? 2;
-  const descIdx = headerMap['description'] ?? headerMap['merchant'] ?? -1;
-  const refIdx = headerMap['payment reference'] ?? headerMap['reference'] ?? -1;
-  const balIdx = headerMap['running balance'] ?? headerMap['balance'] ?? -1;
-
-  const transactions: ReturnType<typeof parseWiseCSV> = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    const cols = parseCSVLine(line);
-
-    // Parse amount: remove commas, convert to cents
-    const amountStr = (cols[amountIdx] || '0').replace(/[,\s]/g, '');
-    const amountFloat = parseFloat(amountStr);
-    if (isNaN(amountFloat)) continue;
-    const amount = Math.round(amountFloat * 100);
-
-    // Parse date
-    const dateStr = cols[dateIdx] || '';
-    // Try to normalize date format to YYYY-MM-DD
-    const date = normalizeDate(dateStr);
-    if (!date) continue;
-
-    // Parse running balance
-    let runningBalance: number | null = null;
-    if (balIdx >= 0 && cols[balIdx]) {
-      const balStr = cols[balIdx].replace(/[,\s]/g, '');
-      const balFloat = parseFloat(balStr);
-      if (!isNaN(balFloat)) {
-        runningBalance = Math.round(balFloat * 100);
-      }
-    }
-
-    transactions.push({
-      transactionId: idIdx >= 0 ? (cols[idIdx] || null) : null,
-      date,
-      amount,
-      currency: (cols[currencyIdx] || 'NZD').trim().toUpperCase(),
-      description: descIdx >= 0 ? (cols[descIdx] || null) : null,
-      paymentReference: refIdx >= 0 ? (cols[refIdx] || null) : null,
-      runningBalance,
-    });
-  }
-
-  return transactions;
 }
 
 /**
@@ -192,6 +129,271 @@ function normalizeDate(dateStr: string): string | null {
   return null;
 }
 
+/** Parse money string to integer cents; null if unparseable. */
+function parseAmountToCents(raw: string | undefined): number | null {
+  if (raw == null || raw === '') return null;
+  const cleaned = raw.replace(/[$,\s]/g, '');
+  if (!cleaned || cleaned === '-' || cleaned === '+') return null;
+  const amountFloat = parseFloat(cleaned);
+  if (isNaN(amountFloat)) return null;
+  return Math.round(amountFloat * 100);
+}
+
+function cell(cols: string[], idx: number): string {
+  if (idx < 0 || idx >= cols.length) return '';
+  return (cols[idx] || '').trim();
+}
+
+function joinNonEmpty(parts: string[], sep = ' '): string | null {
+  const joined = parts.map((p) => p.trim()).filter(Boolean).join(sep);
+  return joined || null;
+}
+
+/** Stable short id for rows without a bank-supplied transaction id (de-dupe). */
+function contentHashId(
+  date: string,
+  amount: number,
+  description: string | null,
+  paymentReference: string | null
+): string {
+  const payload = `${date}|${amount}|${description || ''}|${paymentReference || ''}`;
+  return createHash('sha256').update(payload).digest('hex').slice(0, 32);
+}
+
+function buildHeaderMap(headerLine: string): Record<string, number> {
+  const header = parseCSVLine(headerLine);
+  const headerMap: Record<string, number> = {};
+  header.forEach((col, idx) => {
+    headerMap[col.trim().toLowerCase()] = idx;
+  });
+  return headerMap;
+}
+
+/**
+ * Detect export format from header fingerprint.
+ * Fixtures document sample headers for wise / anz / asb / bnz.
+ */
+export function detectBankCsvFormat(headerLine: string): BankCsvFormat {
+  const keys = Object.keys(buildHeaderMap(headerLine));
+  const has = (...names: string[]) => names.every((n) => keys.includes(n));
+  const hasAny = (...names: string[]) => names.some((n) => keys.includes(n));
+
+  // Wise: TransferWise ID or currency + payment reference style export
+  if (
+    hasAny('transferwise id') ||
+    (hasAny('currency', 'source currency') &&
+      hasAny('payment reference', 'source amount', 'created on'))
+  ) {
+    return 'wise';
+  }
+
+  // ASB FastNet: Unique Id + Tran Type + Payee + Memo + Amount
+  if (has('unique id') && hasAny('tran type', 'payee') && has('amount')) {
+    return 'asb';
+  }
+
+  // ANZ NZ classic accounting export
+  // Type,Details,Particulars,Code,Reference,Amount,Date,...
+  if (
+    has('type', 'details', 'particulars', 'amount', 'date') &&
+    hasAny('reference', 'code')
+  ) {
+    return 'anz';
+  }
+
+  // BNZ internet banking / business export
+  // Date,Amount,Payee,Particulars,Code,Reference,Tran Type,...
+  // or Date,Amount,...,Particulars,Code,Reference,Tran Type,This Party Account,...
+  if (
+    has('date', 'amount') &&
+    has('tran type') &&
+    has('particulars') &&
+    hasAny('this party account', 'other party account', 'payee', 'serial')
+  ) {
+    return 'bnz';
+  }
+
+  return 'generic';
+}
+
+function resolveColumnIndices(
+  headerMap: Record<string, number>,
+  format: BankCsvFormat
+): {
+  idIdx: number;
+  dateIdx: number;
+  amountIdx: number;
+  debitIdx: number;
+  creditIdx: number;
+  currencyIdx: number;
+  descParts: number[];
+  refIdx: number;
+  balIdx: number;
+} {
+  const h = headerMap;
+
+  if (format === 'asb') {
+    return {
+      idIdx: h['unique id'] ?? -1,
+      dateIdx: h['date'] ?? 0,
+      amountIdx: h['amount'] ?? -1,
+      debitIdx: -1,
+      creditIdx: -1,
+      currencyIdx: h['currency'] ?? -1,
+      // Prefer payee as description; memo often holds invoice ref
+      descParts: [h['payee'] ?? -1, h['memo'] ?? -1].filter((i) => i >= 0),
+      refIdx: h['memo'] ?? h['reference'] ?? h['payment reference'] ?? -1,
+      balIdx: h['balance'] ?? h['running balance'] ?? -1,
+    };
+  }
+
+  if (format === 'anz') {
+    return {
+      idIdx: h['transaction id'] ?? h['id'] ?? -1,
+      dateIdx: h['date'] ?? h['processed date'] ?? 0,
+      amountIdx: h['amount'] ?? -1,
+      debitIdx: h['debit'] ?? -1,
+      creditIdx: h['credit'] ?? -1,
+      currencyIdx: h['currency'] ?? -1,
+      descParts: [
+        h['details'] ?? -1,
+        h['particulars'] ?? -1,
+        h['code'] ?? -1,
+      ].filter((i) => i >= 0),
+      refIdx: h['reference'] ?? h['payment reference'] ?? -1,
+      balIdx: h['balance'] ?? h['running balance'] ?? -1,
+    };
+  }
+
+  if (format === 'bnz') {
+    return {
+      // Serial is the stable bank-side id when present
+      idIdx: h['serial'] ?? h['transaction id'] ?? h['id'] ?? -1,
+      dateIdx: h['date'] ?? h['processed date'] ?? 0,
+      amountIdx: h['amount'] ?? -1,
+      debitIdx: h['debit'] ?? -1,
+      creditIdx: h['credit'] ?? -1,
+      currencyIdx: h['currency'] ?? -1,
+      descParts: [
+        h['payee'] ?? -1,
+        h['other party'] ?? -1,
+        h['particulars'] ?? -1,
+        h['code'] ?? -1,
+        h['tran type'] ?? -1,
+      ].filter((i) => i >= 0),
+      refIdx: h['reference'] ?? h['payment reference'] ?? h['particulars'] ?? -1,
+      balIdx: h['balance'] ?? h['running balance'] ?? -1,
+    };
+  }
+
+  // wise + generic: header aliases (Wise-oriented, works for simple Date/Amount exports)
+  return {
+    idIdx:
+      h['transferwise id'] ??
+      h['id'] ??
+      h['transaction id'] ??
+      h['unique id'] ??
+      -1,
+    dateIdx: h['date'] ?? h['created on'] ?? h['processed date'] ?? 0,
+    amountIdx: h['amount'] ?? h['source amount'] ?? 1,
+    debitIdx: h['debit'] ?? -1,
+    creditIdx: h['credit'] ?? -1,
+    currencyIdx: h['currency'] ?? h['source currency'] ?? -1,
+    descParts: [
+      h['description'] ?? -1,
+      h['merchant'] ?? -1,
+      h['payee'] ?? -1,
+      h['details'] ?? -1,
+      h['memo'] ?? -1,
+    ].filter((i) => i >= 0),
+    refIdx:
+      h['payment reference'] ?? h['reference'] ?? h['memo'] ?? -1,
+    balIdx: h['running balance'] ?? h['balance'] ?? -1,
+  };
+}
+
+/**
+ * Parse bank CSV into normalised rows (amounts in cents, dates YYYY-MM-DD).
+ * Credits positive for match path; NZD default.
+ */
+export function parseBankCSV(csvContent: string): {
+  format: BankCsvFormat;
+  transactions: ParsedBankTxn[];
+} {
+  const lines = csvContent.trim().split(/\r?\n/);
+  if (lines.length < 2) {
+    return { format: 'generic', transactions: [] };
+  }
+
+  const format = detectBankCsvFormat(lines[0]);
+  const headerMap = buildHeaderMap(lines[0]);
+  const colsMap = resolveColumnIndices(headerMap, format);
+
+  // No date/amount columns → empty (caller reports no imports)
+  if (colsMap.amountIdx < 0 && colsMap.debitIdx < 0 && colsMap.creditIdx < 0) {
+    return { format, transactions: [] };
+  }
+
+  const transactions: ParsedBankTxn[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const cols = parseCSVLine(line);
+
+    let amount: number | null = null;
+    if (colsMap.amountIdx >= 0) {
+      amount = parseAmountToCents(cols[colsMap.amountIdx]);
+    } else if (colsMap.debitIdx >= 0 || colsMap.creditIdx >= 0) {
+      const debit = parseAmountToCents(cols[colsMap.debitIdx]);
+      const credit = parseAmountToCents(cols[colsMap.creditIdx]);
+      if (credit != null && credit !== 0) {
+        amount = Math.abs(credit);
+      } else if (debit != null && debit !== 0) {
+        amount = -Math.abs(debit);
+      }
+    }
+    if (amount == null) continue;
+
+    const date = normalizeDate(cell(cols, colsMap.dateIdx));
+    if (!date) continue;
+
+    let runningBalance: number | null = null;
+    if (colsMap.balIdx >= 0 && cols[colsMap.balIdx]) {
+      runningBalance = parseAmountToCents(cols[colsMap.balIdx]);
+    }
+
+    const description = joinNonEmpty(
+      colsMap.descParts.map((idx) => cell(cols, idx))
+    );
+    const paymentReference =
+      colsMap.refIdx >= 0 ? cell(cols, colsMap.refIdx) || null : null;
+
+    let transactionId =
+      colsMap.idIdx >= 0 ? cell(cols, colsMap.idIdx) || null : null;
+    if (!transactionId) {
+      transactionId = contentHashId(date, amount, description, paymentReference);
+    }
+
+    const currencyRaw =
+      colsMap.currencyIdx >= 0 ? cell(cols, colsMap.currencyIdx) : '';
+    const currency = (currencyRaw || 'NZD').toUpperCase();
+
+    transactions.push({
+      transactionId,
+      date,
+      amount,
+      currency,
+      description,
+      paymentReference,
+      runningBalance,
+    });
+  }
+
+  return { format, transactions };
+}
+
 /**
  * Upload CSV and import transactions
  */
@@ -199,8 +401,13 @@ export async function uploadCSV(
   userId: string,
   csvContent: string,
   filename: string
-): Promise<{ imported: number; duplicates: number; batchId: string }> {
-  const transactions = parseWiseCSV(csvContent);
+): Promise<{
+  imported: number;
+  duplicates: number;
+  batchId: string;
+  format: BankCsvFormat;
+}> {
+  const { format, transactions } = parseBankCSV(csvContent);
   const batchId = uuidv4();
   let imported = 0;
   let duplicates = 0;
@@ -239,7 +446,7 @@ export async function uploadCSV(
     }
   }
 
-  return { imported, duplicates, batchId };
+  return { imported, duplicates, batchId, format };
 }
 
 /**
