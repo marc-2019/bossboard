@@ -20,6 +20,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { subscriptionsApi } from '../src/services/api';
 import { startPaidUpgrade, restoreStorePurchases } from '../src/services/payments';
+import {
+  billingStoreLabel,
+  restoreUnavailableMessage,
+  noRestoreFoundMessage,
+} from '../src/services/storeLabel';
 import * as Sentry from '@sentry/react-native';
 import { BackButton } from '../src/components/BackButton';
 import { safeGoBack } from '../src/utils/navigation';
@@ -178,9 +183,8 @@ export default function SubscriptionScreen() {
 
       if (result === 'beta' || channel === 'beta') {
         Alert.alert(
-          'Launch Pricing',
-          'All features are free during our launch period.',
-          [{ text: 'OK' }]
+          'Purchase unavailable',
+          `Could not start the ${billingStoreLabel()} purchase. Try Restore Purchases or try again shortly.`
         );
         return;
       }
@@ -200,7 +204,7 @@ export default function SubscriptionScreen() {
         Alert.alert(
           'Purchases unavailable',
           Platform.OS === 'ios' || Platform.OS === 'android'
-            ? 'In-app purchases are not available in this build. Use a store build (TestFlight / Play internal testing) or restore purchases if you already subscribed.'
+            ? restoreUnavailableMessage()
             : 'Could not start payment. Try again from a browser at bossboard.app.'
         );
         return;
@@ -208,7 +212,7 @@ export default function SubscriptionScreen() {
       Alert.alert(
         'Purchase error',
         Platform.OS === 'ios' || Platform.OS === 'android'
-          ? 'Could not complete the App Store / Play purchase. Check your connection, try Restore Purchases, or contact support.'
+          ? `Could not complete the ${billingStoreLabel()} purchase. Check your connection, try Restore Purchases, or contact support.`
           : 'Could not start payment. Check your connection or try again from Settings → Subscription.'
       );
     } catch (err: any) {
@@ -229,9 +233,8 @@ export default function SubscriptionScreen() {
       const result = await restoreStorePurchases();
       if (result === 'beta') {
         Alert.alert(
-          'Launch Pricing',
-          'All features are free during our launch period.',
-          [{ text: 'OK' }]
+          'Restore unavailable',
+          `No subscription could be restored for this ${Platform.OS === 'ios' ? 'Apple ID' : 'account'}.`
         );
         return;
       }
@@ -243,15 +246,12 @@ export default function SubscriptionScreen() {
       if (result === 'none') {
         Alert.alert(
           'Nothing to restore',
-          'No previous BossBoard subscription was found for this Apple / Google account.'
+          noRestoreFoundMessage()
         );
         return;
       }
       if (result === 'unavailable') {
-        Alert.alert(
-          'Restore unavailable',
-          'Restore Purchases works on the iOS and Android store builds only.'
-        );
+        Alert.alert('Restore unavailable', restoreUnavailableMessage());
         return;
       }
       Alert.alert('Restore failed', 'Could not restore purchases. Try again later.');
@@ -333,17 +333,6 @@ export default function SubscriptionScreen() {
         <Ionicons name="chevron-back" size={22} color="#FF6B35" />
         <Text style={styles.inContentBackText}>Back</Text>
       </TouchableOpacity>
-
-      {/* Launch Banner */}
-      <View style={styles.betaBanner}>
-        <Ionicons name="gift-outline" size={20} color="#059669" />
-        <View style={styles.betaTextWrap}>
-          <Text style={styles.betaTitle}>Launch Pricing</Text>
-          <Text style={styles.betaSubtitle}>
-            All features are completely free during our launch period!
-          </Text>
-        </View>
-      </View>
 
       {/* Current Plan Card */}
       <View
@@ -449,6 +438,26 @@ export default function SubscriptionScreen() {
               ))}
             </View>
 
+            {tier.slug !== 'free' && (
+              <View style={styles.legalBox} testID={`subscription-legal-${tier.slug}`}>
+                <Text style={styles.legalTitle}>
+                  {tier.name} — auto-renewable subscription
+                </Text>
+                <Text style={styles.legalLine}>Length: 1 week</Text>
+                <Text style={styles.legalLine}>
+                  Price: {tier.priceWeekly} NZD per week (GST inclusive)
+                </Text>
+                <Text style={styles.legalFine}>
+                  Payment is charged to your {Platform.OS === 'ios' ? 'Apple ID' : 'store account'} at
+                  confirmation. The subscription renews automatically each week unless you cancel at
+                  least 24 hours before the end of the current period. Manage or cancel in{' '}
+                  {Platform.OS === 'ios'
+                    ? 'Settings → Apple ID → Subscriptions'
+                    : 'your store subscriptions'}.
+                </Text>
+              </View>
+            )}
+
             {!isCurrent && (
               <TouchableOpacity
                 style={[styles.upgradeButton, { backgroundColor: colors.text }]}
@@ -466,7 +475,7 @@ export default function SubscriptionScreen() {
         );
       })}
 
-      {/* Restore — required by App Store / Play for auto-renewable subscriptions */}
+      {/* Restore — required for auto-renewable subscriptions */}
       {(Platform.OS === 'ios' || Platform.OS === 'android') && (
         <TouchableOpacity
           style={styles.restoreButton}
@@ -484,7 +493,7 @@ export default function SubscriptionScreen() {
         Less than a coffee a week. Cancel anytime.{'\n'}
         Prices in NZD. GST inclusive.
         {(Platform.OS === 'ios' || Platform.OS === 'android') &&
-          '\nSubscriptions are billed through the App Store / Google Play.'}
+          `\nSubscriptions are billed through ${billingStoreLabel()}.`}
       </Text>
     </ScrollView>
   );
@@ -524,30 +533,31 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Beta Banner
-  betaBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    gap: 12,
+  legalBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#E5E7EB',
   },
-  betaTextWrap: {
-    flex: 1,
-  },
-  betaTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  betaSubtitle: {
+  legalTitle: {
     fontSize: 13,
-    color: '#065F46',
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  legalLine: {
+    fontSize: 13,
+    color: '#374151',
     marginTop: 2,
+  },
+  legalFine: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 8,
+    lineHeight: 17,
   },
 
   // Current Plan

@@ -20,6 +20,12 @@ import { subscriptionsApi } from './api';
 
 export type PaidTier = 'tradie' | 'team';
 
+/** ASC product IDs (APPLE_STORE_LAUNCH.md). Fallback if the API catalog is empty. */
+export const IOS_IAP_PRODUCT_IDS: Record<PaidTier, string> = {
+  tradie: 'nz.instilligent.bossboard.tradie.weekly',
+  team: 'nz.instilligent.bossboard.team.weekly',
+};
+
 const DEEP_LINK_SUCCESS = 'bossboard://subscription/success';
 const DEEP_LINK_CANCEL = 'bossboard://subscription/cancel';
 
@@ -166,10 +172,16 @@ export async function purchaseWithStoreIap(tier: PaidTier): Promise<IapOutcome> 
   }
 
   try {
-    const cat = await subscriptionsApi.getIapProducts();
-    const products = cat.data?.data?.products;
+    let products: { ios?: Record<string, string>; android?: Record<string, string> } | undefined;
+    try {
+      const cat = await subscriptionsApi.getIapProducts();
+      products = cat.data?.data?.products;
+    } catch (e) {
+      console.warn('[payments] IAP catalog', e);
+    }
     const productId =
-      Platform.OS === 'ios' ? products?.ios?.[tier] : products?.android?.[tier];
+      (Platform.OS === 'ios' ? products?.ios?.[tier] : products?.android?.[tier]) ||
+      (Platform.OS === 'ios' ? IOS_IAP_PRODUCT_IDS[tier] : undefined);
     if (!productId) return 'error';
 
     await RNIap.initConnection();
@@ -210,13 +222,15 @@ export async function purchaseWithStoreIap(tier: PaidTier): Promise<IapOutcome> 
     if (!purchaseObj) return 'error';
 
     const result = await verifyPurchaseWithServer(productId, purchaseObj);
-    if (result === 'verified') {
+    if (result === 'verified' || result === 'beta') {
       try {
         await RNIap.finishTransaction({ purchase: purchaseObj, isConsumable: false });
       } catch {
-        /* ignore finish errors — server already activated */
+        /* ignore finish errors */
       }
     }
+    // StoreKit succeeded — do not show a purchase error if the API is still in betaMode.
+    if (result === 'beta' && Platform.OS === 'ios') return 'verified';
     return result;
   } catch (e) {
     console.warn('[payments] IAP', e);
@@ -250,11 +264,21 @@ export async function restoreStorePurchases(): Promise<
   }
 
   try {
-    const cat = await subscriptionsApi.getIapProducts();
-    const products = cat.data?.data?.products;
+    let products: { ios?: Record<string, string>; android?: Record<string, string> } | undefined;
+    try {
+      const cat = await subscriptionsApi.getIapProducts();
+      products = cat.data?.data?.products;
+    } catch (e) {
+      console.warn('[payments] IAP catalog restore', e);
+    }
     const known = new Set(
       Platform.OS === 'ios'
-        ? [products?.ios?.tradie, products?.ios?.team].filter(Boolean)
+        ? [
+            products?.ios?.tradie,
+            products?.ios?.team,
+            IOS_IAP_PRODUCT_IDS.tradie,
+            IOS_IAP_PRODUCT_IDS.team,
+          ].filter(Boolean)
         : [products?.android?.tradie, products?.android?.team].filter(Boolean)
     );
 
