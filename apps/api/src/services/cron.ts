@@ -10,9 +10,11 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import notificationsService from './notifications.js';
 import { runIlertHealthPings } from './ilert-health-pinger.js';
+import { runOperatorQuoteNudges } from './quoteOperatorNudgeRunner.js';
 
 let certExpiryJob: ScheduledTask | null = null;
 let ilertHealthJob: ScheduledTask | null = null;
+let quoteNudgeJob: ScheduledTask | null = null;
 
 /**
  * Start all cron jobs
@@ -35,6 +37,19 @@ function start(): void {
   });
 
   console.log('[Cron] Cert expiry check scheduled (daily at 8:00 AM NZST)');
+
+  quoteNudgeJob = cron.schedule('0 8 * * *', async () => {
+    console.log('[Cron] Running operator quote nudges...');
+    try {
+      const result = await runOperatorQuoteNudges();
+      console.log(`[Cron] Operator quote nudges complete: ${result.nudged} of ${result.checked}`);
+    } catch (error) {
+      console.error('[Cron] Operator quote nudges failed:', error);
+    }
+  }, {
+    timezone: 'Pacific/Auckland',
+  });
+  console.log('[Cron] Operator quote nudges scheduled (daily at 8:00 AM NZ)');
 
   // Cloud ilert pinger: health check then heartbeat (avoids home-internet false downs)
   if (
@@ -69,6 +84,10 @@ function stop(): void {
   if (ilertHealthJob) {
     ilertHealthJob.stop();
     ilertHealthJob = null;
+  }
+  if (quoteNudgeJob) {
+    quoteNudgeJob.stop();
+    quoteNudgeJob = null;
   }
   console.log('[Cron] All scheduled tasks stopped');
 }
