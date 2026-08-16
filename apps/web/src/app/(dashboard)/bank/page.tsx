@@ -145,9 +145,8 @@ export default function BankPage() {
       </div>
 
       <p className="text-sm text-gray-600 mb-4 max-w-2xl">
-        Import bank CSV exports (e.g. Wise, ASB, ANZ), auto-match credits to unpaid invoices, then
-        confirm to mark invoices paid. Field capture stays in the mobile app; desktop recon is for
-        office mornings.
+        Upload a CSV export from Wise, ASB, ANZ, or BNZ. Auto-match credits to unpaid invoices, then
+        confirm to mark invoices paid. This is not a live bank feed and does not sync to Xero.
       </p>
 
       {error && (
@@ -225,7 +224,7 @@ export default function BankPage() {
             </div>
             <h2 className="text-base font-semibold text-gray-900 mb-1">No bank transactions yet</h2>
             <p className="text-sm text-gray-600 max-w-md mx-auto mb-4">
-              Upload a CSV export from your bank to import transactions and match them to invoices.
+              Export a CSV from online banking, then upload. This is not a live bank connection and does not sync to Xero.
             </p>
             <Link
               href="/bank/upload"
