@@ -14,6 +14,7 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -104,6 +105,15 @@ const TIERS: TierInfo[] = [
     limits: { invoices: 'Unlimited', swms: 'Unlimited', aiCalls: 200, teamMembers: 5 },
   },
 ];
+
+const PRIVACY_URL = 'https://api.instilligent.com/legal/privacy';
+const APPLE_STANDARD_EULA_URL =
+  'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
+function openLegal(url: string) {
+  Linking.openURL(url);
+}
+
 
 const TIER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   free: { bg: '#F3F4F6', text: '#374151', border: '#D1D5DB' },
@@ -455,6 +465,24 @@ export default function SubscriptionScreen() {
                     ? 'Settings → Apple ID → Subscriptions'
                     : 'your store subscriptions'}.
                 </Text>
+                <TouchableOpacity
+                  onPress={() => openLegal(PRIVACY_URL)}
+                  testID={`subscription-legal-privacy-${tier.slug}`}
+                  accessibilityRole="link"
+                  accessibilityLabel="Privacy policy"
+                >
+                  <Text style={styles.legalLink}>Privacy policy</Text>
+                </TouchableOpacity>
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    onPress={() => openLegal(APPLE_STANDARD_EULA_URL)}
+                    testID={`subscription-legal-eula-${tier.slug}`}
+                    accessibilityRole="link"
+                    accessibilityLabel="Terms of Use (EULA)"
+                  >
+                    <Text style={styles.legalLink}>Terms of Use (EULA)</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -558,6 +586,12 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 8,
     lineHeight: 17,
+  },
+  legalLink: {
+    fontSize: 13,
+    color: '#1D4ED8',
+    marginTop: 8,
+    textDecorationLine: 'underline',
   },
 
   // Current Plan
