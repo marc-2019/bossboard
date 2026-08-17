@@ -16,6 +16,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
+import { safeGoBack } from '../../src/utils/navigation';
 
 interface JobLog {
   id: string;
@@ -213,8 +214,20 @@ export default function JobLogsListScreen() {
             <TouchableOpacity
               style={styles.emptyButton}
               onPress={() => router.push('/jobs/create' as any)}
+              testID="job-logs-empty-clock-in"
+              accessibilityRole="button"
+              accessibilityLabel="Clock In to Your First Job"
             >
               <Text style={styles.emptyButtonText}>Clock In to Your First Job</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.emptyHomeButton}
+              onPress={() => safeGoBack(router, '/(tabs)')}
+              testID="job-logs-empty-back-home"
+              accessibilityRole="button"
+              accessibilityLabel="Back to Home"
+            >
+              <Text style={styles.emptyHomeButtonText}>Back to Home</Text>
             </TouchableOpacity>
           </View>
         }
@@ -388,6 +401,16 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: {
     color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyHomeButton: {
+    marginTop: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  emptyHomeButtonText: {
+    color: '#0D9488',
     fontSize: 14,
     fontWeight: '600',
   },
