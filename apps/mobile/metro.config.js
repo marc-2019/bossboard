@@ -17,6 +17,14 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// Worktree node_modules may symlink at another checkout. Metro then
+// resolves @bossboard/shared outside watchFolders and redboxes.
+// Pin this workspace's package so Job Logs Metro can bundle.
+config.resolver.extraNodeModules = {
+  ...(config.resolver.extraNodeModules || {}),
+  '@bossboard/shared': path.resolve(workspaceRoot, 'packages/shared'),
+};
+
 // NOTE: No extraNodeModules force-resolution. With react/react-dom aligned to
 // the Expo SDK 54 pins (19.1.0) across the workspace, npm hoists a single copy
 // of each and Metro's default resolution finds it. The previous force-block
