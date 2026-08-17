@@ -14,6 +14,8 @@ type Props = {
   style?: ViewStyle;
   /** Use close icon when this is a modal-like flow */
   variant?: 'back' | 'close';
+  /** Skip canGoBack/back — nested stacks can no-op back() */
+  forceFallback?: boolean;
 };
 
 export function BackButton({
@@ -21,11 +23,12 @@ export function BackButton({
   color = '#FF6B35',
   style,
   variant = 'back',
+  forceFallback = false,
 }: Props) {
   const router = useRouter();
   return (
     <TouchableOpacity
-      onPress={() => safeGoBack(router, fallback)}
+      onPress={() => safeGoBack(router, fallback, { forceFallback })}
       style={[styles.btn, style]}
       accessibilityRole="button"
       accessibilityLabel={variant === 'close' ? 'Close' : 'Go back'}

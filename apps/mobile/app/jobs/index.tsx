@@ -16,7 +16,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
-import { safeGoBack } from '../../src/utils/navigation';
+import { goHome } from '../../src/utils/navigation';
 
 interface JobLog {
   id: string;
@@ -222,7 +222,7 @@ export default function JobLogsListScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.emptyHomeButton}
-              onPress={() => safeGoBack(router, '/(tabs)')}
+              onPress={() => goHome(router)}
               testID="job-logs-empty-back-home"
               accessibilityRole="button"
               accessibilityLabel="Back to Home"

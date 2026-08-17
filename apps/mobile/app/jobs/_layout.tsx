@@ -10,7 +10,7 @@ export default function JobsLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={withBackHeader('Job Logs')} />
+      <Stack.Screen name="index" options={withBackHeader('Job Logs', { forceFallback: true })} />
       <Stack.Screen name="create" options={withBackHeader('New Job')} />
       <Stack.Screen name="[id]" options={withBackHeader('Job Details')} />
     </Stack>

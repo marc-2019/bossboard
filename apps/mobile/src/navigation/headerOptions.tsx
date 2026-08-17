@@ -11,15 +11,19 @@ export function withBackHeader(
   opts?: {
     fallback?: string;
     headerTintColor?: string;
+    forceFallback?: boolean;
   }
 ): NativeStackNavigationOptions {
   const tint = opts?.headerTintColor ?? colors.primary;
   const fallback = opts?.fallback ?? '/(tabs)';
+  const forceFallback = opts?.forceFallback ?? false;
   return {
     headerShown: true,
     title,
     headerTintColor: tint,
     headerBackVisible: false, // we always supply our own so it's never missing
-    headerLeft: () => <BackButton fallback={fallback} color={tint} />,
+    headerLeft: () => (
+      <BackButton fallback={fallback} color={tint} forceFallback={forceFallback} />
+    ),
   };
 }
