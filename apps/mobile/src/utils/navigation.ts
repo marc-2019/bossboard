@@ -5,37 +5,60 @@
  *
  * Nested stacks can report canGoBack() true while back() is a no-op. For a
  * control that must land on Home, use goHome or safeGoBack(..., { forceFallback: true }).
+ *
+ * Device 2026-08-17: replace('/(tabs)') from Job Logs left the app (SpringBoard).
+ * Prefer navigate, then dismissTo. replace is last resort.
  */
 
-type GoBackRouter = {
-  canGoBack: () => boolean;
-  back: () => void;
+type HomeRouter = {
+  canGoBack?: () => boolean;
+  back?: () => void;
   replace: (href: any) => void;
+  navigate?: (href: any) => void;
+  dismissTo?: (href: any) => void;
 };
 
 /** Always land on Home. Use when the control says Home, not Back. */
 export function goHome(
-  router: Pick<GoBackRouter, 'replace'>,
+  router: HomeRouter,
   href: string = '/(tabs)'
 ): void {
+  try {
+    if (typeof router.navigate === 'function') {
+      router.navigate(href as any);
+      return;
+    }
+  } catch {
+    // fall through
+  }
+  try {
+    if (typeof router.dismissTo === 'function') {
+      router.dismissTo(href as any);
+      return;
+    }
+  } catch {
+    // fall through
+  }
   router.replace(href as any);
 }
 
 /** Prefer history back; otherwise land on tabs (never trap the user). */
 export function safeGoBack(
-  router: GoBackRouter,
+  router: HomeRouter & { canGoBack: () => boolean; back: () => void },
   fallback: string = '/(tabs)',
   opts?: { forceFallback?: boolean }
 ): void {
-  if (!opts?.forceFallback) {
-    try {
-      if (router.canGoBack()) {
-        router.back();
-        return;
-      }
-    } catch {
-      // fall through to replace
-    }
+  if (opts?.forceFallback) {
+    goHome(router, fallback);
+    return;
   }
-  router.replace(fallback as any);
+  try {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+  } catch {
+    // fall through
+  }
+  goHome(router, fallback);
 }

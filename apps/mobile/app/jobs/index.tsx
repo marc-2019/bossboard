@@ -212,15 +212,6 @@ export default function JobLogsListScreen() {
             <Ionicons name="timer-outline" size={48} color="#D1D5DB" />
             <Text style={styles.emptyText}>No job logs yet</Text>
             <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => router.push('/jobs/create' as any)}
-              testID="job-logs-empty-clock-in"
-              accessibilityRole="button"
-              accessibilityLabel="Clock In to Your First Job"
-            >
-              <Text style={styles.emptyButtonText}>Clock In to Your First Job</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={styles.emptyHomeButton}
               onPress={() => goHome(router)}
               testID="job-logs-empty-back-home"
@@ -228,6 +219,15 @@ export default function JobLogsListScreen() {
               accessibilityLabel="Back to Home"
             >
               <Text style={styles.emptyHomeButtonText}>Back to Home</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => router.push('/jobs/create' as any)}
+              testID="job-logs-empty-clock-in"
+              accessibilityRole="button"
+              accessibilityLabel="Clock In to Your First Job"
+            >
+              <Text style={styles.emptyButtonText}>Clock In to Your First Job</Text>
             </TouchableOpacity>
           </View>
         }
@@ -405,9 +405,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   emptyHomeButton: {
-    marginTop: 12,
+    marginTop: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#0D9488',
     paddingHorizontal: 20,
     paddingVertical: 10,
+    borderRadius: 8,
   },
   emptyHomeButtonText: {
     color: '#0D9488',
