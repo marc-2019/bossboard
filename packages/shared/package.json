@@ -8,19 +8,27 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./types": {
       "import": "./dist/types/index.js",
-      "types": "./dist/types/index.d.ts"
+      "types": "./dist/types/index.d.ts",
+      "require": "./dist/types/index.js",
+      "default": "./dist/types/index.js"
     },
     "./theme": {
       "import": "./dist/theme/colors.js",
-      "types": "./dist/theme/colors.d.ts"
+      "types": "./dist/theme/colors.d.ts",
+      "require": "./dist/theme/colors.js",
+      "default": "./dist/theme/colors.js"
     },
     "./utils": {
       "import": "./dist/utils/format.js",
-      "types": "./dist/utils/format.d.ts"
+      "types": "./dist/utils/format.d.ts",
+      "require": "./dist/utils/format.js",
+      "default": "./dist/utils/format.js"
     }
   },
   "scripts": {
