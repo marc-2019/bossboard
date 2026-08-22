@@ -419,11 +419,11 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
       message,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('SMTP')) {
+    if (error instanceof Error && /SMTP|Resend/i.test(error.message)) {
       res.status(503).json({
         success: false,
         error: 'EMAIL_SEND_FAILED',
-        message: 'Failed to send email. Please check SMTP configuration.',
+        message: 'Could not send the invoice email. Please try again.',
       });
       return;
     }

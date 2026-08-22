@@ -475,6 +475,23 @@ describe('Invoice Routes', () => {
       expect(response.body.error).toBe('EMAIL_SEND_FAILED');
     });
 
+    it('should return 503 when Resend rejects the payload', async () => {
+      mockIsEmailConfigured.mockReturnValue(true);
+      mockGetInvoiceByIdRaw.mockResolvedValue({ id: 'inv-1', invoiceNumber: 'INV-001', status: 'draft' });
+      mockGenerateInvoicePDF.mockResolvedValue(Buffer.from('pdf'));
+      mockSendInvoiceEmail.mockRejectedValue(
+        new Error('Resend error: The `\\n` is not allowed in the `subject` field.'),
+      );
+
+      const response = await request(app)
+        .post('/api/v1/invoices/inv-1/email')
+        .send({ recipientEmail: 'joan@matherconsult.co.nz' });
+
+      expect(response.status).toBe(503);
+      expect(response.body.error).toBe('EMAIL_SEND_FAILED');
+      expect(response.body.message).not.toMatch(/unexpected error/i);
+    });
+
     it('should not auto-mark as sent when invoice is already sent', async () => {
       mockIsEmailConfigured.mockReturnValue(true);
       mockGetInvoiceByIdRaw.mockResolvedValue({ id: 'inv-1', invoiceNumber: 'INV-001', status: 'sent' });

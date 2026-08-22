@@ -401,6 +401,14 @@ router.post(
         message,
       });
     } catch (error) {
+      if (error instanceof Error && /SMTP|Resend/i.test(error.message)) {
+        res.status(503).json({
+          success: false,
+          error: 'EMAIL_SEND_FAILED',
+          message: 'Could not send the quote email. Please try again.',
+        });
+        return;
+      }
       next(error);
     }
   }

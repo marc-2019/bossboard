@@ -259,10 +259,31 @@ function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+/** Resend rejects subjects that contain CR/LF (INV-0002 2026-08-22). */
+function sanitizeEmailSubject(subject: string): string {
+  return subject.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function clientNoteHtml(customMessage?: string): string {
+  const msg = customMessage?.trim();
+  if (!msg) return '';
+  const html = escapeHtml(msg).replace(/\r\n/g, '\n').replace(/\n/g, '<br>\n');
+  return `<div style="margin: 0 0 20px; padding: 12px 16px; background: #F9FAFB; border-radius: 8px;">
+        <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.5;">${html}</p>
+      </div>`;
+}
+
 function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: string): { subject: string; html: string; text: string } {
-  const subject = customMessage
-    ? `Invoice ${invoice.invoiceNumber} - ${customMessage}`
-    : `Invoice ${invoice.invoiceNumber} from ${senderName || appName()}`;
+  // Message is a textarea in the UI — never concatenate it into the subject.
+  const subject = `Invoice ${invoice.invoiceNumber} from ${senderName || appName()}`;
 
   const lineItemsHtml = invoice.lineItems
     .map(item =>
@@ -291,6 +312,7 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
     : '';
 
   const body = `
+    ${clientNoteHtml(customMessage)}
     <p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">Bill To:</p>
     <p style="margin: 0 0 16px; color: #111827; font-size: 16px; font-weight: 600;">${invoice.clientName}</p>
     ${invoice.jobDescription ? `<p style="margin: 0 0 16px; color: #374151; font-size: 14px;">${invoice.jobDescription}</p>` : ''}
@@ -332,6 +354,7 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
     `Invoice ${invoice.invoiceNumber}`,
     invoice.companyName ? `From: ${invoice.companyName}` : '',
     '',
+    ...(customMessage?.trim() ? [customMessage.trim(), ''] : []),
     `Bill To: ${invoice.clientName}`,
     invoice.jobDescription ? `Job: ${invoice.jobDescription}` : '',
     invoice.dueDate ? `Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-NZ')}` : '',
@@ -414,7 +437,7 @@ async function send(
   const payload: Parameters<Resend['emails']['send']>[0] = {
     from: fromAddress(),
     to: [to],
-    subject: template.subject,
+    subject: sanitizeEmailSubject(template.subject),
     html: template.html,
     text: template.text,
   };
@@ -483,9 +506,7 @@ function quoteTemplate(
   senderName: string,
   customMessage?: string
 ): { subject: string; html: string; text: string } {
-  const subject = customMessage
-    ? `Quote ${quote.quoteNumber} - ${customMessage}`
-    : `Quote ${quote.quoteNumber} from ${senderName || appName()}`;
+  const subject = `Quote ${quote.quoteNumber} from ${senderName || appName()}`;
 
   const lineItemsHtml = (quote.lineItems || [])
     .map(
@@ -508,6 +529,7 @@ function quoteTemplate(
     : '';
 
   const body = `
+    ${clientNoteHtml(customMessage)}
     <p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">Quote for:</p>
     <p style="margin: 0 0 16px; color: #111827; font-size: 16px; font-weight: 600;">${quote.clientName}</p>
     ${quote.jobDescription ? `<p style="margin: 0 0 16px; color: #374151; font-size: 14px;">${quote.jobDescription}</p>` : ''}
@@ -536,6 +558,7 @@ function quoteTemplate(
     `Quote ${quote.quoteNumber}`,
     quote.companyName ? `From: ${quote.companyName}` : '',
     '',
+    ...(customMessage?.trim() ? [customMessage.trim(), ''] : []),
     `For: ${quote.clientName}`,
     quote.jobDescription ? `Job: ${quote.jobDescription}` : '',
     quote.validUntil ? `Valid until: ${new Date(quote.validUntil).toLocaleDateString('en-NZ')}` : '',

@@ -214,11 +214,29 @@ describe('sendInvoiceEmail', () => {
     expect(call.attachments[0].content).toBe(pdf);
   });
 
-  it('uses custom message as subject prefix when provided', async () => {
+  it('puts the optional client message in the body, not the subject', async () => {
     const invoice = makeInvoice();
     await sendInvoiceEmail(invoice, Buffer.from(''), 'client@acme.com', 'Bob', 'Thanks for your business');
     const call = mockEmailsSend.mock.calls[0][0];
-    expect(call.subject).toContain('Thanks for your business');
+    expect(call.subject).toBe('Invoice INV-001 from Bob');
+    expect(call.subject).not.toContain('Thanks for your business');
+    expect(call.html).toContain('Thanks for your business');
+    expect(call.text).toContain('Thanks for your business');
+  });
+
+  it('does not put newlines in the subject when the client message is multiline', async () => {
+    // Production: Resend 500 "The `\n` is not allowed in the `subject` field."
+    // INV-0002 2026-08-22 — UI "Message" is a textarea; it used to be concatenated into subject.
+    const invoice = makeInvoice({ invoiceNumber: 'INV-0002' });
+    const message = 'Hi Joan,\n\nThis is the first invoice from the system I\'ve built. :)\n\nCheers,\nMarc';
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'joan@matherconsult.co.nz', 'Marc', message);
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.subject).not.toMatch(/[\r\n]/);
+    expect(call.subject).toBe('Invoice INV-0002 from Marc');
+    expect(call.html).toContain('Hi Joan,');
+    expect(call.html).toContain('Cheers,');
+    expect(call.text).toContain('Hi Joan,');
+    expect(call.text).toContain('This is the first invoice from the system I\'ve built.');
   });
 
   it('uses invoice number and sender name in subject when no custom message', async () => {
