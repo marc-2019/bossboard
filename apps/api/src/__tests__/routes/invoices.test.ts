@@ -485,7 +485,7 @@ describe('Invoice Routes', () => {
 
       const response = await request(app)
         .post('/api/v1/invoices/inv-1/email')
-        .send({ recipientEmail: 'joan@matherconsult.co.nz' });
+        .send({ recipientEmail: 'client@example.com' });
 
       expect(response.status).toBe(503);
       expect(response.body.error).toBe('EMAIL_SEND_FAILED');

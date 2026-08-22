@@ -228,15 +228,15 @@ describe('sendInvoiceEmail', () => {
     // Production: Resend 500 "The `\n` is not allowed in the `subject` field."
     // INV-0002 2026-08-22 — UI "Message" is a textarea; it used to be concatenated into subject.
     const invoice = makeInvoice({ invoiceNumber: 'INV-0002' });
-    const message = 'Hi Joan,\n\nThis is the first invoice from the system I\'ve built. :)\n\nCheers,\nMarc';
-    await sendInvoiceEmail(invoice, Buffer.from(''), 'joan@matherconsult.co.nz', 'Marc', message);
+    const message = 'Hi Client,\n\nPlease find this invoice attached.\n\nCheers,\nSender';
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@example.com', 'Marc', message);
     const call = mockEmailsSend.mock.calls[0][0];
     expect(call.subject).not.toMatch(/[\r\n]/);
     expect(call.subject).toBe('Invoice INV-0002 from Marc');
-    expect(call.html).toContain('Hi Joan,');
+    expect(call.html).toContain('Hi Client,');
     expect(call.html).toContain('Cheers,');
-    expect(call.text).toContain('Hi Joan,');
-    expect(call.text).toContain('This is the first invoice from the system I\'ve built.');
+    expect(call.text).toContain('Hi Client,');
+    expect(call.text).toContain('Please find this invoice attached.');
   });
 
   it('uses invoice number and sender name in subject when no custom message', async () => {
