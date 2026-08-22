@@ -30,6 +30,9 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/web/package.json ./apps/web/
 COPY apps/api/package.json ./apps/api/
 COPY apps/mobile/package.json ./apps/mobile/
+# postinstall runs eas-patch-rniap-podspec.js; without this file npm install
+# fails and bossboard-web never ships (2026-08-22 share-link deploy).
+COPY apps/mobile/scripts/eas-patch-rniap-podspec.js ./apps/mobile/scripts/eas-patch-rniap-podspec.js
 
 # --legacy-peer-deps because expo's react peer constraints conflict
 # with react 19 elsewhere in the workspace. --no-audit/--no-fund just
