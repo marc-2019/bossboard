@@ -17,6 +17,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
+import { safeGoBack } from '../../src/utils/navigation';
 
 interface JobLog {
   id: string;
@@ -192,8 +193,24 @@ export default function JobLogDetailScreen() {
 
   const isActive = jobLog.status === 'active';
 
+  function leaveJobDetails() {
+    safeGoBack(router, '/(tabs)');
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* In-content back — nested-stack native header back is not in the device a11y tree */}
+      <TouchableOpacity
+        style={styles.inContentExit}
+        onPress={leaveJobDetails}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        testID="job-details-exit"
+      >
+        <Ionicons name="chevron-back" size={20} color="#0D9488" />
+        <Text style={styles.inContentExitText}>Go back</Text>
+      </TouchableOpacity>
+
       {/* Timer/Duration Header */}
       <View style={[styles.timerCard, isActive && styles.timerCardActive]}>
         <View style={[styles.statusBadge, isActive ? styles.statusActive : styles.statusCompleted]}>
@@ -273,8 +290,19 @@ export default function JobLogDetailScreen() {
         </View>
       )}
 
-      {/* Delete */}
+      {/* Completed: Done is the way off. Delete stays available. */}
       <View style={styles.actions}>
+        {!isActive && (
+          <TouchableOpacity
+            style={styles.doneButton}
+            onPress={leaveJobDetails}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+            testID="job-details-done"
+          >
+            <Text style={styles.doneButtonText}>Done</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
           <Ionicons name="trash-outline" size={18} color="#EF4444" />
           <Text style={styles.deleteText}>Delete Job Log</Text>
@@ -306,6 +334,20 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
+  },
+  inContentExit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+    paddingVertical: 4,
+    paddingRight: 12,
+    gap: 2,
+  },
+  inContentExitText: {
+    fontSize: 16,
+    color: '#0D9488',
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
@@ -486,6 +528,19 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: 8,
+    gap: 10,
+  },
+  doneButton: {
+    backgroundColor: '#0D9488',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
   },
   deleteButton: {
     flexDirection: 'row',
