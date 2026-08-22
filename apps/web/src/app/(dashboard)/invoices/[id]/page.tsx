@@ -514,10 +514,10 @@ export default function InvoiceDetailPage() {
           </h2>
         </div>
         <ul className="divide-y divide-border-light">
-          {invoice.lineItems.length === 0 && (
+          {(invoice.lineItems ?? []).length === 0 && (
             <li className="px-6 py-4 text-sm text-gray-500">No line items.</li>
           )}
-          {invoice.lineItems.map((item) => {
+          {(invoice.lineItems ?? []).map((item) => {
             const hasCost = item.cost != null && Number(item.cost) >= 0;
             const isAnnual = Boolean(
               (item as { costIsAnnual?: boolean }).costIsAnnual,
@@ -580,7 +580,7 @@ export default function InvoiceDetailPage() {
             <span>{formatCents(invoice.total)}</span>
           </div>
           {(() => {
-            const linesWithCost = invoice.lineItems.filter(
+            const linesWithCost = (invoice.lineItems ?? []).filter(
               (li) => li.cost != null && Number(li.cost) >= 0,
             );
             if (linesWithCost.length === 0) return null;
@@ -588,7 +588,7 @@ export default function InvoiceDetailPage() {
               (s, li) => s + Number(li.cost),
               0,
             );
-            const totalSell = invoice.lineItems.reduce(
+            const totalSell = (invoice.lineItems ?? []).reduce(
               (s, li) => s + Number(li.amount || 0),
               0,
             );

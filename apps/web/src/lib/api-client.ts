@@ -249,13 +249,18 @@ export const invoicesClient = {
       }),
     ),
 
-  share: (id: string) =>
-    clientFetch<{
+  // Express getInvoiceById is transformForMobile (snake_case). Same as
+  // get/email — without camelize, the invoice page throws on lineItems
+  // (client-side exception after Share link; INV-0002 2026-08-22).
+  share: async (id: string) =>
+    deepCamelize<{
       shareToken?: string;
       token?: string;
       shareUrl: string;
       invoice?: import('@bossboard/shared').Invoice;
-    }>(`/api/invoices/${id}/share`, { method: 'POST' }),
+    }>(
+      await clientFetch<unknown>(`/api/invoices/${id}/share`, { method: 'POST' }),
+    ),
 
   /** Returns the absolute URL for the PDF download endpoint. The browser
    *  fetches the PDF directly via this URL so it triggers the native
