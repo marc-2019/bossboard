@@ -14,6 +14,7 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,13 @@ import { startPaidUpgrade, restoreStorePurchases } from '../src/services/payment
 import * as Sentry from '@sentry/react-native';
 import { BackButton } from '../src/components/BackButton';
 import { safeGoBack } from '../src/utils/navigation';
+import {
+  LEGAL_PRIVACY_URL,
+  LEGAL_TERMS_URL,
+  billingFooterLine,
+  purchaseAlertCopy,
+  showLaunchFreeBanner,
+} from '../src/utils/subscriptionStoreCopy';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -178,8 +186,10 @@ export default function SubscriptionScreen() {
 
       if (result === 'beta' || channel === 'beta') {
         Alert.alert(
-          'Launch Pricing',
-          'All features are free during our launch period.',
+          Platform.OS === 'ios' ? 'Subscription' : 'Launch Pricing',
+          Platform.OS === 'ios'
+            ? 'Paid plans are billed through the App Store. Try Restore Purchases if you already subscribed.'
+            : 'All features are free during our launch period.',
           [{ text: 'OK' }]
         );
         return;
@@ -200,7 +210,7 @@ export default function SubscriptionScreen() {
         Alert.alert(
           'Purchases unavailable',
           Platform.OS === 'ios' || Platform.OS === 'android'
-            ? 'In-app purchases are not available in this build. Use a store build (TestFlight / Play internal testing) or restore purchases if you already subscribed.'
+            ? purchaseAlertCopy(Platform.OS, 'unavailable')
             : 'Could not start payment. Try again from a browser at bossboard.app.'
         );
         return;
@@ -208,7 +218,7 @@ export default function SubscriptionScreen() {
       Alert.alert(
         'Purchase error',
         Platform.OS === 'ios' || Platform.OS === 'android'
-          ? 'Could not complete the App Store / Play purchase. Check your connection, try Restore Purchases, or contact support.'
+          ? purchaseAlertCopy(Platform.OS, 'error')
           : 'Could not start payment. Check your connection or try again from Settings → Subscription.'
       );
     } catch (err: any) {
@@ -229,8 +239,10 @@ export default function SubscriptionScreen() {
       const result = await restoreStorePurchases();
       if (result === 'beta') {
         Alert.alert(
-          'Launch Pricing',
-          'All features are free during our launch period.',
+          Platform.OS === 'ios' ? 'Subscription' : 'Launch Pricing',
+          Platform.OS === 'ios'
+            ? 'Paid plans are billed through the App Store. Try Restore Purchases if you already subscribed.'
+            : 'All features are free during our launch period.',
           [{ text: 'OK' }]
         );
         return;
@@ -243,14 +255,14 @@ export default function SubscriptionScreen() {
       if (result === 'none') {
         Alert.alert(
           'Nothing to restore',
-          'No previous BossBoard subscription was found for this Apple / Google account.'
+          purchaseAlertCopy(Platform.OS, 'restoreNone')
         );
         return;
       }
       if (result === 'unavailable') {
         Alert.alert(
           'Restore unavailable',
-          'Restore Purchases works on the iOS and Android store builds only.'
+          purchaseAlertCopy(Platform.OS, 'restoreUnavailable')
         );
         return;
       }
@@ -334,16 +346,17 @@ export default function SubscriptionScreen() {
         <Text style={styles.inContentBackText}>Back</Text>
       </TouchableOpacity>
 
-      {/* Launch Banner */}
-      <View style={styles.betaBanner}>
-        <Ionicons name="gift-outline" size={20} color="#059669" />
-        <View style={styles.betaTextWrap}>
-          <Text style={styles.betaTitle}>Launch Pricing</Text>
-          <Text style={styles.betaSubtitle}>
-            All features are completely free during our launch period!
-          </Text>
+      {showLaunchFreeBanner(Platform.OS) && (
+        <View style={styles.betaBanner}>
+          <Ionicons name="gift-outline" size={20} color="#059669" />
+          <View style={styles.betaTextWrap}>
+            <Text style={styles.betaTitle}>Launch Pricing</Text>
+            <Text style={styles.betaSubtitle}>
+              All features are completely free during our launch period!
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Current Plan Card */}
       <View
@@ -479,13 +492,29 @@ export default function SubscriptionScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Footer Note */}
+      {/* Footer Note + 3.1.2(c) privacy / terms links */}
       <Text style={styles.footerNote}>
         Less than a coffee a week. Cancel anytime.{'\n'}
         Prices in NZD. GST inclusive.
-        {(Platform.OS === 'ios' || Platform.OS === 'android') &&
-          '\nSubscriptions are billed through the App Store / Google Play.'}
+        {billingFooterLine(Platform.OS) ? `\n${billingFooterLine(Platform.OS)}` : ''}
       </Text>
+      <View style={styles.legalRow}>
+        <TouchableOpacity
+          onPress={() => Linking.openURL(LEGAL_PRIVACY_URL)}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy Policy"
+        >
+          <Text style={styles.legalLink}>Privacy Policy</Text>
+        </TouchableOpacity>
+        <Text style={styles.legalSep}> · </Text>
+        <TouchableOpacity
+          onPress={() => Linking.openURL(LEGAL_TERMS_URL)}
+          accessibilityRole="link"
+          accessibilityLabel="Terms of Use"
+        >
+          <Text style={styles.legalLink}>Terms of Use</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -748,5 +777,21 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 16,
     lineHeight: 20,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  legalLink: {
+    fontSize: 13,
+    color: '#1D4ED8',
+    textDecorationLine: 'underline',
+  },
+  legalSep: {
+    fontSize: 13,
+    color: '#9CA3AF',
   },
 });
