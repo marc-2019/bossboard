@@ -263,11 +263,32 @@
         "apps/api/src/services/subscriptions.ts (tier definitions + isBetaMode env-driven, post-commit 1b33d93)",
         "apps/api/src/services/stripe.ts (Stripe Checkout wired \u2014 createCheckoutSession at L120)",
         "apps/api/src/routes/subscriptions.ts#L158 (POST /checkout)",
-        "apps/mobile/app/subscription.tsx#L165 (handleUpgrade \u2192 real Stripe Checkout URL via Linking.openURL)"
+        "apps/mobile/src/services/payments.ts (iOS/Android native IAP; do not open Stripe from the binary)",
+        "apps/mobile/app/subscription.tsx (Upgrade uses startPaidUpgrade, not Linking.openURL to Stripe)"
       ],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-05-19",
-      "notes": "Beta mode currently default-on (BETA_MODE env var defaults to true; explicit BETA_MODE=false enables paid checkout). All users get tradie-tier access in beta. Phase 1 paid-checkout shipped 2026-05-19 (commits ba90ce4 + 1b33d93): Stripe Checkout backend wired, mobile Upgrade button now opens real Stripe URL, prod boot guards refuse to start with BETA_MODE=false absent STRIPE_RETURN_URL/STRIPE_SECRET_KEY/STRIPE_PRICE_ID_TRADIE. Production has NOT flipped to BETA_MODE=false yet \u2014 copy still factually reflects current beta posture ('Join the Beta' CTA + 'Tradie features free during beta'). When production flips, page.tsx CTAs + this note must be re-audited (claim text remains accurate as a price-list)."
+      "last_verified": "2026-08-23",
+      "notes": "Price list is live in-app. iOS/Android paid upgrades must use store IAP (Guideline 3.1.1 / Play Billing). Web may still use Stripe. Do not claim 'all features free during beta/launch' on iOS store surfaces."
+    },
+    {
+      "id": "bossboard.subscription-billing-rails",
+      "claim": "If you subscribe in the iOS app, billing is through the App Store. Live Terms, Privacy, and Support at api.instilligent.com must not say the product is free during beta, and must not say Stripe processes iOS in-app purchases. Apple processes iOS IAP; Stripe is website payments only.",
+      "surfaces": [
+        "apps/api/src/routes/legal.ts",
+        "nginx/html/terms.html",
+        "nginx/html/privacy.html",
+        "nginx/html/support.html",
+        "apps/mobile/app/subscription.tsx",
+        "apps/mobile/src/utils/subscriptionStoreCopy.ts"
+      ],
+      "code_references": [
+        "apps/mobile/src/services/payments.ts (StoreKit / Play Billing dual-rail)",
+        "apps/api/src/services/stripe.ts (web checkout only)"
+      ],
+      "verdict": "PARTIAL",
+      "last_verified": "2026-08-23",
+      "notes": "Copy is in legal.ts (1A). Not IMPLEMENTED until curl of https://api.instilligent.com/legal/terms, /privacy, /support matches and has no beta-free / Stripe-as-iOS-processor claims.",
+      "previous_overclaim": "Terms said 'Beta Programme' (Tradie-tier free) and 'Subscription payments are processed by Stripe' on the page Apple Review taps. Privacy listed Stripe as the payment processor. Support FAQ said all features free in beta."
     },
     {
       "id": "bossboard.privacy-consent-banner",
@@ -544,7 +565,7 @@
       "evidence_references": [
         "DOCUMENT_DISCLAIMER constant shown in UI and public invoice page"
       ],
-      "verdict": "allowed",
+      "verdict": "IMPLEMENTED",
       "last_verified": "2026-08-09",
       "previous_overclaim": "Do not claim BossBoard provides legal advice, vetted contracts, or compliance with any contract law."
     }
