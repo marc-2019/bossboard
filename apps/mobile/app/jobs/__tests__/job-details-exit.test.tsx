@@ -34,9 +34,12 @@ jest.mock('react-native', () => {
     Text: host('Text'),
     ScrollView: host('ScrollView'),
     TouchableOpacity: host('TouchableOpacity'),
+    Pressable: host('Pressable'),
     TextInput: host('TextInput'),
     ActivityIndicator: host('ActivityIndicator'),
+    KeyboardAvoidingView: host('KeyboardAvoidingView'),
     Alert: { alert: jest.fn() },
+    Keyboard: { dismiss: jest.fn(), addListener: () => ({ remove: jest.fn() }) },
   };
 });
 

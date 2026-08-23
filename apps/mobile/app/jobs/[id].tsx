@@ -13,11 +13,18 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
 import { safeGoBack } from '../../src/utils/navigation';
+import { JobLogKeyboardDismissChrome } from '../../src/components/JobLogKeyboardDismissChrome';
+import {
+  jobLogScrollKeyboard,
+  jobLogTextFieldKeyboard,
+} from '../../src/utils/jobLogKeyboard';
 
 interface JobLog {
   id: string;
@@ -198,117 +205,127 @@ export default function JobLogDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* In-content back — nested-stack native header back is not in the device a11y tree */}
-      <TouchableOpacity
-        style={styles.inContentExit}
-        onPress={leaveJobDetails}
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        testID="job-details-exit"
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        {...jobLogScrollKeyboard}
       >
-        <Ionicons name="chevron-back" size={20} color="#0D9488" />
-        <Text style={styles.inContentExitText}>Go back</Text>
-      </TouchableOpacity>
-
-      {/* Timer/Duration Header */}
-      <View style={[styles.timerCard, isActive && styles.timerCardActive]}>
-        <View style={[styles.statusBadge, isActive ? styles.statusActive : styles.statusCompleted]}>
-          <Ionicons
-            name={isActive ? 'radio-button-on' : 'checkmark-circle'}
-            size={16}
-            color={isActive ? '#0D9488' : '#10B981'}
-          />
-          <Text style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextCompleted]}>
-            {isActive ? 'Active' : 'Completed'}
-          </Text>
-        </View>
-        <Text style={[styles.timerValue, isActive && styles.timerValueActive]}>
-          {elapsed}
-        </Text>
-        <Text style={styles.timerLabel}>
-          {isActive ? 'Time on site' : 'Total duration'}
-        </Text>
-      </View>
-
-      {/* Job Details */}
-      <View style={styles.detailCard}>
-        <DetailRow icon="briefcase" label="Job" value={jobLog.description} />
-        <DetailRow icon="time" label="Clocked In" value={formatDateTime(jobLog.startTime)} />
-        {jobLog.endTime && (
-          <DetailRow icon="time-outline" label="Clocked Out" value={formatDateTime(jobLog.endTime)} />
-        )}
-        {jobLog.siteAddress && (
-          <DetailRow icon="location" label="Site" value={jobLog.siteAddress} />
-        )}
-        {jobLog.notes && (
-          <DetailRow icon="chatbox" label="Notes" value={jobLog.notes} />
-        )}
-      </View>
-
-      {/* Clock Out Section */}
-      {isActive && !showClockOutForm && (
         <TouchableOpacity
-          style={styles.clockOutButton}
-          onPress={() => setShowClockOutForm(true)}
+          style={styles.inContentExit}
+          onPress={leaveJobDetails}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          testID="job-details-exit"
         >
-          <Ionicons name="stop-circle" size={22} color="#fff" />
-          <Text style={styles.clockOutButtonText}>Clock Out</Text>
+          <Ionicons name="chevron-back" size={20} color="#0D9488" />
+          <Text style={styles.inContentExitText}>Go back</Text>
         </TouchableOpacity>
-      )}
 
-      {isActive && showClockOutForm && (
-        <View style={styles.clockOutForm}>
-          <Text style={styles.clockOutFormTitle}>Clock Out</Text>
-          <TextInput
-            style={[styles.textInput, styles.textArea]}
-            value={clockOutNotes}
-            onChangeText={setClockOutNotes}
-            placeholder="Add any notes about the job (optional)..."
-            placeholderTextColor="#9CA3AF"
-            multiline
-            numberOfLines={3}
-          />
-          <View style={styles.clockOutActions}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowClockOutForm(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.confirmClockOutButton, isClockingOut && styles.buttonDisabled]}
-              onPress={handleClockOut}
-              disabled={isClockingOut}
-            >
-              <Ionicons name="stop-circle" size={18} color="#fff" />
-              <Text style={styles.confirmClockOutText}>
-                {isClockingOut ? 'Clocking Out...' : 'Confirm Clock Out'}
+        <JobLogKeyboardDismissChrome>
+          <View style={[styles.timerCard, isActive && styles.timerCardActive]}>
+            <View style={[styles.statusBadge, isActive ? styles.statusActive : styles.statusCompleted]}>
+              <Ionicons
+                name={isActive ? 'radio-button-on' : 'checkmark-circle'}
+                size={16}
+                color={isActive ? '#0D9488' : '#10B981'}
+              />
+              <Text style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextCompleted]}>
+                {isActive ? 'Active' : 'Completed'}
               </Text>
-            </TouchableOpacity>
+            </View>
+            <Text style={[styles.timerValue, isActive && styles.timerValueActive]}>
+              {elapsed}
+            </Text>
+            <Text style={styles.timerLabel}>
+              {isActive ? 'Time on site' : 'Total duration'}
+            </Text>
           </View>
-        </View>
-      )}
 
-      {/* Completed: Done is the way off. Delete stays available. */}
-      <View style={styles.actions}>
-        {!isActive && (
+          <View style={styles.detailCard}>
+            <DetailRow icon="briefcase" label="Job" value={jobLog.description} />
+            <DetailRow icon="time" label="Clocked In" value={formatDateTime(jobLog.startTime)} />
+            {jobLog.endTime && (
+              <DetailRow icon="time-outline" label="Clocked Out" value={formatDateTime(jobLog.endTime)} />
+            )}
+            {jobLog.siteAddress && (
+              <DetailRow icon="location" label="Site" value={jobLog.siteAddress} />
+            )}
+            {jobLog.notes && (
+              <DetailRow icon="chatbox" label="Notes" value={jobLog.notes} />
+            )}
+          </View>
+        </JobLogKeyboardDismissChrome>
+
+        {isActive && !showClockOutForm && (
           <TouchableOpacity
-            style={styles.doneButton}
-            onPress={leaveJobDetails}
-            accessibilityRole="button"
-            accessibilityLabel="Done"
-            testID="job-details-done"
+            style={styles.clockOutButton}
+            onPress={() => setShowClockOutForm(true)}
           >
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Ionicons name="stop-circle" size={22} color="#fff" />
+            <Text style={styles.clockOutButtonText}>Clock Out</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Ionicons name="trash-outline" size={18} color="#EF4444" />
-          <Text style={styles.deleteText}>Delete Job Log</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        {isActive && showClockOutForm && (
+          <View style={styles.clockOutForm}>
+            <JobLogKeyboardDismissChrome>
+              <Text style={styles.clockOutFormTitle}>Clock Out</Text>
+            </JobLogKeyboardDismissChrome>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={clockOutNotes}
+              onChangeText={setClockOutNotes}
+              placeholder="Add any notes about the job (optional)..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={3}
+              {...jobLogTextFieldKeyboard}
+            />
+            <View style={styles.clockOutActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowClockOutForm(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmClockOutButton, isClockingOut && styles.buttonDisabled]}
+                onPress={handleClockOut}
+                disabled={isClockingOut}
+              >
+                <Ionicons name="stop-circle" size={18} color="#fff" />
+                <Text style={styles.confirmClockOutText}>
+                  {isClockingOut ? 'Clocking Out...' : 'Confirm Clock Out'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.actions}>
+          {!isActive && (
+            <TouchableOpacity
+              style={styles.doneButton}
+              onPress={leaveJobDetails}
+              accessibilityRole="button"
+              accessibilityLabel="Done"
+              testID="job-details-done"
+            >
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+            <Text style={styles.deleteText}>Delete Job Log</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -330,6 +347,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,
