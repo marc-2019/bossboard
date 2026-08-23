@@ -21,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { feedbackApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 type Category = 'bug' | 'idea' | 'other';
 
@@ -63,6 +64,7 @@ export default function FeedbackScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/settings" />
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>What is it about?</Text>
         <View style={styles.chipRow}>

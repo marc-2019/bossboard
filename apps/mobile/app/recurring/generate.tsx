@@ -19,6 +19,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { recurringInvoicesApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface LineItem {
   id: string;
@@ -202,6 +203,7 @@ export default function GenerateInvoiceScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" />
         <ActivityIndicator size="large" color="#FF6B35" />
       </View>
     );
@@ -212,9 +214,7 @@ export default function GenerateInvoiceScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Recurring invoice not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
+        <InContentBack fallback="/(tabs)/money" />
       </View>
     );
   }
@@ -229,6 +229,7 @@ export default function GenerateInvoiceScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <InContentBack fallback="/(tabs)/money" />
         {/* Header Info */}
         <View style={styles.headerCard}>
           <View style={styles.headerRow}>

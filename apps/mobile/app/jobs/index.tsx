@@ -16,6 +16,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface JobLog {
   id: string;
@@ -144,6 +145,7 @@ export default function JobLogsListScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)" color="#0D9488" />
         <ActivityIndicator size="large" color="#0D9488" />
       </View>
     );
@@ -151,6 +153,9 @@ export default function JobLogsListScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.exitRow}>
+        <InContentBack fallback="/(tabs)" color="#0D9488" />
+      </View>
       {/* Weekly Summary */}
       {stats && (
         <View style={styles.summaryCard}>
@@ -236,6 +241,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  exitRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,

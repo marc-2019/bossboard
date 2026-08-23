@@ -16,6 +16,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { expensesApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Expense {
   id: string;
@@ -131,6 +132,7 @@ export default function ExpensesListScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" color="#F59E0B" />
         <ActivityIndicator size="large" color="#F59E0B" />
       </View>
     );
@@ -138,6 +140,9 @@ export default function ExpensesListScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.exitRow}>
+        <InContentBack fallback="/(tabs)/money" color="#F59E0B" />
+      </View>
       {/* Monthly Summary */}
       {stats && (
         <View style={styles.summaryCard}>
@@ -222,6 +227,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  exitRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,

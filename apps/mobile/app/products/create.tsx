@@ -20,6 +20,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { productsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 type ProductType = 'fixed' | 'variable';
 
@@ -179,6 +180,7 @@ export default function CreateProductScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" />
         <ActivityIndicator size="large" color="#FF6B35" />
         <Text style={styles.loadingText}>Loading product...</Text>
       </View>
@@ -195,6 +197,7 @@ export default function CreateProductScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <InContentBack fallback="/(tabs)/money" />
         {/* Product Name */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Product Details</Text>

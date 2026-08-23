@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function CertificationsLayout() {
   return (
@@ -10,9 +11,18 @@ export default function CertificationsLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Certifications' }} />
-      <Stack.Screen name="add" options={{ title: 'Add Certification' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Certification Details' }} />
+      <Stack.Screen
+        name="index"
+        options={withBackHeader('Certifications', { fallback: '/(tabs)/people' })}
+      />
+      <Stack.Screen
+        name="add"
+        options={withBackHeader('Add Certification', { fallback: '/(tabs)/people' })}
+      />
+      <Stack.Screen
+        name="[id]"
+        options={withBackHeader('Certification Details', { fallback: '/(tabs)/people' })}
+      />
     </Stack>
   );
 }

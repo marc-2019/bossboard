@@ -16,6 +16,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { expensesApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Expense {
   id: string;
@@ -109,6 +110,7 @@ export default function ExpenseDetailScreen() {
   if (isLoading || !expense) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" color="#F59E0B" />
         <ActivityIndicator size="large" color="#F59E0B" />
       </View>
     );
@@ -118,6 +120,7 @@ export default function ExpenseDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/(tabs)/money" color="#F59E0B" />
       {/* Amount Header */}
       <View style={styles.amountCard}>
         <View style={[styles.catBadge, { backgroundColor: cat.color + '15' }]}>

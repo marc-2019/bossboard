@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { customersApi, businessProfileApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 export default function CreateCustomerScreen() {
   const router = useRouter();
@@ -177,6 +178,7 @@ export default function CreateCustomerScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" />
         <ActivityIndicator size="large" color="#FF6B35" />
       </View>
     );
@@ -192,6 +194,7 @@ export default function CreateCustomerScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <InContentBack fallback="/(tabs)/money" />
         {/* Customer Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Customer Details</Text>

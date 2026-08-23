@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function ProductsLayout() {
   return (
@@ -10,9 +11,18 @@ export default function ProductsLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Products & Services' }} />
-      <Stack.Screen name="create" options={{ title: 'New Product' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Product Details' }} />
+      <Stack.Screen
+        name="index"
+        options={withBackHeader('Products & Services', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="create"
+        options={withBackHeader('New Product', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="[id]"
+        options={withBackHeader('Product Details', { fallback: '/(tabs)/money' })}
+      />
     </Stack>
   );
 }

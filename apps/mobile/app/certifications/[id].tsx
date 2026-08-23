@@ -22,6 +22,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { certificationsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Certification {
   id: string;
@@ -163,6 +164,7 @@ export default function CertificationDetailScreen() {
   if (isLoading || !cert) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/people" />
         <ActivityIndicator size="large" color={ORANGE} />
       </View>
     );
@@ -172,6 +174,7 @@ export default function CertificationDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/(tabs)/people" />
       {/* Header */}
       <View style={styles.headerCard}>
         <View style={styles.iconCircle}>

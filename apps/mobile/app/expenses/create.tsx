@@ -18,6 +18,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { expensesApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 const CATEGORIES = [
   { key: 'materials', label: 'Materials', icon: 'construct', color: '#FF6B35' },
@@ -103,6 +104,7 @@ export default function CreateExpenseScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <InContentBack fallback="/(tabs)/money" color="#F59E0B" />
         {/* Amount Input */}
         <View style={styles.amountSection}>
           <Text style={styles.amountLabel}>Amount</Text>

@@ -18,6 +18,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { bankTransactionsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface BankTransaction {
   id: string;
@@ -328,6 +329,7 @@ export default function BankTransactionsScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" />
         <ActivityIndicator size="large" color="#FF6B35" />
         <Text style={styles.loadingText}>Loading transactions...</Text>
       </View>
@@ -336,6 +338,9 @@ export default function BankTransactionsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.exitRow}>
+        <InContentBack fallback="/(tabs)/money" />
+      </View>
       {renderSummaryCard()}
 
       {/* Action Buttons */}
@@ -427,6 +432,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  exitRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,

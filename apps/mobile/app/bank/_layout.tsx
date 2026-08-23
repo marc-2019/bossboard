@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function BankLayout() {
   return (
@@ -10,8 +11,14 @@ export default function BankLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Bank Transactions' }} />
-      <Stack.Screen name="upload" options={{ title: 'Upload Statement' }} />
+      <Stack.Screen
+        name="index"
+        options={withBackHeader('Bank Transactions', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="upload"
+        options={withBackHeader('Upload Statement', { fallback: '/(tabs)/money' })}
+      />
     </Stack>
   );
 }

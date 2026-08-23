@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { bankTransactionsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface SelectedFile {
   name: string;
@@ -121,6 +122,7 @@ export default function BankUploadScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
     >
+      <InContentBack fallback="/(tabs)/money" />
       {/* Header Info */}
       <View style={styles.infoBox}>
         <Ionicons name="information-circle" size={20} color="#FF6B35" />
