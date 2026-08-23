@@ -17,8 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { swmsApi, statsApi, recurringInvoicesApi, jobLogsApi } from '../../src/services/api';
 import {
+  getLastLiveJob,
   hasSuppressedActiveJobLogs,
   isActiveJobLogSuppressed,
+  rememberLastLiveJob,
   setActiveJobLogOwner,
   subscribeActiveJobInvalidation,
 } from '../../src/services/activeJobLog';
@@ -130,7 +132,6 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeJobError, setActiveJobError] = useState<string | null>(null);
   const loadGenerationRef = useRef(0);
-  const lastLiveJobRef = useRef<ActiveJobLog | null>(null);
 
   useEffect(() => {
     setActiveJobLogOwner(user?.id ?? null);
@@ -185,11 +186,10 @@ export default function HomeScreen() {
       }
 
       if (!activeJobOutcome.ok) {
-        const justHadLive =
-          lastLiveJobRef.current !== null || hasSuppressedActiveJobLogs();
+        const last = getLastLiveJob();
+        const justHadLive = last !== null || hasSuppressedActiveJobLogs();
         if (justHadLive) {
           setActiveJobError("Couldn't check clock-in status.");
-          const last = lastLiveJobRef.current;
           if (last && !isActiveJobLogSuppressed(last.id)) {
             setActiveJobLog(last);
           } else {
@@ -203,7 +203,7 @@ export default function HomeScreen() {
           : null;
         const live = liveJobFromActivePayload(jobLog);
         setActiveJobLog(live);
-        lastLiveJobRef.current = live;
+        rememberLastLiveJob(live);
       }
 
       if (insightsResponse?.data?.success) {

@@ -2,17 +2,25 @@
  * Lets Job Details clock-out/delete drop Home's live job immediately.
  * Tabs stay mounted, so useFocusEffect alone is not enough.
  *
- * Clocked-out ids are suppressed at module scope, keyed by user, so a
- * remounted Home still refuses that job for the same session. Instance-only
- * suppress is not enough: the clock-out notify can hit an old listener.
- * Logout / clearAuth must drop the set so a later user is not stuck.
+ * Clocked-out ids and last-live are module-scope, keyed by user, so a
+ * remounted Home still refuses that job and getActive fail stays
+ * fail-visible. Logout / clearAuth / owner change drop suppress, last-live,
+ * and Home's banner so a later user is not shown the prior Clock Out.
  * This does not cover process-death or Fast Refresh.
  */
+
+export type LastLiveJobLog = {
+  id: string;
+  description: string;
+  siteAddress: string | null;
+  startTime: string;
+};
 
 type Listener = (jobId?: string) => void;
 
 const listeners = new Set<Listener>();
 const suppressedJobIdsByOwner = new Map<string, Set<string>>();
+const lastLiveByOwner = new Map<string, LastLiveJobLog>();
 let currentOwnerId: string | null = null;
 
 function suppressSetForOwner(ownerId: string): Set<string> {
@@ -24,8 +32,18 @@ function suppressSetForOwner(ownerId: string): Set<string> {
   return set;
 }
 
+function notifyListeners(jobId?: string): void {
+  for (const listener of listeners) {
+    listener(jobId);
+  }
+}
+
 export function setActiveJobLogOwner(userId: string | null): void {
+  const changed = userId !== currentOwnerId;
   currentOwnerId = userId;
+  if (changed) {
+    notifyListeners();
+  }
 }
 
 export function subscribeActiveJobInvalidation(listener: Listener): () => void {
@@ -45,21 +63,37 @@ export function hasSuppressedActiveJobLogs(): boolean {
   return (suppressedJobIdsByOwner.get(currentOwnerId)?.size ?? 0) > 0;
 }
 
+export function getLastLiveJob(): LastLiveJobLog | null {
+  if (!currentOwnerId) return null;
+  return lastLiveByOwner.get(currentOwnerId) ?? null;
+}
+
+export function rememberLastLiveJob(job: LastLiveJobLog | null): void {
+  if (!currentOwnerId) return;
+  if (job) {
+    lastLiveByOwner.set(currentOwnerId, job);
+  } else {
+    lastLiveByOwner.delete(currentOwnerId);
+  }
+}
+
 export function invalidateActiveJobLog(jobId?: string): void {
   if (jobId && currentOwnerId) {
     suppressSetForOwner(currentOwnerId).add(jobId);
   }
-  for (const listener of listeners) {
-    listener(jobId);
-  }
+  notifyListeners(jobId);
 }
 
 export function clearActiveJobLogSuppressions(): void {
   suppressedJobIdsByOwner.clear();
+  lastLiveByOwner.clear();
   currentOwnerId = null;
+  notifyListeners();
 }
 
-/** Test-only: module suppress survives remount; do not leak across cases. */
+/** Test-only: module suppress + last-live survive remount; do not leak across cases. */
 export function resetActiveJobLogSuppressionsForTests(): void {
-  clearActiveJobLogSuppressions();
+  suppressedJobIdsByOwner.clear();
+  lastLiveByOwner.clear();
+  currentOwnerId = null;
 }
