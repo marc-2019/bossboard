@@ -5,6 +5,7 @@
 
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { invalidateActiveJobLog } from './activeJobLog';
 
 /**
  * Production API must never silently fall back to localhost.
@@ -204,6 +205,16 @@ function getCacheKey(endpoint: string, method: string, body?: unknown): string {
   return `${method}:${endpoint}:${body ? JSON.stringify(body) : ''}`;
 }
 
+const ACTIVE_JOB_LOG_GET = '/api/v1/job-logs/active';
+const getInvalidationEpoch = new Map<string, number>();
+
+/** Drop an in-flight GET and bump epoch so retries cannot re-seed that key. */
+function invalidateInFlightGet(endpoint: string): void {
+  const key = getCacheKey(endpoint, 'GET');
+  requestCache.delete(key);
+  getInvalidationEpoch.set(key, (getInvalidationEpoch.get(key) ?? 0) + 1);
+}
+
 async function request<T = any>(
   endpoint: string,
   config: RequestConfig = {},
@@ -221,6 +232,7 @@ async function request<T = any>(
 
   // Request deduplication for GET requests
   const cacheKey = method === 'GET' ? getCacheKey(endpoint, method, body) : null;
+  const epochAtStart = cacheKey ? (getInvalidationEpoch.get(cacheKey) ?? 0) : 0;
   if (cacheKey && requestCache.has(cacheKey)) {
     return requestCache.get(cacheKey) as Promise<ApiResponse<T>>;
   }
@@ -303,8 +315,8 @@ async function request<T = any>(
     try {
       const resultPromise = executeRequest();
 
-      // Cache GET requests
-      if (cacheKey) {
+      // Cache GET requests only if this key was not invalidated since we started.
+      if (cacheKey && (getInvalidationEpoch.get(cacheKey) ?? 0) === epochAtStart) {
         requestCache.set(cacheKey, resultPromise as Promise<ApiResponse<unknown>>);
       }
 
@@ -861,17 +873,28 @@ export const jobLogsApi = {
 
   get: (id: string) => api.get(`/api/v1/job-logs/${id}`),
 
-  getActive: () => api.get('/api/v1/job-logs/active'),
+  getActive: () => api.get(ACTIVE_JOB_LOG_GET),
 
   getStats: () => api.get('/api/v1/job-logs/stats'),
 
   update: (id: string, data: { description?: string; siteAddress?: string; customerId?: string | null; notes?: string }) =>
     api.put(`/api/v1/job-logs/${id}`, data),
 
-  clockOut: (id: string, notes?: string) =>
-    api.post(`/api/v1/job-logs/${id}/clock-out`, { notes }),
+  clockOut: async (id: string, notes?: string) => {
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
+    const result = await api.post(`/api/v1/job-logs/${id}/clock-out`, { notes });
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
+    invalidateActiveJobLog(id);
+    return result;
+  },
 
-  delete: (id: string) => api.delete(`/api/v1/job-logs/${id}`),
+  delete: async (id: string) => {
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
+    const result = await api.delete(`/api/v1/job-logs/${id}`);
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
+    invalidateActiveJobLog(id);
+    return result;
+  },
 };
 
 // =============================================================================

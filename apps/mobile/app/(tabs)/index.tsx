@@ -3,7 +3,7 @@
  * Dashboard with stats, quick actions, and recent documents
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { swmsApi, statsApi, recurringInvoicesApi, jobLogsApi } from '../../src/services/api';
+import { subscribeActiveJobInvalidation } from '../../src/services/activeJobLog';
 
 // Insights types
 interface RevenueComparison {
@@ -71,6 +72,27 @@ interface ActiveJobLog {
   startTime: string;
 }
 
+function asLiveJobLog(jobLog: unknown): ActiveJobLog | null {
+  if (!jobLog || typeof jobLog !== 'object') return null;
+  const row = jobLog as {
+    id?: unknown;
+    description?: unknown;
+    siteAddress?: unknown;
+    startTime?: unknown;
+    status?: unknown;
+  };
+  if (row.status !== 'active') return null;
+  if (typeof row.id !== 'string' || typeof row.description !== 'string' || typeof row.startTime !== 'string') {
+    return null;
+  }
+  return {
+    id: row.id,
+    description: row.description,
+    siteAddress: typeof row.siteAddress === 'string' ? row.siteAddress : null,
+    startTime: row.startTime,
+  };
+}
+
 interface DashboardStats {
   swms: {
     total: number;
@@ -101,19 +123,45 @@ export default function HomeScreen() {
   const [pendingCount, setPendingCount] = useState({ auto: 0, review: 0 });
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeJobError, setActiveJobError] = useState<string | null>(null);
+  const loadGenerationRef = useRef(0);
+  const lastLiveJobRef = useRef<ActiveJobLog | null>(null);
+  const suppressedJobIdsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    return subscribeActiveJobInvalidation((jobId) => {
+      if (jobId) suppressedJobIdsRef.current.add(jobId);
+      loadGenerationRef.current += 1;
+      setActiveJobLog(null);
+      setActiveJobError(null);
+    });
+  }, []);
+
+  function liveJobFromActivePayload(jobLog: unknown): ActiveJobLog | null {
+    const live = asLiveJobLog(jobLog);
+    if (!live) return null;
+    if (suppressedJobIdsRef.current.has(live.id)) return null;
+    return live;
+  }
 
   const loadData = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     try {
       // Load recent docs, stats, and insights in parallel
-      const [docsResponse, statsResponse, pendingResponse, activeJobResponse, insightsResponse] = await Promise.all([
-        swmsApi.list({ limit: 3 }),
+      const [docsResponse, statsResponse, pendingResponse, activeJobOutcome, insightsResponse] = await Promise.all([
+        swmsApi.list({ limit: 3 }).catch(() => null),
         statsApi.getDashboard().catch(() => null),
         recurringInvoicesApi.getPending().catch(() => null),
-        jobLogsApi.getActive().catch(() => null),
+        jobLogsApi.getActive().then(
+          (res) => ({ ok: true as const, res }),
+          (error: unknown) => ({ ok: false as const, error })
+        ),
         statsApi.getInsights().catch(() => null),
       ]);
 
-      if (docsResponse.data.success) {
+      if (generation !== loadGenerationRef.current) return;
+
+      if (docsResponse?.data?.success) {
         setRecentDocs(docsResponse.data.data.documents || []);
       }
 
@@ -129,10 +177,26 @@ export default function HomeScreen() {
         });
       }
 
-      if (activeJobResponse?.data?.success) {
-        setActiveJobLog((activeJobResponse.data as any).data.jobLog || null);
+      if (!activeJobOutcome.ok) {
+        const justHadLive =
+          lastLiveJobRef.current !== null || suppressedJobIdsRef.current.size > 0;
+        if (justHadLive) {
+          setActiveJobError("Couldn't check clock-in status.");
+          const last = lastLiveJobRef.current;
+          if (last && !suppressedJobIdsRef.current.has(last.id)) {
+            setActiveJobLog(last);
+          } else {
+            setActiveJobLog(null);
+          }
+        }
       } else {
-        setActiveJobLog(null);
+        setActiveJobError(null);
+        const jobLog = activeJobOutcome.res?.data?.success
+          ? (activeJobOutcome.res.data as { data?: { jobLog?: unknown } }).data?.jobLog
+          : null;
+        const live = liveJobFromActivePayload(jobLog);
+        setActiveJobLog(live);
+        lastLiveJobRef.current = live;
       }
 
       if (insightsResponse?.data?.success) {
@@ -525,6 +589,11 @@ export default function HomeScreen() {
         )}
 
         {/* Clock In/Out Card */}
+        {activeJobError ? (
+          <View style={styles.jobActiveErrorCard}>
+            <Text style={styles.jobActiveErrorText}>{activeJobError}</Text>
+          </View>
+        ) : null}
         {activeJobLog ? (
           <TouchableOpacity
             style={styles.jobActiveCard}
@@ -546,7 +615,7 @@ export default function HomeScreen() {
               <Text style={styles.jobActiveActionText}>Clock Out</Text>
             </View>
           </TouchableOpacity>
-        ) : (
+        ) : activeJobError ? null : (
           <TouchableOpacity
             style={styles.jobClockInCard}
             onPress={() => router.push('/jobs/create' as any)}
@@ -893,6 +962,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  jobActiveErrorCard: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  jobActiveErrorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
   },
   jobActiveCard: {
     backgroundColor: '#F0FDFA',

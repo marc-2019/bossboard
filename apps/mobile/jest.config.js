@@ -16,6 +16,10 @@ module.exports = {
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testTimeout: 10000,
+  // api.ts reads __DEV__ at module load; Node Jest does not define it.
+  globals: {
+    __DEV__: true,
+  },
   moduleNameMapper: {
     // Force all react imports to the root copy so react-test-renderer uses the same React instance
     '^react$': '<rootDir>/../../node_modules/react',
