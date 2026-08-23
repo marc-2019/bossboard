@@ -19,6 +19,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
+import { invalidateActiveJobLog } from '../../src/services/activeJobLog';
 import { safeGoBack } from '../../src/utils/navigation';
 import { JobLogKeyboardDismissChrome } from '../../src/components/JobLogKeyboardDismissChrome';
 import {
@@ -201,6 +202,9 @@ export default function JobLogDetailScreen() {
   const isActive = jobLog.status === 'active';
 
   function leaveJobDetails() {
+    if (jobLog.status !== 'active') {
+      invalidateActiveJobLog(jobLog.id);
+    }
     safeGoBack(router, '/(tabs)');
   }
 

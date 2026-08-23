@@ -74,6 +74,11 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 import JobLogDetailScreen from '../[id]';
+import {
+  isActiveJobLogSuppressed,
+  resetActiveJobLogSuppressionsForTests,
+  setActiveJobLogOwner,
+} from '../../../src/services/activeJobLog';
 
 const completedJob = {
   id: 'job-1',
@@ -125,6 +130,8 @@ async function renderCompletedJob(): Promise<renderer.ReactTestRenderer> {
 describe('Job Details exit after completed clock-out', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetActiveJobLogSuppressionsForTests();
+    setActiveJobLogOwner('user-test');
     mockCanGoBack.mockReturnValue(true);
     mockGet.mockResolvedValue({
       data: { success: true, data: { jobLog: completedJob } },
@@ -150,6 +157,7 @@ describe('Job Details exit after completed clock-out', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockClockOut).not.toHaveBeenCalled();
+    expect(isActiveJobLogSuppressed(completedJob.id)).toBe(true);
   });
 
   it('falls back to Home when the stack has no history', async () => {
@@ -166,5 +174,29 @@ describe('Job Details exit after completed clock-out', () => {
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it('does not suppress a still-active job when Go back leaves Job Details', async () => {
+    const activeJob = {
+      ...completedJob,
+      id: 'job-still-active',
+      endTime: null,
+      status: 'active' as const,
+    };
+    mockGet.mockResolvedValue({
+      data: { success: true, data: { jobLog: activeJob } },
+    });
+
+    const tree = await renderCompletedJob();
+    const goBack = findByA11yLabel(tree.root, 'Go back');
+    expect(goBack).toBeDefined();
+    expect(findByA11yLabel(tree.root, 'Done')).toBeUndefined();
+
+    await act(async () => {
+      goBack!.props.onPress();
+    });
+
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(isActiveJobLogSuppressed(activeJob.id)).toBe(false);
   });
 });

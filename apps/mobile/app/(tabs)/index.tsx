@@ -16,7 +16,14 @@ import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { swmsApi, statsApi, recurringInvoicesApi, jobLogsApi } from '../../src/services/api';
-import { subscribeActiveJobInvalidation } from '../../src/services/activeJobLog';
+import {
+  getLastLiveJob,
+  hasSuppressedActiveJobLogs,
+  isActiveJobLogSuppressed,
+  rememberLastLiveJob,
+  setActiveJobLogOwner,
+  subscribeActiveJobInvalidation,
+} from '../../src/services/activeJobLog';
 
 // Insights types
 interface RevenueComparison {
@@ -125,12 +132,13 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeJobError, setActiveJobError] = useState<string | null>(null);
   const loadGenerationRef = useRef(0);
-  const lastLiveJobRef = useRef<ActiveJobLog | null>(null);
-  const suppressedJobIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
-    return subscribeActiveJobInvalidation((jobId) => {
-      if (jobId) suppressedJobIdsRef.current.add(jobId);
+    setActiveJobLogOwner(user?.id ?? null);
+  }, [user?.id]);
+
+  useEffect(() => {
+    return subscribeActiveJobInvalidation(() => {
       loadGenerationRef.current += 1;
       setActiveJobLog(null);
       setActiveJobError(null);
@@ -140,7 +148,7 @@ export default function HomeScreen() {
   function liveJobFromActivePayload(jobLog: unknown): ActiveJobLog | null {
     const live = asLiveJobLog(jobLog);
     if (!live) return null;
-    if (suppressedJobIdsRef.current.has(live.id)) return null;
+    if (isActiveJobLogSuppressed(live.id)) return null;
     return live;
   }
 
@@ -178,12 +186,11 @@ export default function HomeScreen() {
       }
 
       if (!activeJobOutcome.ok) {
-        const justHadLive =
-          lastLiveJobRef.current !== null || suppressedJobIdsRef.current.size > 0;
+        const last = getLastLiveJob();
+        const justHadLive = last !== null || hasSuppressedActiveJobLogs();
         if (justHadLive) {
           setActiveJobError("Couldn't check clock-in status.");
-          const last = lastLiveJobRef.current;
-          if (last && !suppressedJobIdsRef.current.has(last.id)) {
+          if (last && !isActiveJobLogSuppressed(last.id)) {
             setActiveJobLog(last);
           } else {
             setActiveJobLog(null);
@@ -196,7 +203,7 @@ export default function HomeScreen() {
           : null;
         const live = liveJobFromActivePayload(jobLog);
         setActiveJobLog(live);
-        lastLiveJobRef.current = live;
+        rememberLastLiveJob(live);
       }
 
       if (insightsResponse?.data?.success) {
