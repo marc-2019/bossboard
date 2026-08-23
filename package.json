@@ -27,7 +27,8 @@
     "demo:all": "bash scripts/run-all-demos.sh",
     "demo:web": "cd apps/web && npx playwright test e2e/demos/ --headed --workers=1",
     "demo:api": "cd apps/web && npx playwright test e2e/demos/api/ --workers=2",
-    "demo:mobile": "cd apps/mobile && maestro test .maestro/"
+    "demo:mobile": "cd apps/mobile && maestro test .maestro/",
+    "demo:load": "npm run demo:load --workspace=apps/api"
   },
   "keywords": [
     "bossboard",
