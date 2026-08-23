@@ -5,8 +5,8 @@
  * Clocked-out ids are suppressed at module scope, keyed by user, so a
  * remounted Home still refuses that job for the same session. Instance-only
  * suppress is not enough: the clock-out notify can hit an old listener.
- * Logout / clearAuth must drop the set so a later remount/focus does not
- * keep another tenant's (or a prior session's) suppress.
+ * Logout / clearAuth must drop the set so a later user is not stuck.
+ * This does not cover process-death or Fast Refresh.
  */
 
 type Listener = (jobId?: string) => void;

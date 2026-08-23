@@ -4,7 +4,8 @@
  *
  * #94 suppress was instance-only. A remounted Home accepted a live-shaped
  * GET. getActive fail is fail-visible: not Clock In. Suppress is keyed by
- * user and cleared on logout.
+ * user and cleared on logout/clearAuth so a later user is not stuck.
+ * This does not claim process-death or Fast Refresh coverage.
  *
  * This is a props/tree test. It does not claim device a11y. HTTP 200 is
  * not proof. Device walk is later (WDA down).
@@ -377,7 +378,7 @@ describe('Home active job banner after clock-out', () => {
     expect(findByText(remounted.root, 'KB walk')).toBeUndefined();
   });
 
-  it('shows Clock Out after remount/focus following logout when GET still returns a live job', async () => {
+  it('clears suppress on logout/clearAuth so a later user is not stuck on Clock In', async () => {
     mockGetActive.mockResolvedValue(okJob(activeKbWalk));
 
     const tree = await renderHome();
@@ -393,6 +394,13 @@ describe('Home active job banner after clock-out', () => {
       tree.unmount();
     });
     mounted = undefined;
+
+    mockAuthUser = {
+      id: 'user-later',
+      name: 'Sam',
+      businessName: 'Later Plumbing',
+    };
+    setActiveJobLogOwner(mockAuthUser.id);
 
     const remounted = await renderHome();
     await refocusHome();
