@@ -100,10 +100,15 @@ The grep flag `-g` matches against the test title. Maestro doesn't have a per-te
 A clean DB makes demos repeatable (otherwise unique-email guards prevent re-running F-AUTH-01, invoice limit counts carry over, etc.):
 
 ```bash
-cd apps/api && npm run db:migrate && npm run db:seed
+cd apps/api && npm run db:migrate
+# Optional: gated fictional books for the dedicated demo login only.
+# Requires DEMO=1 and --demo-only. No-ops on NODE_ENV=production and on a
+# non-local DATABASE_URL. Never run against Railway. Credentials stay in env.
+# DEMO=1 DEMO_USER_EMAIL=mike.tane@example.test DEMO_USER_PASSWORD=... \
+#   npm run demo:load -- --demo-only
 # Or, nuclear option (drops + recreates volumes):
 docker compose down -v && docker compose up -d
-cd apps/api && npm run db:migrate && npm run db:seed
+cd apps/api && npm run db:migrate
 ```
 
 Maestro flows that use `clearState: true` already reset the mobile app's local state per launch — so mobile is usually re-runnable without DB intervention.
