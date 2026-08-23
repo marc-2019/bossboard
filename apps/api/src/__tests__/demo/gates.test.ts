@@ -9,10 +9,17 @@ import {
   evaluateDemoWriteGate,
   isLocalDatabaseUrl,
 } from '../../demo/gates.js';
+import {
+  COMPOSE_TEST_DATABASE_URL,
+  LOCAL_TEST_DATABASE_URL,
+  RAILWAY_SHAPED_TEST_DATABASE_URL,
+  REMOTE_TEST_DATABASE_URL,
+  testDatabaseUrl,
+} from './dsn.js';
 
-const LOCAL_URL = 'postgresql://bossboard:bossboard_dev_2026@localhost:29432/bossboard';
-const COMPOSE_URL = 'postgresql://bossboard:bossboard_dev_2026@bossboard-postgres:5432/bossboard';
-const RAILWAY_URL = 'postgresql://u:p@mainline.proxy.rlwy.net:39912/railway';
+const LOCAL_URL = LOCAL_TEST_DATABASE_URL;
+const COMPOSE_URL = COMPOSE_TEST_DATABASE_URL;
+const RAILWAY_URL = RAILWAY_SHAPED_TEST_DATABASE_URL;
 
 function allowedInput(
   overrides: Partial<{
@@ -34,9 +41,9 @@ function allowedInput(
 describe('isLocalDatabaseUrl', () => {
   it('accepts localhost and 127.0.0.1', () => {
     expect(isLocalDatabaseUrl(LOCAL_URL)).toBe(true);
-    expect(
-      isLocalDatabaseUrl('postgresql://bossboard:x@127.0.0.1:29432/bossboard'),
-    ).toBe(true);
+    expect(isLocalDatabaseUrl(testDatabaseUrl('127.0.0.1', '29432', 'bossboard'))).toBe(
+      true,
+    );
   });
 
   it('accepts the docker compose host bossboard-postgres', () => {
@@ -45,9 +52,7 @@ describe('isLocalDatabaseUrl', () => {
 
   it('rejects Railway and other remote hosts', () => {
     expect(isLocalDatabaseUrl(RAILWAY_URL)).toBe(false);
-    expect(isLocalDatabaseUrl('postgresql://u:p@db.example.com:5432/app')).toBe(
-      false,
-    );
+    expect(isLocalDatabaseUrl(REMOTE_TEST_DATABASE_URL)).toBe(false);
   });
 
   it('rejects missing or unparseable URLs', () => {
