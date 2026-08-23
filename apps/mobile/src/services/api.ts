@@ -208,7 +208,7 @@ function getCacheKey(endpoint: string, method: string, body?: unknown): string {
 const ACTIVE_JOB_LOG_GET = '/api/v1/job-logs/active';
 
 /** Drop an in-flight GET so a later caller does not join a stale response. */
-export function invalidateInFlightGet(endpoint: string): void {
+function invalidateInFlightGet(endpoint: string): void {
   requestCache.delete(getCacheKey(endpoint, 'GET'));
 }
 
@@ -879,6 +879,7 @@ export const jobLogsApi = {
   clockOut: async (id: string, notes?: string) => {
     invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
     const result = await api.post(`/api/v1/job-logs/${id}/clock-out`, { notes });
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
     invalidateActiveJobLog();
     return result;
   },
@@ -886,6 +887,7 @@ export const jobLogsApi = {
   delete: async (id: string) => {
     invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
     const result = await api.delete(`/api/v1/job-logs/${id}`);
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
     invalidateActiveJobLog();
     return result;
   },

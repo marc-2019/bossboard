@@ -159,7 +159,9 @@ describe('Home active job banner after clock-out', () => {
   });
 
   afterEach(() => {
-    mounted?.unmount();
+    act(() => {
+      mounted?.unmount();
+    });
     mounted = undefined;
   });
 
@@ -236,6 +238,37 @@ describe('Home active job banner after clock-out', () => {
     expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
     expect(findByText(tree.root, 'KB walk')).toBeUndefined();
     expect(mockGetActive).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not restore the banner when a hanging getActive resolves after clock-out invalidation', async () => {
+    let resolveHanging: ((value: unknown) => void) | undefined;
+    mockGetActive.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveHanging = resolve;
+        })
+    );
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(HomeScreen));
+    });
+    mounted = tree;
+
+    expect(findByText(tree.root, 'Clock In')).toBeDefined();
+    expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
+
+    await act(async () => {
+      invalidateActiveJobLog();
+    });
+
+    await act(async () => {
+      resolveHanging!(okJob(activeKbWalk));
+    });
+
+    expect(findByText(tree.root, 'Clock In')).toBeDefined();
+    expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
+    expect(findByText(tree.root, 'KB walk')).toBeUndefined();
   });
 
   it('clears the banner when SWMS list fails and getActive has no live job', async () => {
