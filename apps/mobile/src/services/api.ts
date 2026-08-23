@@ -5,6 +5,7 @@
 
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { invalidateActiveJobLog } from './activeJobLog';
 
 /**
  * Production API must never silently fall back to localhost.
@@ -202,6 +203,13 @@ function sleep(ms: number): Promise<void> {
  */
 function getCacheKey(endpoint: string, method: string, body?: unknown): string {
   return `${method}:${endpoint}:${body ? JSON.stringify(body) : ''}`;
+}
+
+const ACTIVE_JOB_LOG_GET = '/api/v1/job-logs/active';
+
+/** Drop an in-flight GET so a later caller does not join a stale response. */
+export function invalidateInFlightGet(endpoint: string): void {
+  requestCache.delete(getCacheKey(endpoint, 'GET'));
 }
 
 async function request<T = any>(
@@ -861,17 +869,26 @@ export const jobLogsApi = {
 
   get: (id: string) => api.get(`/api/v1/job-logs/${id}`),
 
-  getActive: () => api.get('/api/v1/job-logs/active'),
+  getActive: () => api.get(ACTIVE_JOB_LOG_GET),
 
   getStats: () => api.get('/api/v1/job-logs/stats'),
 
   update: (id: string, data: { description?: string; siteAddress?: string; customerId?: string | null; notes?: string }) =>
     api.put(`/api/v1/job-logs/${id}`, data),
 
-  clockOut: (id: string, notes?: string) =>
-    api.post(`/api/v1/job-logs/${id}/clock-out`, { notes }),
+  clockOut: async (id: string, notes?: string) => {
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
+    const result = await api.post(`/api/v1/job-logs/${id}/clock-out`, { notes });
+    invalidateActiveJobLog();
+    return result;
+  },
 
-  delete: (id: string) => api.delete(`/api/v1/job-logs/${id}`),
+  delete: async (id: string) => {
+    invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
+    const result = await api.delete(`/api/v1/job-logs/${id}`);
+    invalidateActiveJobLog();
+    return result;
+  },
 };
 
 // =============================================================================

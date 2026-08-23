@@ -3,7 +3,7 @@
  * Dashboard with stats, quick actions, and recent documents
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { swmsApi, statsApi, recurringInvoicesApi, jobLogsApi } from '../../src/services/api';
+import { subscribeActiveJobInvalidation } from '../../src/services/activeJobLog';
 
 // Insights types
 interface RevenueComparison {
@@ -71,6 +72,27 @@ interface ActiveJobLog {
   startTime: string;
 }
 
+function asLiveJobLog(jobLog: unknown): ActiveJobLog | null {
+  if (!jobLog || typeof jobLog !== 'object') return null;
+  const row = jobLog as {
+    id?: unknown;
+    description?: unknown;
+    siteAddress?: unknown;
+    startTime?: unknown;
+    status?: unknown;
+  };
+  if (row.status !== 'active') return null;
+  if (typeof row.id !== 'string' || typeof row.description !== 'string' || typeof row.startTime !== 'string') {
+    return null;
+  }
+  return {
+    id: row.id,
+    description: row.description,
+    siteAddress: typeof row.siteAddress === 'string' ? row.siteAddress : null,
+    startTime: row.startTime,
+  };
+}
+
 interface DashboardStats {
   swms: {
     total: number;
@@ -101,19 +123,30 @@ export default function HomeScreen() {
   const [pendingCount, setPendingCount] = useState({ auto: 0, review: 0 });
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const loadGenerationRef = useRef(0);
+
+  useEffect(() => {
+    return subscribeActiveJobInvalidation(() => {
+      loadGenerationRef.current += 1;
+      setActiveJobLog(null);
+    });
+  }, []);
 
   const loadData = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     try {
       // Load recent docs, stats, and insights in parallel
       const [docsResponse, statsResponse, pendingResponse, activeJobResponse, insightsResponse] = await Promise.all([
-        swmsApi.list({ limit: 3 }),
+        swmsApi.list({ limit: 3 }).catch(() => null),
         statsApi.getDashboard().catch(() => null),
         recurringInvoicesApi.getPending().catch(() => null),
         jobLogsApi.getActive().catch(() => null),
         statsApi.getInsights().catch(() => null),
       ]);
 
-      if (docsResponse.data.success) {
+      if (generation !== loadGenerationRef.current) return;
+
+      if (docsResponse?.data?.success) {
         setRecentDocs(docsResponse.data.data.documents || []);
       }
 
@@ -129,11 +162,13 @@ export default function HomeScreen() {
         });
       }
 
-      if (activeJobResponse?.data?.success) {
-        setActiveJobLog((activeJobResponse.data as any).data.jobLog || null);
-      } else {
-        setActiveJobLog(null);
-      }
+      setActiveJobLog(
+        asLiveJobLog(
+          activeJobResponse?.data?.success
+            ? (activeJobResponse.data as { data?: { jobLog?: unknown } }).data?.jobLog
+            : null
+        )
+      );
 
       if (insightsResponse?.data?.success) {
         setInsights((insightsResponse.data as any).data.insights || null);

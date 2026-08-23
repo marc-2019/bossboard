@@ -16,6 +16,9 @@ module.exports = {
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testTimeout: 10000,
+  globals: {
+    __DEV__: true,
+  },
   moduleNameMapper: {
     // Force all react imports to the root copy so react-test-renderer uses the same React instance
     '^react$': '<rootDir>/../../node_modules/react',

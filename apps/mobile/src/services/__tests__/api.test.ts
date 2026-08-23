@@ -28,6 +28,7 @@ import {
   customersApi,
   teamsApi,
   subscriptionsApi,
+  jobLogsApi,
   NetworkError,
   TimeoutError,
   ApiError,
@@ -494,6 +495,55 @@ describe('Request Core', () => {
       ]);
 
       expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reuse in-flight GET /job-logs/active across clockOut', async () => {
+      let resolveStaleActive: (r: Response) => void = () => {};
+      const fetchMock = jest
+        .fn<any>()
+        .mockImplementationOnce(
+          () =>
+            new Promise<Response>((resolve) => {
+              resolveStaleActive = resolve;
+            })
+        )
+        .mockResolvedValueOnce(
+          makeResponse({
+            status: 200,
+            body: { success: true, data: { jobLog: { id: 'job-kb-walk', status: 'completed' } } },
+          })
+        )
+        .mockResolvedValueOnce(
+          makeResponse({
+            status: 200,
+            body: { success: true, data: { jobLog: null } },
+          })
+        );
+      global.fetch = fetchMock;
+
+      const staleActive = jobLogsApi.getActive();
+      await jobLogsApi.clockOut('job-kb-walk');
+      const afterClockOut = jobLogsApi.getActive();
+
+      resolveStaleActive(
+        makeResponse({
+          status: 200,
+          body: {
+            success: true,
+            data: {
+              jobLog: { id: 'job-kb-walk', status: 'active', description: 'KB walk' },
+            },
+          },
+        })
+      );
+
+      const [staleRes, freshRes] = await Promise.all([staleActive, afterClockOut]);
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect((staleRes.data as { data: { jobLog: { status: string } } }).data.jobLog.status).toBe(
+        'active'
+      );
+      expect((freshRes.data as { data: { jobLog: unknown } }).data.jobLog).toBeNull();
     });
   });
 });
