@@ -71,16 +71,10 @@ function isBetaModeFromEnv(): boolean {
 
 /**
  * Get tier limits for a subscription tier.
- * During beta, free users get Tradie-level access; Team tier keeps team seats.
+ * BETA_MODE only gates website Stripe — it must not grant Tradie for free
+ * (weekly App Store / Play subscriptions are the paid unlock, Marc 2A).
  */
 export function getTierLimits(tier: SubscriptionTier): TierLimits {
-  if (isBetaModeFromEnv()) {
-    if (tier === 'team') {
-      return { ...TIER_LIMITS.team, tier };
-    }
-    // free + tradie → tradie features in beta (single-user product access)
-    return { ...TIER_LIMITS.tradie, tier };
-  }
   return TIER_LIMITS[tier];
 }
 
@@ -126,13 +120,27 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionI
     throw createError('User not found', 404, 'USER_NOT_FOUND');
   }
 
-  const row = result.rows[0];
+  return rowToSubscriptionInfo(result.rows[0]);
+}
+
+function rowToSubscriptionInfo(row: {
+  subscription_tier: SubscriptionTier;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_started_at: Date | null;
+  subscription_expires_at: Date | null;
+  free_months_balance: number | null;
+}): SubscriptionInfo {
+  const expiresAt = row.subscription_expires_at;
+  const lapsed =
+    expiresAt instanceof Date && Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() <= Date.now();
   return {
-    tier: row.subscription_tier,
+    // Weekly store subscriptions lapse when Apple/Google expiry is in the past.
+    tier: lapsed ? 'free' : row.subscription_tier,
     stripeCustomerId: row.stripe_customer_id,
     stripeSubscriptionId: row.stripe_subscription_id,
     startedAt: row.subscription_started_at,
-    expiresAt: row.subscription_expires_at,
+    expiresAt,
     freeMonthsBalance: row.free_months_balance ?? 0,
   };
 }
@@ -193,15 +201,7 @@ export async function updateSubscriptionTier(
     throw createError('User not found', 404, 'USER_NOT_FOUND');
   }
 
-  const row = result.rows[0];
-  return {
-    tier: row.subscription_tier,
-    stripeCustomerId: row.stripe_customer_id,
-    stripeSubscriptionId: row.stripe_subscription_id,
-    startedAt: row.subscription_started_at,
-    expiresAt: row.subscription_expires_at,
-    freeMonthsBalance: row.free_months_balance ?? 0,
-  };
+  return rowToSubscriptionInfo(result.rows[0]);
 }
 
 // =============================================================================

@@ -94,20 +94,27 @@ export async function verifyAndActivateIap(
     [input.transactionId, input.platform]
   );
   if (existing.rows[0]) {
-    // Re-apply tier in case user row was reset; store remains SSOT for this tx
-    await updateSubscriptionTier(input.userId, existing.rows[0].tier as SubscriptionTier, {
-      startedAt: new Date(),
-    });
-    return {
-      tier: existing.rows[0].tier as SubscriptionTier,
-      platform: input.platform,
-      productId: input.productId,
-      transactionId: input.transactionId,
-      expiresAt: existing.rows[0].expires_at
-        ? existing.rows[0].expires_at.toISOString()
-        : null,
-      verified: true,
-    };
+    const exp = existing.rows[0].expires_at
+      ? new Date(existing.rows[0].expires_at)
+      : null;
+    const active =
+      exp instanceof Date && Number.isFinite(exp.getTime()) && exp.getTime() > Date.now();
+    if (active) {
+      // Restore during an active weekly period — do not treat as one-time forever.
+      await updateSubscriptionTier(input.userId, existing.rows[0].tier as SubscriptionTier, {
+        startedAt: new Date(),
+        expiresAt: exp,
+      });
+      return {
+        tier: existing.rows[0].tier as SubscriptionTier,
+        platform: input.platform,
+        productId: input.productId,
+        transactionId: input.transactionId,
+        expiresAt: exp.toISOString(),
+        verified: true,
+      };
+    }
+    // Missing or past expiry: fall through and re-verify with the store.
   }
 
   let expiresAt: Date | null = null;
@@ -243,18 +250,21 @@ async function verifyAppleReceipt(input: IapVerifyInput): Promise<Date | null> {
     );
   }
 
-  if (productMatch.expires_date_ms) {
-    const exp = new Date(parseInt(productMatch.expires_date_ms, 10));
-    if (Number.isFinite(exp.getTime()) && exp.getTime() < Date.now()) {
-      throw createError(
-        'Apple subscription has expired',
-        400,
-        'IAP_APPLE_EXPIRED'
-      );
-    }
-    return Number.isFinite(exp.getTime()) ? exp : null;
+  if (!productMatch.expires_date_ms) {
+    throw createError(
+      'Apple receipt is not an auto-renewing subscription (missing expires_date_ms)',
+      400,
+      'IAP_APPLE_NOT_SUBSCRIPTION'
+    );
   }
-  return null;
+  const exp = new Date(parseInt(productMatch.expires_date_ms, 10));
+  if (!Number.isFinite(exp.getTime())) {
+    throw createError('Apple subscription expiry is invalid', 400, 'IAP_APPLE_EXPIRED');
+  }
+  if (exp.getTime() < Date.now()) {
+    throw createError('Apple subscription has expired', 400, 'IAP_APPLE_EXPIRED');
+  }
+  return exp;
 }
 
 interface GoogleServiceAccount {
