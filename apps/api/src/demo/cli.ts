@@ -3,12 +3,13 @@
  *
  *   DEMO=1 DEMO_USER_EMAIL=... DEMO_USER_PASSWORD=... npm run demo:load -- --demo-only
  *
- * No-ops unless DEMO=1 and --demo-only. No-ops on NODE_ENV=production and on
- * a non-local DATABASE_URL. Does not open Postgres until every gate passes.
- * Credentials stay in env — never commit them.
+ * No-ops unless DEMO=1 and --demo-only. No-ops on NODE_ENV=production, a
+ * Railway environment, and a non-loopback DATABASE_URL (including query
+ * host/port overrides). Also refuses when process.env's driver target is
+ * not the gated local host. Does not open Postgres until every gate passes.
  */
 
-import { gateFromEnv } from './gates.js';
+import { assertSafeProcessTarget, gateFromEnv } from './gates.js';
 import { ensureDemoUser, type DemoUserStore } from './ensure-demo-user.js';
 import { loadDemoBooks, type DemoBooksSink } from './writer.js';
 
@@ -26,10 +27,16 @@ export async function runDemoLoader(
   env: NodeJS.ProcessEnv = process.env,
   argv: string[] = process.argv,
   openAdapters?: () => Promise<DemoLoaderAdapters>,
+  processEnv: NodeJS.ProcessEnv = process.env,
 ): Promise<RunDemoLoaderResult> {
   const gate = gateFromEnv(env, argv);
   if (!gate.allowed) {
     return { status: 'noop', reason: gate.reason };
+  }
+
+  const processGate = assertSafeProcessTarget(env, processEnv);
+  if (!processGate.allowed) {
+    return { status: 'noop', reason: processGate.reason };
   }
 
   const open =

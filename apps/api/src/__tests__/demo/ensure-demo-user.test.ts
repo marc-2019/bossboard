@@ -116,6 +116,38 @@ describe('ensureDemoUser', () => {
     expect(store.insertUser).not.toHaveBeenCalled();
   });
 
+  it('refuses when DEMO_USER_ID is not set', async () => {
+    const store = makeStore();
+    const result = await ensureDemoUser({
+      env: allowedEnv({ DEMO_USER_ID: undefined }),
+      argv: ['--demo-only'],
+      store,
+    });
+    expect(result).toEqual({
+      created: false,
+      reason: 'DEMO_USER_ID is not set',
+    });
+    expect(store.findUserByEmail).not.toHaveBeenCalled();
+    expect(store.insertUser).not.toHaveBeenCalled();
+  });
+
+  it('refuses an existing email whose user_id is not the demo user_id', async () => {
+    const store = makeStore();
+    store.findUserByEmail.mockResolvedValueOnce({
+      id: '22222222-2222-4222-8222-222222222222',
+    });
+    const result = await ensureDemoUser({
+      env: allowedEnv(),
+      argv: ['--demo-only'],
+      store,
+    });
+    expect(result).toEqual({
+      created: false,
+      reason: 'refusing non-demo user_id',
+    });
+    expect(store.insertUser).not.toHaveBeenCalled();
+  });
+
   it('returns the existing demo user_id without inserting', async () => {
     const store = makeStore();
     store.findUserByEmail.mockResolvedValueOnce({ id: DEMO_USER_ID });

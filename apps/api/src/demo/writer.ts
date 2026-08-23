@@ -2,8 +2,9 @@
  * Gated demo books writer.
  *
  * Attaches fictional fixture rows to the dedicated demo user_id only.
- * No-ops unless DEMO=1 and --demo-only, and no-ops on production or a
- * non-local DATABASE_URL. Never writes for any other owner.
+ * No-ops unless DEMO=1 and --demo-only, and no-ops on production, Railway,
+ * or a non-loopback DATABASE_URL. Requires DEMO_USER_ID. Never writes for
+ * any other owner.
  */
 
 import { gateFromEnv } from './gates.js';
@@ -83,7 +84,10 @@ export async function loadDemoBooks(
   }
 
   const pinned = configuredDemoUserId(input.env);
-  const demoUserId = pinned ?? input.demoUserId;
+  if (!pinned) {
+    return { wrote: false, reason: 'DEMO_USER_ID is not set' };
+  }
+  const demoUserId = pinned;
   if (
     !input.demoUserId ||
     !input.attachToUserId ||

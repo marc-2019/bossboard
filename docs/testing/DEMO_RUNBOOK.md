@@ -102,10 +102,10 @@ A clean DB makes demos repeatable (otherwise unique-email guards prevent re-runn
 ```bash
 cd apps/api && npm run db:migrate
 # Optional: gated fictional books for the dedicated demo login only.
-# Requires DEMO=1 and --demo-only. No-ops on NODE_ENV=production and on a
-# non-local DATABASE_URL. Never run against Railway. Credentials stay in env.
+# Requires DEMO=1, --demo-only, and DEMO_USER_ID. No-ops on NODE_ENV=production,
+# Railway env, and a non-loopback DATABASE_URL. Never run against Railway.
 # DEMO=1 DEMO_USER_EMAIL=mike.tane@example.test DEMO_USER_PASSWORD=... \
-#   npm run demo:load -- --demo-only
+#   DEMO_USER_ID=... npm run demo:load -- --demo-only
 # Or, nuclear option (drops + recreates volumes):
 docker compose down -v && docker compose up -d
 cd apps/api && npm run db:migrate

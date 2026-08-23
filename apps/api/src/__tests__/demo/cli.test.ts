@@ -70,4 +70,41 @@ describe('runDemoLoader', () => {
     });
     expect(openAdapters).not.toHaveBeenCalled();
   });
+
+  it('does not open adapters when process DATABASE_URL is not the gated local target', async () => {
+    const openAdapters = jest.fn();
+    const result = await runDemoLoader(
+      allowedEnv(),
+      ['--demo-only'],
+      openAdapters,
+      {
+        NODE_ENV: 'development',
+        DATABASE_URL: RAILWAY_SHAPED_TEST_DATABASE_URL,
+      },
+    );
+    expect(result).toEqual({
+      status: 'noop',
+      reason: 'DATABASE_URL is not local',
+    });
+    expect(openAdapters).not.toHaveBeenCalled();
+  });
+
+  it('does not open adapters when Railway env is set on the process', async () => {
+    const openAdapters = jest.fn();
+    const result = await runDemoLoader(
+      allowedEnv(),
+      ['--demo-only'],
+      openAdapters,
+      {
+        NODE_ENV: 'development',
+        DATABASE_URL: LOCAL_URL,
+        RAILWAY_ENVIRONMENT: 'production',
+      },
+    );
+    expect(result).toEqual({
+      status: 'noop',
+      reason: 'Railway environment',
+    });
+    expect(openAdapters).not.toHaveBeenCalled();
+  });
 });

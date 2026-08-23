@@ -19,3 +19,15 @@ export const RAILWAY_SHAPED_TEST_DATABASE_URL = testDatabaseUrl(
   '39912',
   'railway',
 );
+
+/** Append query params after the runtime DSN (e.g. driver `?host=` override). */
+export function testDatabaseUrlWithQuery(
+  host: string,
+  query: Record<string, string>,
+): string {
+  const base = testDatabaseUrl(host);
+  const qs = Object.entries(query)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&');
+  return `${base}?${qs}`;
+}

@@ -6,7 +6,6 @@
  * test address. Persona fields come from the fictional e2e fixture only.
  */
 
-import { randomUUID } from 'node:crypto';
 import { gateFromEnv } from './gates.js';
 import { DEMO_PERSONA } from './fixtures.js';
 import { isReservedTestEmail } from './reserved-email.js';
@@ -58,12 +57,18 @@ export async function ensureDemoUser(
     return { created: false, reason: 'DEMO_USER_PASSWORD is not set' };
   }
 
-  const existing = await input.store.findUserByEmail(email);
-  if (existing) {
-    return { created: false, userId: existing.id };
+  const id = input.env.DEMO_USER_ID?.trim();
+  if (!id) {
+    return { created: false, reason: 'DEMO_USER_ID is not set' };
   }
 
-  const id = input.env.DEMO_USER_ID?.trim() || randomUUID();
+  const existing = await input.store.findUserByEmail(email);
+  if (existing) {
+    if (existing.id !== id) {
+      return { created: false, reason: 'refusing non-demo user_id' };
+    }
+    return { created: false, userId: existing.id };
+  }
   const passwordHash = await input.store.hashPassword(password);
   const inserted = await input.store.insertUser({
     id,

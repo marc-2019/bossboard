@@ -7,6 +7,7 @@
 
 import {
   evaluateDemoWriteGate,
+  gateFromEnv,
   isLocalDatabaseUrl,
 } from '../../demo/gates.js';
 import {
@@ -15,6 +16,7 @@ import {
   RAILWAY_SHAPED_TEST_DATABASE_URL,
   REMOTE_TEST_DATABASE_URL,
   testDatabaseUrl,
+  testDatabaseUrlWithQuery,
 } from './dsn.js';
 
 const LOCAL_URL = LOCAL_TEST_DATABASE_URL;
@@ -27,6 +29,7 @@ function allowedInput(
     demoOnly: boolean;
     nodeEnv: string | undefined;
     databaseUrl: string | undefined;
+    railway: boolean;
   }> = {},
 ) {
   return {
@@ -34,6 +37,7 @@ function allowedInput(
     demoOnly: true,
     nodeEnv: 'development',
     databaseUrl: LOCAL_URL,
+    railway: false,
     ...overrides,
   };
 }
@@ -46,8 +50,24 @@ describe('isLocalDatabaseUrl', () => {
     );
   });
 
-  it('accepts the docker compose host bossboard-postgres', () => {
-    expect(isLocalDatabaseUrl(COMPOSE_URL)).toBe(true);
+  it('rejects the docker compose host bossboard-postgres (not loopback)', () => {
+    expect(isLocalDatabaseUrl(COMPOSE_URL)).toBe(false);
+  });
+
+  it('rejects driver query overrides that can retarget the connect host', () => {
+    expect(
+      isLocalDatabaseUrl(
+        testDatabaseUrlWithQuery('localhost', { host: 'mainline.proxy.rlwy.net' }),
+      ),
+    ).toBe(false);
+    expect(
+      isLocalDatabaseUrl(
+        testDatabaseUrlWithQuery('localhost', { hostaddr: '203.0.113.10' }),
+      ),
+    ).toBe(false);
+    expect(
+      isLocalDatabaseUrl(testDatabaseUrlWithQuery('localhost', { port: '39912' })),
+    ).toBe(false);
   });
 
   it('rejects Railway and other remote hosts', () => {
@@ -115,6 +135,42 @@ describe('evaluateDemoWriteGate', () => {
     ).toEqual({
       allowed: false,
       reason: 'NODE_ENV=production',
+    });
+  });
+
+  it('no-ops on a Railway environment even if DATABASE_URL looks local', () => {
+    expect(evaluateDemoWriteGate(allowedInput({ railway: true }))).toEqual({
+      allowed: false,
+      reason: 'Railway environment',
+    });
+  });
+
+  it('gateFromEnv refuses when RAILWAY_ENVIRONMENT is set', () => {
+    expect(
+      gateFromEnv(
+        {
+          DEMO: '1',
+          NODE_ENV: 'development',
+          DATABASE_URL: LOCAL_URL,
+          RAILWAY_ENVIRONMENT: 'production',
+        },
+        ['--demo-only'],
+      ),
+    ).toEqual({ allowed: false, reason: 'Railway environment' });
+  });
+
+  it('no-ops when DATABASE_URL hostname is local but ?host= is not', () => {
+    expect(
+      evaluateDemoWriteGate(
+        allowedInput({
+          databaseUrl: testDatabaseUrlWithQuery('localhost', {
+            host: 'mainline.proxy.rlwy.net',
+          }),
+        }),
+      ),
+    ).toEqual({
+      allowed: false,
+      reason: 'DATABASE_URL is not local',
     });
   });
 });

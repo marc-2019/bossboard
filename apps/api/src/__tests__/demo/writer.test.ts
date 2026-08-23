@@ -107,6 +107,22 @@ describe('loadDemoBooks', () => {
     expect(sink.calls).toEqual([]);
   });
 
+  it('refuses when DEMO_USER_ID is not set', async () => {
+    const sink = makeSink();
+    const result = await loadDemoBooks({
+      env: allowedEnv({ DEMO_USER_ID: undefined }),
+      argv: ['--demo-only'],
+      demoUserId: DEMO_USER_ID,
+      attachToUserId: DEMO_USER_ID,
+      sink,
+    });
+    expect(result).toEqual({
+      wrote: false,
+      reason: 'DEMO_USER_ID is not set',
+    });
+    expect(sink.calls).toEqual([]);
+  });
+
   it('refuses to attach rows to a non-demo user_id', async () => {
     const sink = makeSink();
     const result = await loadDemoBooks({

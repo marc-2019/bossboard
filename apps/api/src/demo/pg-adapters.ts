@@ -9,12 +9,25 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../services/database.js';
 import { encryptField, blindIndex } from '../utils/field-crypto.js';
+import { assertSafeProcessTarget, gateFromEnv } from './gates.js';
 import type { DemoUserStore } from './ensure-demo-user.js';
 import type { DemoBooksSink } from './writer.js';
 
 const SALT_ROUNDS = 12;
 
+function assertAdaptersAllowed(): void {
+  const gate = gateFromEnv(process.env, process.argv);
+  if (!gate.allowed) {
+    throw new Error(`demo adapter refused: ${gate.reason}`);
+  }
+  const processGate = assertSafeProcessTarget(process.env, process.env);
+  if (!processGate.allowed) {
+    throw new Error(`demo adapter refused: ${processGate.reason}`);
+  }
+}
+
 export function createPgUserStore(): DemoUserStore {
+  assertAdaptersAllowed();
   return {
     async findUserByEmail(email: string) {
       const result = await db.query<{ id: string }>(
@@ -54,6 +67,7 @@ export function createPgUserStore(): DemoUserStore {
 }
 
 export function createPgSink(): DemoBooksSink {
+  assertAdaptersAllowed();
   return {
     async insertCustomer(row) {
       await db.query(
