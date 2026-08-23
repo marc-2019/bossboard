@@ -64,7 +64,7 @@
           <li><strong>Account Information:</strong> Name, email address, phone number, trade type, business name, and business address when you register.</li>
           <li><strong>Business Data:</strong> Invoices, quotes, expenses, job logs, SWMS documents, certifications, and team member information you create within the app.</li>
           <li><strong>Photos:</strong> Receipt photos, site photos, and other images you upload to the app.</li>
-          <li><strong>Payment Information:</strong> When you subscribe to a paid tier, payment is processed securely by Stripe. We do not store your credit card details.</li>
+          <li><strong>Payment Information:</strong> If you subscribe in the iOS app, Apple processes the purchase. We do not receive your card number from Apple. Website payments, if used, are processed by Stripe. We do not store card details ourselves.</li>
           <li><strong>Device Information:</strong> Device type, operating system version, and push notification tokens for delivering app notifications.</li>
           <li><strong>Location (approximate and/or precise):</strong> When you grant permission while using the app, for job-site / SWMS address assist — not continuous background advertising tracking.</li>
           <li><strong>Usage Data:</strong> Feature usage patterns to help us improve the app. This data is anonymised and aggregated.</li>
@@ -79,7 +79,7 @@
           <li>Generate compliance documents (SWMS) using AI assistance</li>
           <li>Send invoices and quotes to your customers on your behalf</li>
           <li>Send push notifications for certification expiry reminders</li>
-          <li>Process subscription payments through Stripe</li>
+          <li>Process iOS subscriptions through the App Store, and website payments through Stripe if used</li>
           <li>Communicate with you about your account, updates, and support</li>
           <li>Improve our service through anonymised usage analytics</li>
         </ul>
@@ -100,7 +100,8 @@
         <h2 class="font-display text-2xl font-semibold text-navy-600 mb-4">5. Data Sharing</h2>
         <p>We do not sell your personal information. We share data only with:</p>
         <ul class="list-disc pl-6 mt-3 space-y-2">
-          <li><strong>Stripe:</strong> For payment processing (when you subscribe to a paid tier)</li>
+          <li><strong>Apple:</strong> For iOS App Store subscriptions (Apple ID and purchase receipt; we do not receive your card number)</li>
+          <li><strong>Stripe:</strong> For website payments only (not iOS in-app purchases)</li>
           <li><strong>Anthropic:</strong> For AI document generation (job descriptions and trade type only)</li>
           <li><strong>Your Customers:</strong> When you send invoices or share documents via the client portal</li>
           <li><strong>Your Team Members:</strong> When you invite team members, they can see shared business data as permitted by their role</li>

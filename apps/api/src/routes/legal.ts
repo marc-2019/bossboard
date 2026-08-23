@@ -109,7 +109,7 @@ function renderPrivacyPolicy(): string {
 
   return page('Privacy Policy', `
       <h1>Privacy Policy</h1>
-      <p class="meta">Effective Date: 24 March 2026 &middot; Last Updated: 17 July 2026</p>
+      <p class="meta">Effective Date: 24 March 2026 &middot; Last Updated: 23 August 2026</p>
 
       <p>
         <strong>Instilligent Limited</strong> (NZBN 9429041896853), trading as <strong>${appName}</strong>
@@ -174,7 +174,8 @@ function renderPrivacyPolicy(): string {
           <tr><td><strong>Railway</strong></td><td>Application hosting &amp; database</td><td>All platform data</td><td>Asia-SE (Singapore)</td></tr>
           <tr><td><strong>Anthropic (Claude API)</strong></td><td>AI document generation</td><td>Trade type, job descriptions (no PII)</td><td>United States</td></tr>
           <tr><td><strong>Expo</strong></td><td>Push notifications</td><td>Device push tokens</td><td>United States</td></tr>
-          <tr><td><strong>Stripe</strong></td><td>Payment processing</td><td>Name, email, billing address, card data</td><td>United States</td></tr>
+          <tr><td><strong>Apple</strong></td><td>iOS App Store subscriptions</td><td>Apple ID and purchase receipt (we do not receive your card number)</td><td>United States</td></tr>
+          <tr><td><strong>Stripe</strong></td><td>Website payments only (not iOS in-app purchases)</td><td>Name, email, billing address, card data</td><td>United States</td></tr>
           <tr><td><strong>Email providers</strong></td><td>Invoice &amp; account emails</td><td>Email address, invoice content</td><td>United States</td></tr>
         </tbody>
       </table>
@@ -188,7 +189,7 @@ function renderPrivacyPolicy(): string {
 
       <h2>5. Overseas Disclosure of Personal Information <small>(IPP 12)</small></h2>
       <p>Under IPP 12 of the Privacy Act 2020, before disclosing personal information to a foreign person or entity, we must either believe on reasonable grounds that the recipient is subject to comparable privacy protections, or obtain your express authorisation.</p>
-      <p>Your personal information is hosted in <strong>Singapore</strong> by Railway (Asia-Southeast region). Some data is also processed in the <strong>United States</strong> by Anthropic (AI features), Stripe (payments), and Expo (push notifications).</p>
+      <p>Your personal information is hosted in <strong>Singapore</strong> by Railway (Asia-Southeast region). Some data is also processed in the <strong>United States</strong> by Anthropic (AI features), Apple (iOS App Store billing), Stripe (website payments only), and Expo (push notifications).</p>
       <p>Singapore has the Personal Data Protection Act 2012 (PDPA), which provides broadly comparable privacy protections. The United States does not have equivalent comprehensive privacy legislation at the federal level.</p>
       <p>We mitigate risks through contractual data processing agreements with all overseas providers, minimising the personal information transferred, encrypting all data in transit (TLS 1.2+) and at rest, and selecting providers with robust security certifications (PCI DSS for Stripe).</p>
       <p>By using the Service, you acknowledge and consent to the transfer of your personal information to Singapore and the United States for the purposes described in this policy. You may withdraw consent by deleting your account.</p>
@@ -264,7 +265,7 @@ function renderTermsOfService(): string {
 
   return page('Terms of Service', `
       <h1>Terms of Service</h1>
-      <p class="meta">Effective Date: 1 February 2026 &middot; Last Updated: February 2026</p>
+      <p class="meta">Effective Date: 1 February 2026 &middot; Last Updated: 23 August 2026</p>
 
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your use of the ${appName} mobile
@@ -326,14 +327,9 @@ function renderTermsOfService(): string {
         </tbody>
       </table>
       <p>
-        <strong>Beta Programme:</strong> During the beta period, all users receive Tradie-tier access
-        at no charge. We will provide at least 14 days&rsquo; notice before the beta period ends and
-        paid subscriptions commence.
-      </p>
-      <p>
-        Subscription payments are processed by Stripe. By subscribing to a paid tier, you agree to
-        Stripe&rsquo;s terms of service. You may cancel your subscription at any time; access
-        continues until the end of the current billing period.
+        The Free tier has the limits in the table above. Tradie and Team are paid subscriptions.
+        If you subscribe in the iOS app, billing is through the App Store and Apple&rsquo;s terms apply.
+        You can cancel in iOS Settings &rarr; Apple ID &rarr; Subscriptions. Prices are NZD inclusive of GST.
       </p>
 
       <h2>4. Acceptable Use</h2>
@@ -512,8 +508,8 @@ function renderSupportPage(): string {
           <summary>Is ${appName} free?</summary>
           <p>
             ${appName} offers a free tier with basic features (3 invoices and 2 SWMS per month).
-            Paid tiers start at $4.99 NZD per week for unlimited access. During the current beta
-            period, all features are available to all users at no charge.
+            Paid Tradie and Team plans start at $4.99 NZD per week. If you subscribe in the iOS app,
+            billing is through the App Store.
           </p>
         </details>
 
@@ -541,7 +537,7 @@ function renderSupportPage(): string {
           <p>
             Yes. We use industry-standard encryption for data in transit (TLS/HTTPS) and at rest.
             Passwords are securely hashed and never stored in plain text. See our
-            <a href="/privacy">Privacy Policy</a> for full details.
+            <a href="/legal/privacy">Privacy Policy</a> for full details.
           </p>
         </details>
 
@@ -556,10 +552,10 @@ function renderSupportPage(): string {
         <details class="faq-item">
           <summary>How do I cancel my subscription?</summary>
           <p>
-            You can manage your subscription from the Settings screen in the app. If you cancel,
-            you&rsquo;ll continue to have access until the end of your current billing period.
-            You can also contact us at
-            <a href="mailto:support@instilligent.com">support@instilligent.com</a> for assistance.
+            If you subscribed in the iOS app, cancel or manage it in iOS Settings &rarr; Apple ID
+            &rarr; Subscriptions. Access continues until the end of the current billing period.
+            For other help, email
+            <a href="mailto:support@instilligent.com">support@instilligent.com</a>.
           </p>
         </details>
 
@@ -587,10 +583,10 @@ function renderSupportPage(): string {
         <details class="faq-item">
           <summary>I have a billing question. Who do I contact?</summary>
           <p>
-            For any billing or payment enquiries, email us at
+            iOS App Store subscriptions are billed by Apple. Cancel or manage them in iOS Settings
+            &rarr; Apple ID &rarr; Subscriptions. For other billing questions, email
             <a href="mailto:support@instilligent.com?subject=Billing%20Enquiry">support@instilligent.com</a>
-            with the subject &ldquo;Billing Enquiry&rdquo;. Please include the email address
-            associated with your account.
+            with the subject &ldquo;Billing Enquiry&rdquo; and the email on your account.
           </p>
         </details>
 
