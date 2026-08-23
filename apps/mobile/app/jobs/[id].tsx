@@ -10,14 +10,22 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Alert,
   ActivityIndicator,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
 import { safeGoBack } from '../../src/utils/navigation';
+import {
+  dismissJobLogKeyboard,
+  jobLogScrollKeyboard,
+  jobLogTextFieldKeyboard,
+} from '../../src/utils/jobLogKeyboard';
 
 interface JobLog {
   id: string;
@@ -198,7 +206,17 @@ export default function JobLogDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        {...jobLogScrollKeyboard}
+      >
+        <Pressable onPress={dismissJobLogKeyboard} accessible={false}>
       {/* In-content back — nested-stack native header back is not in the device a11y tree */}
       <TouchableOpacity
         style={styles.inContentExit}
@@ -268,6 +286,7 @@ export default function JobLogDetailScreen() {
             placeholderTextColor="#9CA3AF"
             multiline
             numberOfLines={3}
+            {...jobLogTextFieldKeyboard}
           />
           <View style={styles.clockOutActions}>
             <TouchableOpacity
@@ -308,7 +327,9 @@ export default function JobLogDetailScreen() {
           <Text style={styles.deleteText}>Delete Job Log</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -330,6 +351,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,
