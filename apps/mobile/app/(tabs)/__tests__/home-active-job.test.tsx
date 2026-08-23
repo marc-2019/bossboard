@@ -1,12 +1,12 @@
 /**
  * After a successful clock-out, Home must not keep that job live.
- * Done / focus back to Home must show Clock In, not Clock Out.
+ * Done / focus / remount back to Home must show Clock In, not Clock Out.
  *
- * Device walk 23 Aug 2026 NZ (WDA E2E, job "KB walk"): Job Details showed
- * Clocked Out / Completed / Later, then Done, then Home still showed a live
- * banner "KB walk, 1m 26s, Clock Out".
+ * #94 suppress was instance-only. A remounted Home accepted a live-shaped
+ * GET, and getActive fail could restore last-live as Clock Out.
  *
- * This is a props/tree test. It does not claim device a11y.
+ * This is a props/tree test. It does not claim device a11y. HTTP 200 is
+ * not proof. Device walk is later (WDA down).
  */
 
 import React from 'react';
@@ -86,7 +86,10 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 import HomeScreen from '../index';
-import { invalidateActiveJobLog } from '../../../src/services/activeJobLog';
+import {
+  invalidateActiveJobLog,
+  resetActiveJobLogSuppressionsForTests,
+} from '../../../src/services/activeJobLog';
 
 const activeKbWalk = {
   id: 'job-kb-walk',
@@ -149,6 +152,7 @@ describe('Home active job banner after clock-out', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     latestFocus = undefined;
+    resetActiveJobLogSuppressionsForTests();
     idleApis();
   });
 
@@ -199,7 +203,7 @@ describe('Home active job banner after clock-out', () => {
     expect(findByText(tree.root, 'Clock In')).toBeDefined();
   });
 
-  it('does not turn a getActive failure into Clock In while a live job is showing', async () => {
+  it('does not turn a getActive failure into a leftover Clock Out banner', async () => {
     mockGetActive
       .mockResolvedValueOnce(okJob(activeKbWalk))
       .mockRejectedValueOnce(new Error('network down'));
@@ -209,13 +213,13 @@ describe('Home active job banner after clock-out', () => {
 
     await refocusHome();
 
-    expect(findByText(tree.root, 'Clock In')).toBeUndefined();
-    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
-    expect(findByText(tree.root, 'KB walk')).toBeDefined();
+    expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
+    expect(findByText(tree.root, 'KB walk')).toBeUndefined();
+    expect(findByText(tree.root, 'Clock In')).toBeDefined();
     expect(findByText(tree.root, "Couldn't check clock-in status.")).toBeDefined();
   });
 
-  it('does not treat getActive failure after clock-out as confirmed Clock In', async () => {
+  it('shows Clock In plus a visible error when getActive fails after clock-out', async () => {
     mockGetActive
       .mockResolvedValueOnce(okJob(activeKbWalk))
       .mockRejectedValueOnce(new Error('5xx'));
@@ -228,7 +232,7 @@ describe('Home active job banner after clock-out', () => {
     });
     await refocusHome();
 
-    expect(findByText(tree.root, 'Clock In')).toBeUndefined();
+    expect(findByText(tree.root, 'Clock In')).toBeDefined();
     expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
     expect(findByText(tree.root, "Couldn't check clock-in status.")).toBeDefined();
   });
@@ -333,5 +337,45 @@ describe('Home active job banner after clock-out', () => {
 
     expect(findByText(tree.root, 'Clock In')).toBeDefined();
     expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
+  });
+
+  it('shows Clock In after remount following clock-out, even if GET still returns the same live job', async () => {
+    mockGetActive.mockResolvedValue(okJob(activeKbWalk));
+
+    const tree = await renderHome();
+    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
+    expect(findByText(tree.root, 'KB walk')).toBeDefined();
+
+    await act(async () => {
+      invalidateActiveJobLog(activeKbWalk.id);
+    });
+    expect(findByText(tree.root, 'Clock In')).toBeDefined();
+
+    await act(async () => {
+      tree.unmount();
+    });
+    mounted = undefined;
+
+    const remounted = await renderHome();
+    expect(findByText(remounted.root, 'Clock In')).toBeDefined();
+    expect(findByText(remounted.root, 'Clock Out')).toBeUndefined();
+    expect(findByText(remounted.root, 'KB walk')).toBeUndefined();
+  });
+
+  it('does not restore last-live as Clock Out when getActive fails', async () => {
+    mockGetActive
+      .mockResolvedValueOnce(okJob(activeKbWalk))
+      .mockRejectedValueOnce(new Error('network down'));
+
+    const tree = await renderHome();
+    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
+    expect(findByText(tree.root, 'KB walk')).toBeDefined();
+
+    await refocusHome();
+
+    expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
+    expect(findByText(tree.root, 'KB walk')).toBeUndefined();
+    expect(findByText(tree.root, 'Clock In')).toBeDefined();
+    expect(findByText(tree.root, "Couldn't check clock-in status.")).toBeDefined();
   });
 });

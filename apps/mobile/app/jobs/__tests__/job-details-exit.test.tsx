@@ -74,6 +74,10 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 import JobLogDetailScreen from '../[id]';
+import {
+  isActiveJobLogSuppressed,
+  resetActiveJobLogSuppressionsForTests,
+} from '../../../src/services/activeJobLog';
 
 const completedJob = {
   id: 'job-1',
@@ -125,6 +129,7 @@ async function renderCompletedJob(): Promise<renderer.ReactTestRenderer> {
 describe('Job Details exit after completed clock-out', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetActiveJobLogSuppressionsForTests();
     mockCanGoBack.mockReturnValue(true);
     mockGet.mockResolvedValue({
       data: { success: true, data: { jobLog: completedJob } },
@@ -150,6 +155,7 @@ describe('Job Details exit after completed clock-out', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockClockOut).not.toHaveBeenCalled();
+    expect(isActiveJobLogSuppressed(completedJob.id)).toBe(true);
   });
 
   it('falls back to Home when the stack has no history', async () => {
