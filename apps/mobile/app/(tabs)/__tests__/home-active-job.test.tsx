@@ -203,22 +203,6 @@ describe('Home active job banner after clock-out', () => {
     expect(findByText(tree.root, 'Clock In')).toBeDefined();
   });
 
-  it('does not turn a getActive failure into a leftover Clock Out banner', async () => {
-    mockGetActive
-      .mockResolvedValueOnce(okJob(activeKbWalk))
-      .mockRejectedValueOnce(new Error('network down'));
-
-    const tree = await renderHome();
-    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
-
-    await refocusHome();
-
-    expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
-    expect(findByText(tree.root, 'KB walk')).toBeUndefined();
-    expect(findByText(tree.root, 'Clock In')).toBeDefined();
-    expect(findByText(tree.root, "Couldn't check clock-in status.")).toBeDefined();
-  });
-
   it('shows Clock In plus a visible error when getActive fails after clock-out', async () => {
     mockGetActive
       .mockResolvedValueOnce(okJob(activeKbWalk))

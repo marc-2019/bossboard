@@ -173,4 +173,28 @@ describe('Job Details exit after completed clock-out', () => {
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     expect(mockDelete).not.toHaveBeenCalled();
   });
+
+  it('does not suppress a still-active job when Go back leaves Job Details', async () => {
+    const activeJob = {
+      ...completedJob,
+      id: 'job-still-active',
+      endTime: null,
+      status: 'active' as const,
+    };
+    mockGet.mockResolvedValue({
+      data: { success: true, data: { jobLog: activeJob } },
+    });
+
+    const tree = await renderCompletedJob();
+    const goBack = findByA11yLabel(tree.root, 'Go back');
+    expect(goBack).toBeDefined();
+    expect(findByA11yLabel(tree.root, 'Done')).toBeUndefined();
+
+    await act(async () => {
+      goBack!.props.onPress();
+    });
+
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(isActiveJobLogSuppressed(activeJob.id)).toBe(false);
+  });
 });
