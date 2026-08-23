@@ -74,7 +74,8 @@ router.get('/me', async (req: Request, res: Response, next: NextFunction) => {
         betaMode: beta,
         // During beta, show what the user would get vs what they have access to
         ...(beta && {
-          betaNote: 'All features are free during beta! Your tier will apply when beta ends.',
+          betaNote:
+            'Website card checkout is not live. iOS paid plans are weekly auto-renewing App Store subscriptions.',
         }),
       },
     });
@@ -329,18 +330,12 @@ const iapVerifySchema = z.object({
 
 /**
  * POST /api/v1/subscriptions/iap/verify
- * Verify store purchase and activate tier (fail-closed without credentials).
+ * Verify a store *subscription* (weekly auto-renewable) and activate tier.
+ * Fail-closed without credentials. Independent of BETA_MODE: website Stripe
+ * stays gated; App Store / Play receipts still unlock Tradie/Team (Marc 2A).
  */
 router.post('/iap/verify', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (isBetaMode()) {
-      res.json({
-        success: true,
-        data: { betaMode: true, message: 'All features are free during beta!' },
-      });
-      return;
-    }
-
     const parsed = iapVerifySchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({

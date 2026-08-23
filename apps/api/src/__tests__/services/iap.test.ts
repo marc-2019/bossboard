@@ -101,9 +101,10 @@ describe('verifyAndActivateIap', () => {
     ).rejects.toMatchObject({ statusCode: 503, code: 'IAP_GOOGLE_NOT_CONFIGURED' });
   });
 
-  it('is idempotent on existing transaction', async () => {
+  it('restores an active weekly period without treating it as a one-time unlock', async () => {
+    const future = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
     mockQuery.mockResolvedValueOnce({
-      rows: [{ id: 'r1', tier: 'tradie', expires_at: null }],
+      rows: [{ id: 'r1', tier: 'tradie', expires_at: future }],
     });
 
     const result = await verifyAndActivateIap({
@@ -116,11 +117,31 @@ describe('verifyAndActivateIap', () => {
 
     expect(result.verified).toBe(true);
     expect(result.tier).toBe('tradie');
+    expect(result.expiresAt).toBe(future.toISOString());
     expect(mockUpdateSubscriptionTier).toHaveBeenCalledWith(
       'u1',
       'tradie',
-      expect.objectContaining({ startedAt: expect.any(Date) })
+      expect.objectContaining({ startedAt: expect.any(Date), expiresAt: future })
     );
+  });
+
+  it('does not re-grant a lapsed weekly subscription from a stored row', async () => {
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ id: 'r1', tier: 'tradie', expires_at: past }],
+    });
+    iapConfig.appleSharedSecret = '';
+
+    await expect(
+      verifyAndActivateIap({
+        userId: 'u1',
+        platform: 'ios',
+        productId: 'nz.instilligent.bossboard.tradie.weekly',
+        transactionId: 'tx-lapsed',
+        receiptOrToken: 'receipt',
+      })
+    ).rejects.toMatchObject({ statusCode: 503, code: 'IAP_APPLE_NOT_CONFIGURED' });
+    expect(mockUpdateSubscriptionTier).not.toHaveBeenCalled();
   });
 
   it('verifies Apple receipt when secret set and product matches', async () => {

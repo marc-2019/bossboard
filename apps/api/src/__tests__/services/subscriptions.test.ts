@@ -37,15 +37,13 @@ beforeEach(() => {
 
 describe('Subscription Service', () => {
   describe('getTierLimits', () => {
-    it('should return tradie-level limits in beta mode (overrides free tier)', () => {
-      // Beta mode is hardcoded to true in the service
+    it('does not grant Tradie limits to free users (weekly subscription is the unlock)', () => {
       const limits = getTierLimits('free');
-      // In beta, free users get tradie-level access
-      expect(limits.invoicesPerMonth).toBeNull(); // unlimited
-      expect(limits.swmsPerMonth).toBeNull(); // unlimited
-      expect(limits.pdfExport).toBe(true);
-      expect(limits.quotes).toBe(true);
-      expect(limits.tier).toBe('free'); // tier label preserved
+      expect(limits.invoicesPerMonth).toBe(3);
+      expect(limits.swmsPerMonth).toBe(2);
+      expect(limits.pdfExport).toBe(false);
+      expect(limits.quotes).toBe(false);
+      expect(limits.tier).toBe('free');
     });
 
     it('should return limits for tradie tier', () => {
@@ -171,8 +169,8 @@ describe('Subscription Service', () => {
       expect(result.allowed).toBe(true);
     });
 
-    it('should allow invoices for free tier in beta (gets tradie limits)', async () => {
-      // In beta, free gets tradie limits (unlimited)
+    it('allows invoices for free tier only within the monthly cap', async () => {
+      mockDbQuery.mockResolvedValue({ rows: [{ count: '1' }] });
       const result = await canCreateInvoice('user-1', 'free');
       expect(result.allowed).toBe(true);
     });
@@ -230,7 +228,7 @@ describe('Subscription Service', () => {
         stripe_customer_id: 'cus_123',
         stripe_subscription_id: 'sub_123',
         subscription_started_at: new Date('2026-01-01'),
-        subscription_expires_at: new Date('2026-02-01'),
+        subscription_expires_at: new Date('2026-12-31'),
         ...overrides,
       };
     }
@@ -322,11 +320,10 @@ describe('Subscription Service', () => {
   });
 
   describe('isFeatureAvailable', () => {
-    it('should return true for tradie features in beta', () => {
-      // In beta, all users get tradie-level features
-      expect(isFeatureAvailable('free', 'pdfExport')).toBe(true);
-      expect(isFeatureAvailable('free', 'quotes')).toBe(true);
-      expect(isFeatureAvailable('free', 'expenses')).toBe(true);
+    it('does not grant Tradie features to free users (subscribe to unlock)', () => {
+      expect(isFeatureAvailable('free', 'pdfExport')).toBe(false);
+      expect(isFeatureAvailable('free', 'quotes')).toBe(false);
+      expect(isFeatureAvailable('free', 'expenses')).toBe(false);
     });
 
     it('should return true for all features on tradie tier', () => {

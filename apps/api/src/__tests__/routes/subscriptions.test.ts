@@ -28,6 +28,14 @@ jest.mock('../../services/stripe.js', () => ({
   createPortalSession: (...args: any[]) => mockCreatePortalSession(...args),
 }));
 
+const mockVerifyAndActivateIap = jest.fn();
+const mockListIapProductCatalog = jest.fn();
+
+jest.mock('../../services/iap.js', () => ({
+  verifyAndActivateIap: (...args: any[]) => mockVerifyAndActivateIap(...args),
+  listIapProductCatalog: (...args: any[]) => mockListIapProductCatalog(...args),
+}));
+
 const mockDbQuery = jest.fn();
 jest.mock('../../services/database.js', () => ({
   __esModule: true,
@@ -97,7 +105,8 @@ describe('Subscription Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.data.subscription.tier).toBe('free');
       expect(response.body.data.betaMode).toBe(true);
-      expect(response.body.data.betaNote).toBeDefined();
+      expect(response.body.data.betaNote).toMatch(/weekly auto-renewing App Store subscriptions/i);
+      expect(response.body.data.betaNote).not.toMatch(/all features are free/i);
     });
   });
 
@@ -251,6 +260,77 @@ describe('Subscription Routes', () => {
       const response = await request(app).post('/api/v1/subscriptions/portal');
 
       expect(response.status).toBe(500);
+    });
+  });
+
+  describe('POST /api/v1/subscriptions/iap/verify', () => {
+    const weeklyBody = {
+      platform: 'ios',
+      productId: 'nz.instilligent.bossboard.tradie.weekly',
+      transactionId: '1000000123456789',
+      receiptOrToken: 'base64-receipt',
+    };
+
+    it('activates a weekly App Store subscription even when BETA_MODE is on (2A)', async () => {
+      mockIsBetaMode.mockReturnValue(true);
+      mockVerifyAndActivateIap.mockResolvedValue({
+        tier: 'tradie',
+        platform: 'ios',
+        productId: weeklyBody.productId,
+        transactionId: weeklyBody.transactionId,
+        expiresAt: '2026-08-30T00:00:00.000Z',
+        verified: true,
+      });
+
+      const response = await request(app)
+        .post('/api/v1/subscriptions/iap/verify')
+        .send(weeklyBody);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.verified).toBe(true);
+      expect(response.body.data.tier).toBe('tradie');
+      expect(response.body.data.expiresAt).toBe('2026-08-30T00:00:00.000Z');
+      expect(response.body.data.betaMode).toBeUndefined();
+      expect(mockVerifyAndActivateIap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'test-user-id',
+          productId: weeklyBody.productId,
+          transactionId: weeklyBody.transactionId,
+        })
+      );
+    });
+
+    it('does not short-circuit Stripe-off (beta) into “all features are free”', async () => {
+      mockIsBetaMode.mockReturnValue(true);
+      mockVerifyAndActivateIap.mockResolvedValue({
+        tier: 'team',
+        platform: 'ios',
+        productId: 'nz.instilligent.bossboard.team.weekly',
+        transactionId: 'tx-team',
+        expiresAt: '2026-08-30T00:00:00.000Z',
+        verified: true,
+      });
+
+      const response = await request(app)
+        .post('/api/v1/subscriptions/iap/verify')
+        .send({
+          ...weeklyBody,
+          productId: 'nz.instilligent.bossboard.team.weekly',
+          transactionId: 'tx-team',
+        });
+
+      expect(JSON.stringify(response.body)).not.toMatch(/all features are free during beta/i);
+      expect(response.body.data.verified).toBe(true);
+      expect(response.body.data.tier).toBe('team');
+    });
+
+    it('rejects invalid body', async () => {
+      const response = await request(app)
+        .post('/api/v1/subscriptions/iap/verify')
+        .send({ platform: 'ios' });
+
+      expect(response.status).toBe(400);
+      expect(mockVerifyAndActivateIap).not.toHaveBeenCalled();
     });
   });
 
