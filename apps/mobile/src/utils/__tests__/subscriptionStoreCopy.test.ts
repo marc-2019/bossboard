@@ -44,12 +44,37 @@ describe('subscriptionStoreCopy iOS (Guideline 2.3.10 / 2.2)', () => {
   });
 
   it('does not show a free-during-launch banner on iOS (Guideline 2.2)', () => {
-    expect(showLaunchFreeBanner('ios')).toBe(false);
+    expect(showLaunchFreeBanner).toBe(false);
   });
 });
 
 describe('subscriptionStoreCopy android (keep Play Billing copy)', () => {
-  it('footer still names Google Play', () => {
-    expect(billingFooterLine('android')).toMatch(/Google Play/);
+  it('android footer names Google Play (android compile unit only)', () => {
+    const { billingFooterLine: androidFooter } = require('../billingFooter.android');
+    expect(androidFooter()).toMatch(/Google Play/);
+  });
+});
+
+describe('iOS compile-unit source lock', () => {
+  it('subscription.tsx has no Play or launch-period literals', () => {
+    const fs = require('fs') as typeof import('fs');
+    const path = require('path') as typeof import('path');
+    const src = fs.readFileSync(
+      path.join(__dirname, '../../../app/subscription.tsx'),
+      'utf8'
+    );
+    expect(src).not.toMatch(PLAY);
+    expect(src).not.toMatch(/launch period/i);
+    expect(src).not.toMatch(/Launch Pricing/);
+  });
+
+  it('iOS billingFooter and launchCopy files have no Play or launch-period', () => {
+    const fs = require('fs') as typeof import('fs');
+    const path = require('path') as typeof import('path');
+    const footer = fs.readFileSync(path.join(__dirname, '../billingFooter.ts'), 'utf8');
+    const launch = fs.readFileSync(path.join(__dirname, '../launchCopy.ts'), 'utf8');
+    expect(footer).not.toMatch(PLAY);
+    expect(launch).not.toMatch(PLAY);
+    expect(launch).not.toMatch(/launch period/i);
   });
 });

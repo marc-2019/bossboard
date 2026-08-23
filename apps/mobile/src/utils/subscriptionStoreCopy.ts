@@ -1,6 +1,6 @@
 /**
  * Platform-specific subscription copy for store review.
- * iOS binary must not mention Google Play (Guideline 2.3.10) or
+ * iOS binary must not mention other-store billing (Guideline 2.3.10) or
  * beta/TestFlight as a production path (Guideline 2.2).
  */
 
@@ -14,18 +14,13 @@ export type PurchaseAlertKind =
   | 'restoreNone'
   | 'restoreUnavailable';
 
-/** iOS production builds must not advertise a free/beta/launch period (Guideline 2.2). */
-export function showLaunchFreeBanner(os: StoreOs): boolean {
-  return os !== 'ios';
-}
-
-export function billingFooterLine(os: StoreOs): string | null {
-  if (os === 'ios') return 'Subscriptions are billed through the App Store.';
-  if (os === 'android') {
-    return 'Subscriptions are billed through the App Store / Google Play.';
-  }
-  return null;
-}
+export { billingFooterLine } from './billingFooter';
+export {
+  showLaunchFreeBanner,
+  launchBannerTitle,
+  launchBannerSubtitle,
+  betaChannelAlert,
+} from './launchCopy';
 
 export function purchaseAlertCopy(os: StoreOs, kind: PurchaseAlertKind): string {
   if (os === 'ios') {

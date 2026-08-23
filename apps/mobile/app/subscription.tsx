@@ -30,6 +30,9 @@ import {
   billingFooterLine,
   purchaseAlertCopy,
   showLaunchFreeBanner,
+  launchBannerTitle,
+  launchBannerSubtitle,
+  betaChannelAlert,
 } from '../src/utils/subscriptionStoreCopy';
 
 // ---------------------------------------------------------------------------
@@ -181,17 +184,12 @@ export default function SubscriptionScreen() {
         level: 'info',
         data: { tier, platform: Platform.OS },
       });
-      // Native: App Store / Play IAP only. Web: Stripe. See payments.ts dual-rail.
+      // Native store IAP only. Web: Stripe. See payments.ts dual-rail.
       const { channel, result } = await startPaidUpgrade(tier as 'tradie' | 'team');
 
       if (result === 'beta' || channel === 'beta') {
-        Alert.alert(
-          Platform.OS === 'ios' ? 'Subscription' : 'Launch Pricing',
-          Platform.OS === 'ios'
-            ? 'Paid plans are billed through the App Store. Try Restore Purchases if you already subscribed.'
-            : 'All features are free during our launch period.',
-          [{ text: 'OK' }]
-        );
+        const alert = betaChannelAlert();
+        Alert.alert(alert.title, alert.message, [{ text: 'OK' }]);
         return;
       }
       if (result === 'canceled') {
@@ -238,13 +236,8 @@ export default function SubscriptionScreen() {
       });
       const result = await restoreStorePurchases();
       if (result === 'beta') {
-        Alert.alert(
-          Platform.OS === 'ios' ? 'Subscription' : 'Launch Pricing',
-          Platform.OS === 'ios'
-            ? 'Paid plans are billed through the App Store. Try Restore Purchases if you already subscribed.'
-            : 'All features are free during our launch period.',
-          [{ text: 'OK' }]
-        );
+        const alert = betaChannelAlert();
+        Alert.alert(alert.title, alert.message, [{ text: 'OK' }]);
         return;
       }
       if (result === 'restored') {
@@ -346,14 +339,12 @@ export default function SubscriptionScreen() {
         <Text style={styles.inContentBackText}>Back</Text>
       </TouchableOpacity>
 
-      {showLaunchFreeBanner(Platform.OS) && (
+      {showLaunchFreeBanner && (
         <View style={styles.betaBanner}>
           <Ionicons name="gift-outline" size={20} color="#059669" />
           <View style={styles.betaTextWrap}>
-            <Text style={styles.betaTitle}>Launch Pricing</Text>
-            <Text style={styles.betaSubtitle}>
-              All features are completely free during our launch period!
-            </Text>
+            <Text style={styles.betaTitle}>{launchBannerTitle}</Text>
+            <Text style={styles.betaSubtitle}>{launchBannerSubtitle}</Text>
           </View>
         </View>
       )}
@@ -479,7 +470,7 @@ export default function SubscriptionScreen() {
         );
       })}
 
-      {/* Restore — required by App Store / Play for auto-renewable subscriptions */}
+      {/* Restore — required for auto-renewable subscriptions */}
       {(Platform.OS === 'ios' || Platform.OS === 'android') && (
         <TouchableOpacity
           style={styles.restoreButton}

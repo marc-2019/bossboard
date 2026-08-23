@@ -24,5 +24,6 @@ module.exports = {
     // Force all react imports to the root copy so react-test-renderer uses the same React instance
     '^react$': '<rootDir>/../../node_modules/react',
     '^react/(.*)$': '<rootDir>/../../node_modules/react/$1',
+    // (Android overrides live in *.android.ts; Jest uses the default .ts iOS unit.)
   },
 };
