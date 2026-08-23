@@ -78,9 +78,17 @@ jest.mock('../../../src/services/api', () => ({
   },
 }));
 
-jest.mock('../../../src/components/InContentBack', () => ({
-  InContentBack: () => null,
-}));
+jest.mock('../../../src/components/InContentBack', () => {
+  const React = require('react');
+  return {
+    InContentBack: () =>
+      React.createElement('TouchableOpacity', {
+        accessibilityRole: 'button',
+        accessibilityLabel: 'Go back',
+        onPress: () => {},
+      }),
+  };
+});
 
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
@@ -170,6 +178,39 @@ function hasAncestorType(node: TestNode, type: string): boolean {
   return false;
 }
 
+function dismissPressables(root: TestNode): TestNode[] {
+  return findAllByType(root, 'Pressable').filter(
+    (node) => typeof node.props.onPress === 'function'
+  );
+}
+
+function isDescendantOf(node: TestNode, ancestor: TestNode): boolean {
+  let current: TestNode | undefined = node.parent as TestNode | undefined;
+  while (current) {
+    if (current === ancestor) return true;
+    current = current.parent as TestNode | undefined;
+  }
+  return false;
+}
+
+function expectOutsideDismissPressable(root: TestNode, node: TestNode | undefined, label: string): void {
+  expect(node).toBeDefined();
+  const wrappers = dismissPressables(root);
+  expect(wrappers.length).toBeGreaterThan(0);
+  for (const wrap of wrappers) {
+    expect(isDescendantOf(node!, wrap)).toBe(false);
+  }
+  void label;
+}
+
+function expectChromeDismissesKeyboard(root: TestNode): void {
+  const wrappers = dismissPressables(root);
+  expect(wrappers.length).toBeGreaterThan(0);
+  mockKeyboardDismiss.mockClear();
+  wrappers[0].props.onPress();
+  expect(mockKeyboardDismiss).toHaveBeenCalled();
+}
+
 function expectDoneReturnDismiss(input: TestNode | undefined, label: string): void {
   expect(input).toBeDefined();
   expect(input!.props.returnKeyType).toBe('done');
@@ -244,6 +285,19 @@ describe('Clock In job-log fields — visible keyboard dismiss', () => {
     expect(scrolls.length).toBeGreaterThan(0);
     expect(scrolls[0].props.keyboardShouldPersistTaps).toBe('handled');
   });
+
+  it('does not wrap Clock In or Go back in the dismiss Pressable', async () => {
+    const tree = await renderCreate();
+    const root = tree.root;
+
+    expectChromeDismissesKeyboard(root);
+    expectOutsideDismissPressable(
+      root,
+      pressableAncestor(findByText(root, 'Clock In')!),
+      'Clock In'
+    );
+    expectOutsideDismissPressable(root, findByA11yLabel(root, 'Go back'), 'Go back');
+  });
 });
 
 describe('Job Details job-log fields — visible keyboard dismiss', () => {
@@ -278,6 +332,13 @@ describe('Job Details job-log fields — visible keyboard dismiss', () => {
     expect(hasAncestorType(findByText(root, 'Clock Out')!, 'KeyboardAvoidingView')).toBe(
       true
     );
+    expectChromeDismissesKeyboard(root);
+    expectOutsideDismissPressable(
+      root,
+      pressableAncestor(findByText(root, 'Clock Out')!),
+      'Clock Out'
+    );
+    expectOutsideDismissPressable(root, findByA11yLabel(root, 'Go back'), 'Go back');
 
     await act(async () => {
       pressableAncestor(findByText(root, 'Clock Out')!)!.props.onPress();
@@ -290,6 +351,14 @@ describe('Job Details job-log fields — visible keyboard dismiss', () => {
 
     const scrolls = findAllByType(root, 'ScrollView');
     expect(scrolls[0].props.keyboardShouldPersistTaps).toBe('handled');
+
+    expectChromeDismissesKeyboard(root);
+    expectOutsideDismissPressable(
+      root,
+      pressableAncestor(findByText(root, 'Confirm Clock Out')!),
+      'Confirm Clock Out'
+    );
+    expectOutsideDismissPressable(root, findByA11yLabel(root, 'Go back'), 'Go back');
   });
 
   it('does not hide the completed Done control (PR #91)', async () => {
@@ -301,7 +370,12 @@ describe('Job Details job-log fields — visible keyboard dismiss', () => {
     const done = findByA11yLabel(tree.root, 'Done');
     expect(done).toBeDefined();
     expect(done!.props.accessibilityRole).toBe('button');
+    expect(done!.props.testID).toBe('job-details-done');
     expect(typeof done!.props.onPress).toBe('function');
     expect(hasAncestorType(done!, 'KeyboardAvoidingView')).toBe(true);
+
+    expectChromeDismissesKeyboard(tree.root);
+    expectOutsideDismissPressable(tree.root, done, 'Done');
+    expectOutsideDismissPressable(tree.root, findByA11yLabel(tree.root, 'Go back'), 'Go back');
   });
 });

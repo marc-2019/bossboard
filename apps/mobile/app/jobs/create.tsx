@@ -11,7 +11,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Pressable,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -20,8 +19,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
 import { InContentBack } from '../../src/components/InContentBack';
+import { JobLogKeyboardDismissChrome } from '../../src/components/JobLogKeyboardDismissChrome';
 import {
-  dismissJobLogKeyboard,
   jobLogScrollKeyboard,
   jobLogTextFieldKeyboard,
 } from '../../src/utils/jobLogKeyboard';
@@ -78,9 +77,8 @@ export default function CreateJobLogScreen() {
         contentContainerStyle={styles.content}
         {...jobLogScrollKeyboard}
       >
-        <Pressable onPress={dismissJobLogKeyboard} accessible={false}>
-          <InContentBack fallback="/(tabs)" color="#0D9488" />
-          {/* Clock In Header */}
+        <InContentBack fallback="/(tabs)" color="#0D9488" />
+        <JobLogKeyboardDismissChrome>
           <View style={styles.clockHeader}>
             <View style={styles.clockIconWrap}>
               <Ionicons name="timer" size={32} color="#0D9488" />
@@ -88,65 +86,69 @@ export default function CreateJobLogScreen() {
             <Text style={styles.clockTime}>{timeString}</Text>
             <Text style={styles.clockDate}>{dateString}</Text>
           </View>
+        </JobLogKeyboardDismissChrome>
 
-          {/* Job Description */}
-          <View style={styles.section}>
+        <View style={styles.section}>
+          <JobLogKeyboardDismissChrome>
             <Text style={styles.sectionLabel}>Job Description *</Text>
-            <TextInput
-              style={styles.textInput}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="e.g. Bathroom renovation, Wiring install"
-              placeholderTextColor="#9CA3AF"
-              autoFocus
-              {...jobLogTextFieldKeyboard}
-            />
-          </View>
+          </JobLogKeyboardDismissChrome>
+          <TextInput
+            style={styles.textInput}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="e.g. Bathroom renovation, Wiring install"
+            placeholderTextColor="#9CA3AF"
+            autoFocus
+            {...jobLogTextFieldKeyboard}
+          />
+        </View>
 
-          {/* Site Address */}
-          <View style={styles.section}>
+        <View style={styles.section}>
+          <JobLogKeyboardDismissChrome>
             <Text style={styles.sectionLabel}>Site Address</Text>
-            <TextInput
-              style={styles.textInput}
-              value={siteAddress}
-              onChangeText={setSiteAddress}
-              placeholder="e.g. 42 Queen St, Auckland"
-              placeholderTextColor="#9CA3AF"
-              {...jobLogTextFieldKeyboard}
-            />
-          </View>
+          </JobLogKeyboardDismissChrome>
+          <TextInput
+            style={styles.textInput}
+            value={siteAddress}
+            onChangeText={setSiteAddress}
+            placeholder="e.g. 42 Queen St, Auckland"
+            placeholderTextColor="#9CA3AF"
+            {...jobLogTextFieldKeyboard}
+          />
+        </View>
 
-          {/* Notes */}
-          <View style={styles.section}>
+        <View style={styles.section}>
+          <JobLogKeyboardDismissChrome>
             <Text style={styles.sectionLabel}>Notes (optional)</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Any details about this job..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-              {...jobLogTextFieldKeyboard}
-            />
-          </View>
+          </JobLogKeyboardDismissChrome>
+          <TextInput
+            style={[styles.textInput, styles.textArea]}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Any details about this job..."
+            placeholderTextColor="#9CA3AF"
+            multiline
+            numberOfLines={3}
+            {...jobLogTextFieldKeyboard}
+          />
+        </View>
 
-          {/* Clock In Button — stays in the avoiding view, not under a dismiss bar */}
-          <TouchableOpacity
-            style={[styles.clockInButton, isSaving && styles.clockInButtonDisabled]}
-            onPress={handleClockIn}
-            disabled={isSaving}
-          >
-            <Ionicons name="play" size={22} color="#fff" />
-            <Text style={styles.clockInButtonText}>
-              {isSaving ? 'Clocking In...' : 'Clock In'}
-            </Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.clockInButton, isSaving && styles.clockInButtonDisabled]}
+          onPress={handleClockIn}
+          disabled={isSaving}
+        >
+          <Ionicons name="play" size={22} color="#fff" />
+          <Text style={styles.clockInButtonText}>
+            {isSaving ? 'Clocking In...' : 'Clock In'}
+          </Text>
+        </TouchableOpacity>
 
+        <JobLogKeyboardDismissChrome>
           <Text style={styles.hint}>
             You can clock out from the job detail screen when you're done.
           </Text>
-        </Pressable>
+        </JobLogKeyboardDismissChrome>
       </ScrollView>
     </KeyboardAvoidingView>
   );
