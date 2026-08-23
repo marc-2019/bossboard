@@ -3,7 +3,7 @@
  * Tabs stay mounted, so useFocusEffect alone is not enough.
  */
 
-type Listener = () => void;
+type Listener = (jobId?: string) => void;
 
 const listeners = new Set<Listener>();
 
@@ -14,8 +14,8 @@ export function subscribeActiveJobInvalidation(listener: Listener): () => void {
   };
 }
 
-export function invalidateActiveJobLog(): void {
+export function invalidateActiveJobLog(jobId?: string): void {
   for (const listener of listeners) {
-    listener();
+    listener(jobId);
   }
 }

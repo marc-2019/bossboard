@@ -96,12 +96,6 @@ const activeKbWalk = {
   status: 'active' as const,
 };
 
-const completedKbWalk = {
-  ...activeKbWalk,
-  status: 'completed' as const,
-  endTime: '2026-08-23T02:55:26.000Z',
-};
-
 function okJob(jobLog: unknown) {
   return { data: { success: true, data: { jobLog } } };
 }
@@ -165,10 +159,10 @@ describe('Home active job banner after clock-out', () => {
     mounted = undefined;
   });
 
-  it('does not restore a completed job after clock-out + Done/focus', async () => {
+  it('does not restore a live banner after clock-out + Done/focus when /active is empty', async () => {
     mockGetActive
       .mockResolvedValueOnce(okJob(activeKbWalk))
-      .mockResolvedValueOnce(okJob(completedKbWalk));
+      .mockResolvedValueOnce(okJob(null));
 
     const tree = await renderHome();
     expect(findByText(tree.root, 'KB walk')).toBeDefined();
@@ -177,13 +171,66 @@ describe('Home active job banner after clock-out', () => {
 
     // Clock-out on Job Details, then Done → Home focus (tabs stay mounted).
     await act(async () => {
-      invalidateActiveJobLog();
+      invalidateActiveJobLog(activeKbWalk.id);
     });
     await refocusHome();
 
     expect(findByText(tree.root, 'Clock In')).toBeDefined();
     expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
     expect(findByText(tree.root, 'KB walk')).toBeUndefined();
+  });
+
+  it('does not restore Clock Out when /active still returns the same job after clock-out + Done/focus', async () => {
+    mockGetActive
+      .mockResolvedValueOnce(okJob(activeKbWalk))
+      .mockResolvedValueOnce(okJob(activeKbWalk));
+
+    const tree = await renderHome();
+    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
+
+    await act(async () => {
+      invalidateActiveJobLog(activeKbWalk.id);
+    });
+    await refocusHome();
+
+    expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
+    expect(findByText(tree.root, 'KB walk')).toBeUndefined();
+    expect(findByText(tree.root, "Couldn't check clock-in status.")).toBeUndefined();
+    expect(findByText(tree.root, 'Clock In')).toBeDefined();
+  });
+
+  it('does not turn a getActive failure into Clock In while a live job is showing', async () => {
+    mockGetActive
+      .mockResolvedValueOnce(okJob(activeKbWalk))
+      .mockRejectedValueOnce(new Error('network down'));
+
+    const tree = await renderHome();
+    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
+
+    await refocusHome();
+
+    expect(findByText(tree.root, 'Clock In')).toBeUndefined();
+    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
+    expect(findByText(tree.root, 'KB walk')).toBeDefined();
+    expect(findByText(tree.root, "Couldn't check clock-in status.")).toBeDefined();
+  });
+
+  it('does not treat getActive failure after clock-out as confirmed Clock In', async () => {
+    mockGetActive
+      .mockResolvedValueOnce(okJob(activeKbWalk))
+      .mockRejectedValueOnce(new Error('5xx'));
+
+    const tree = await renderHome();
+    expect(findByText(tree.root, 'Clock Out')).toBeDefined();
+
+    await act(async () => {
+      invalidateActiveJobLog(activeKbWalk.id);
+    });
+    await refocusHome();
+
+    expect(findByText(tree.root, 'Clock In')).toBeUndefined();
+    expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
+    expect(findByText(tree.root, "Couldn't check clock-in status.")).toBeDefined();
   });
 
   it('ignores a stale pre-clock-out getActive that arrives after a newer load', async () => {
@@ -213,7 +260,7 @@ describe('Home active job banner after clock-out', () => {
     await refocusHome();
 
     await act(async () => {
-      resolveFresh!(okJob(completedKbWalk));
+      resolveFresh!(okJob(null));
     });
     await act(async () => {
       resolveStale!(okJob(activeKbWalk));
@@ -231,7 +278,7 @@ describe('Home active job banner after clock-out', () => {
     expect(findByText(tree.root, 'Clock Out')).toBeDefined();
 
     await act(async () => {
-      invalidateActiveJobLog();
+      invalidateActiveJobLog(activeKbWalk.id);
     });
 
     expect(findByText(tree.root, 'Clock In')).toBeDefined();
@@ -259,7 +306,7 @@ describe('Home active job banner after clock-out', () => {
     expect(findByText(tree.root, 'Clock Out')).toBeUndefined();
 
     await act(async () => {
-      invalidateActiveJobLog();
+      invalidateActiveJobLog(activeKbWalk.id);
     });
 
     await act(async () => {

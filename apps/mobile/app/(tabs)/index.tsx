@@ -123,24 +123,39 @@ export default function HomeScreen() {
   const [pendingCount, setPendingCount] = useState({ auto: 0, review: 0 });
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeJobError, setActiveJobError] = useState<string | null>(null);
   const loadGenerationRef = useRef(0);
+  const lastLiveJobRef = useRef<ActiveJobLog | null>(null);
+  const suppressedJobIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
-    return subscribeActiveJobInvalidation(() => {
+    return subscribeActiveJobInvalidation((jobId) => {
+      if (jobId) suppressedJobIdsRef.current.add(jobId);
       loadGenerationRef.current += 1;
       setActiveJobLog(null);
+      setActiveJobError(null);
     });
   }, []);
+
+  function liveJobFromActivePayload(jobLog: unknown): ActiveJobLog | null {
+    const live = asLiveJobLog(jobLog);
+    if (!live) return null;
+    if (suppressedJobIdsRef.current.has(live.id)) return null;
+    return live;
+  }
 
   const loadData = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
     try {
       // Load recent docs, stats, and insights in parallel
-      const [docsResponse, statsResponse, pendingResponse, activeJobResponse, insightsResponse] = await Promise.all([
+      const [docsResponse, statsResponse, pendingResponse, activeJobOutcome, insightsResponse] = await Promise.all([
         swmsApi.list({ limit: 3 }).catch(() => null),
         statsApi.getDashboard().catch(() => null),
         recurringInvoicesApi.getPending().catch(() => null),
-        jobLogsApi.getActive().catch(() => null),
+        jobLogsApi.getActive().then(
+          (res) => ({ ok: true as const, res }),
+          (error: unknown) => ({ ok: false as const, error })
+        ),
         statsApi.getInsights().catch(() => null),
       ]);
 
@@ -162,13 +177,27 @@ export default function HomeScreen() {
         });
       }
 
-      setActiveJobLog(
-        asLiveJobLog(
-          activeJobResponse?.data?.success
-            ? (activeJobResponse.data as { data?: { jobLog?: unknown } }).data?.jobLog
-            : null
-        )
-      );
+      if (!activeJobOutcome.ok) {
+        const justHadLive =
+          lastLiveJobRef.current !== null || suppressedJobIdsRef.current.size > 0;
+        if (justHadLive) {
+          setActiveJobError("Couldn't check clock-in status.");
+          const last = lastLiveJobRef.current;
+          if (last && !suppressedJobIdsRef.current.has(last.id)) {
+            setActiveJobLog(last);
+          } else {
+            setActiveJobLog(null);
+          }
+        }
+      } else {
+        setActiveJobError(null);
+        const jobLog = activeJobOutcome.res?.data?.success
+          ? (activeJobOutcome.res.data as { data?: { jobLog?: unknown } }).data?.jobLog
+          : null;
+        const live = liveJobFromActivePayload(jobLog);
+        setActiveJobLog(live);
+        lastLiveJobRef.current = live;
+      }
 
       if (insightsResponse?.data?.success) {
         setInsights((insightsResponse.data as any).data.insights || null);
@@ -560,6 +589,11 @@ export default function HomeScreen() {
         )}
 
         {/* Clock In/Out Card */}
+        {activeJobError ? (
+          <View style={styles.jobActiveErrorCard}>
+            <Text style={styles.jobActiveErrorText}>{activeJobError}</Text>
+          </View>
+        ) : null}
         {activeJobLog ? (
           <TouchableOpacity
             style={styles.jobActiveCard}
@@ -581,7 +615,7 @@ export default function HomeScreen() {
               <Text style={styles.jobActiveActionText}>Clock Out</Text>
             </View>
           </TouchableOpacity>
-        ) : (
+        ) : activeJobError ? null : (
           <TouchableOpacity
             style={styles.jobClockInCard}
             onPress={() => router.push('/jobs/create' as any)}
@@ -928,6 +962,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  jobActiveErrorCard: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  jobActiveErrorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
   },
   jobActiveCard: {
     backgroundColor: '#F0FDFA',

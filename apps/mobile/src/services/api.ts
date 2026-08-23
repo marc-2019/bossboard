@@ -206,10 +206,13 @@ function getCacheKey(endpoint: string, method: string, body?: unknown): string {
 }
 
 const ACTIVE_JOB_LOG_GET = '/api/v1/job-logs/active';
+const getInvalidationEpoch = new Map<string, number>();
 
-/** Drop an in-flight GET so a later caller does not join a stale response. */
+/** Drop an in-flight GET and bump epoch so retries cannot re-seed that key. */
 function invalidateInFlightGet(endpoint: string): void {
-  requestCache.delete(getCacheKey(endpoint, 'GET'));
+  const key = getCacheKey(endpoint, 'GET');
+  requestCache.delete(key);
+  getInvalidationEpoch.set(key, (getInvalidationEpoch.get(key) ?? 0) + 1);
 }
 
 async function request<T = any>(
@@ -229,6 +232,7 @@ async function request<T = any>(
 
   // Request deduplication for GET requests
   const cacheKey = method === 'GET' ? getCacheKey(endpoint, method, body) : null;
+  const epochAtStart = cacheKey ? (getInvalidationEpoch.get(cacheKey) ?? 0) : 0;
   if (cacheKey && requestCache.has(cacheKey)) {
     return requestCache.get(cacheKey) as Promise<ApiResponse<T>>;
   }
@@ -311,8 +315,8 @@ async function request<T = any>(
     try {
       const resultPromise = executeRequest();
 
-      // Cache GET requests
-      if (cacheKey) {
+      // Cache GET requests only if this key was not invalidated since we started.
+      if (cacheKey && (getInvalidationEpoch.get(cacheKey) ?? 0) === epochAtStart) {
         requestCache.set(cacheKey, resultPromise as Promise<ApiResponse<unknown>>);
       }
 
@@ -880,7 +884,7 @@ export const jobLogsApi = {
     invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
     const result = await api.post(`/api/v1/job-logs/${id}/clock-out`, { notes });
     invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
-    invalidateActiveJobLog();
+    invalidateActiveJobLog(id);
     return result;
   },
 
@@ -888,7 +892,7 @@ export const jobLogsApi = {
     invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
     const result = await api.delete(`/api/v1/job-logs/${id}`);
     invalidateInFlightGet(ACTIVE_JOB_LOG_GET);
-    invalidateActiveJobLog();
+    invalidateActiveJobLog(id);
     return result;
   },
 };

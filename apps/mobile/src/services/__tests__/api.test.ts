@@ -497,6 +497,56 @@ describe('Request Core', () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
+    it('does not let a GET /job-logs/active retry re-seed the cache after clockOut', async () => {
+      let resolveRetry: (r: Response) => void = () => {};
+      const fetchMock = jest
+        .fn<any>()
+        .mockResolvedValueOnce(makeResponse({ status: 500, body: {} }))
+        .mockResolvedValueOnce(
+          makeResponse({
+            status: 200,
+            body: { success: true, data: { jobLog: { id: 'job-kb-walk', status: 'completed' } } },
+          })
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise<Response>((resolve) => {
+              resolveRetry = resolve;
+            })
+        )
+        .mockResolvedValueOnce(
+          makeResponse({
+            status: 200,
+            body: { success: true, data: { jobLog: null } },
+          })
+        );
+      global.fetch = fetchMock;
+
+      const staleActive = jobLogsApi.getActive();
+      await Promise.resolve();
+      await jobLogsApi.clockOut('job-kb-walk');
+      await jest.advanceTimersByTimeAsync(1000);
+
+      const afterClockOut = jobLogsApi.getActive();
+      resolveRetry(
+        makeResponse({
+          status: 200,
+          body: {
+            success: true,
+            data: { jobLog: { id: 'job-kb-walk', status: 'active', description: 'KB walk' } },
+          },
+        })
+      );
+
+      const [staleRes, freshRes] = await Promise.all([staleActive, afterClockOut]);
+
+      expect((staleRes.data as { data: { jobLog: { status: string } } }).data.jobLog.status).toBe(
+        'active'
+      );
+      expect((freshRes.data as { data: { jobLog: unknown } }).data.jobLog).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+
     it('does not reuse in-flight GET /job-logs/active across clockOut', async () => {
       let resolveStaleActive: (r: Response) => void = () => {};
       const fetchMock = jest
