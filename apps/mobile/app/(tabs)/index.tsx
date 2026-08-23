@@ -17,7 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { swmsApi, statsApi, recurringInvoicesApi, jobLogsApi } from '../../src/services/api';
 import {
+  hasSuppressedActiveJobLogs,
   isActiveJobLogSuppressed,
+  setActiveJobLogOwner,
   subscribeActiveJobInvalidation,
 } from '../../src/services/activeJobLog';
 
@@ -128,6 +130,11 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeJobError, setActiveJobError] = useState<string | null>(null);
   const loadGenerationRef = useRef(0);
+  const lastLiveJobRef = useRef<ActiveJobLog | null>(null);
+
+  useEffect(() => {
+    setActiveJobLogOwner(user?.id ?? null);
+  }, [user?.id]);
 
   useEffect(() => {
     return subscribeActiveJobInvalidation(() => {
@@ -178,8 +185,17 @@ export default function HomeScreen() {
       }
 
       if (!activeJobOutcome.ok) {
-        setActiveJobError("Couldn't check clock-in status.");
-        setActiveJobLog(null);
+        const justHadLive =
+          lastLiveJobRef.current !== null || hasSuppressedActiveJobLogs();
+        if (justHadLive) {
+          setActiveJobError("Couldn't check clock-in status.");
+          const last = lastLiveJobRef.current;
+          if (last && !isActiveJobLogSuppressed(last.id)) {
+            setActiveJobLog(last);
+          } else {
+            setActiveJobLog(null);
+          }
+        }
       } else {
         setActiveJobError(null);
         const jobLog = activeJobOutcome.res?.data?.success
@@ -187,6 +203,7 @@ export default function HomeScreen() {
           : null;
         const live = liveJobFromActivePayload(jobLog);
         setActiveJobLog(live);
+        lastLiveJobRef.current = live;
       }
 
       if (insightsResponse?.data?.success) {
@@ -605,7 +622,7 @@ export default function HomeScreen() {
               <Text style={styles.jobActiveActionText}>Clock Out</Text>
             </View>
           </TouchableOpacity>
-        ) : (
+        ) : activeJobError ? null : (
           <TouchableOpacity
             style={styles.jobClockInCard}
             onPress={() => router.push('/jobs/create' as any)}

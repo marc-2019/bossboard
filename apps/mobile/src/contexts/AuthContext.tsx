@@ -6,6 +6,10 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import * as SecureStore from '../utils/storage';
 import { api, authApi, setAuthToken, notificationsApi, NetworkError, TimeoutError, ApiError } from '../services/api';
+import {
+  clearActiveJobLogSuppressions,
+  setActiveJobLogOwner,
+} from '../services/activeJobLog';
 
 interface User {
   id: string;
@@ -56,6 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadStoredAuth();
   }, []);
+
+  useEffect(() => {
+    setActiveJobLogOwner(user?.id ?? null);
+  }, [user?.id]);
 
   async function loadStoredAuth() {
     try {
@@ -121,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function clearAuth() {
+    clearActiveJobLogSuppressions();
     await Promise.all([
       SecureStore.deleteItemAsync(TOKEN_KEY),
       SecureStore.deleteItemAsync(REFRESH_KEY),

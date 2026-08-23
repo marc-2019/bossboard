@@ -87,6 +87,12 @@ jest.mock('../../services/api', () => {
 import { AuthProvider, useAuth } from '../AuthContext';
 import * as storage from '../../utils/storage';
 import { api, authApi, setAuthToken, notificationsApi } from '../../services/api';
+import {
+  invalidateActiveJobLog,
+  isActiveJobLogSuppressed,
+  resetActiveJobLogSuppressionsForTests,
+  setActiveJobLogOwner,
+} from '../../services/activeJobLog';
 
 // Typed accessors to the mocks
 const mockGetItem = storage.getItemAsync as jest.Mock;
@@ -145,6 +151,7 @@ beforeEach(() => {
   Object.keys(mockStore).forEach((k) => delete mockStore[k]);
 
   jest.clearAllMocks();
+  resetActiveJobLogSuppressionsForTests();
 
   // Restore storage mock implementations
   mockGetItem.mockImplementation(async (key: string) => mockStore[key] ?? null);
@@ -361,12 +368,17 @@ describe('AuthContext', () => {
 
       mockApiPost.mockResolvedValueOnce({ data: { success: true } });
 
+      setActiveJobLogOwner(baseUser.id);
+      invalidateActiveJobLog('job-prior-session');
+      expect(isActiveJobLogSuppressed('job-prior-session')).toBe(true);
+
       await act(async () => result.current.logout());
 
       expect(result.current.isAuthenticated).toBe(false);
       expect(result.current.user).toBeNull();
       expect(mockStore[TOKEN_KEY]).toBeUndefined();
       expect(mockSetAuthToken).toHaveBeenLastCalledWith(null);
+      expect(isActiveJobLogSuppressed('job-prior-session')).toBe(false);
     });
 
     it('clears local state even when logout API fails', async () => {

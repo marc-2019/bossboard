@@ -77,6 +77,7 @@ import JobLogDetailScreen from '../[id]';
 import {
   isActiveJobLogSuppressed,
   resetActiveJobLogSuppressionsForTests,
+  setActiveJobLogOwner,
 } from '../../../src/services/activeJobLog';
 
 const completedJob = {
@@ -130,6 +131,7 @@ describe('Job Details exit after completed clock-out', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetActiveJobLogSuppressionsForTests();
+    setActiveJobLogOwner('user-test');
     mockCanGoBack.mockReturnValue(true);
     mockGet.mockResolvedValue({
       data: { success: true, data: { jobLog: completedJob } },
