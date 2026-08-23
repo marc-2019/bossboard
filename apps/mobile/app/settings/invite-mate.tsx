@@ -19,6 +19,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { referralsApi, type ReferralMe } from '../../src/services/api';
 import { fetchReferralMe, shareReferralInvite } from '../../src/services/referralShare';
+import { InContentBack } from '../../src/components/InContentBack';
 
 export default function InviteMateScreen() {
   const router = useRouter();
@@ -78,6 +79,7 @@ export default function InviteMateScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
+        <InContentBack fallback="/settings" />
         <ActivityIndicator size="large" color="#FF6B35" />
       </View>
     );
@@ -89,6 +91,7 @@ export default function InviteMateScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/settings" />
       <View style={styles.hero}>
         <View style={styles.heroIcon}>
           <Ionicons name="gift-outline" size={28} color="#059669" />

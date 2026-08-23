@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function TeamsLayout() {
   return (
@@ -10,8 +11,14 @@ export default function TeamsLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Team' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Team Member' }} />
+      <Stack.Screen
+        name="index"
+        options={withBackHeader('Team', { fallback: '/(tabs)/people' })}
+      />
+      <Stack.Screen
+        name="[id]"
+        options={withBackHeader('Team Member', { fallback: '/(tabs)/people' })}
+      />
     </Stack>
   );
 }

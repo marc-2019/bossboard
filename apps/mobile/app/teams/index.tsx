@@ -19,6 +19,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { teamsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface TeamMember {
   id: string;
@@ -280,6 +281,7 @@ export default function TeamsScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
+        <InContentBack fallback="/(tabs)/people" />
         <ActivityIndicator size="large" color="#FF6B35" />
       </View>
     );
@@ -293,6 +295,7 @@ export default function TeamsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
       >
+        <InContentBack fallback="/(tabs)/people" />
         <View style={styles.emptyState}>
           <Ionicons name="people-outline" size={64} color="#9CA3AF" />
           <Text style={styles.emptyTitle}>No Team Yet</Text>
@@ -386,6 +389,7 @@ export default function TeamsScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
     >
+      <InContentBack fallback="/(tabs)/people" />
       {/* Team Header */}
       <View style={styles.teamHeader}>
         <View style={styles.teamIcon}>

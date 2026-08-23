@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function CustomersLayout() {
   return (
@@ -10,9 +11,18 @@ export default function CustomersLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Customers' }} />
-      <Stack.Screen name="create" options={{ title: 'New Customer' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Customer Details' }} />
+      <Stack.Screen
+        name="index"
+        options={withBackHeader('Customers', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="create"
+        options={withBackHeader('New Customer', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="[id]"
+        options={withBackHeader('Customer Details', { fallback: '/(tabs)/money' })}
+      />
     </Stack>
   );
 }

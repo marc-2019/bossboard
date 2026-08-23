@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { businessProfileApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 export default function BankDetailsScreen() {
   const router = useRouter();
@@ -94,6 +95,7 @@ export default function BankDetailsScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/settings" />
         <ActivityIndicator size="large" color="#FF6B35" />
         <Text style={styles.loadingText}>Loading bank details...</Text>
       </View>
@@ -110,6 +112,7 @@ export default function BankDetailsScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <InContentBack fallback="/settings" />
         {/* NZD Bank Account */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>NZD Bank Account (Wise Local)</Text>

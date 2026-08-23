@@ -18,6 +18,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { certificationsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Certification {
   id: string;
@@ -233,6 +234,9 @@ export default function CertificationsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.exitRow}>
+        <InContentBack fallback="/(tabs)/people" />
+      </View>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#9CA3AF" />
@@ -320,6 +324,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  exitRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   searchContainer: {
     flexDirection: 'row',

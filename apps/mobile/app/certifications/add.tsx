@@ -18,6 +18,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { certificationsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 const CERT_TYPES = [
   { id: 'electrical', label: 'Electrical', icon: 'flash' },
@@ -151,6 +152,7 @@ export default function AddCertificationScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <InContentBack fallback="/(tabs)/people" />
         {/* Certification Type */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Certification Type *</Text>

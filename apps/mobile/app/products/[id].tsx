@@ -19,6 +19,7 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { productsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Product {
   id: string;
@@ -148,6 +149,7 @@ export default function ProductDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" />
         <ActivityIndicator size="large" color="#2563EB" />
       </View>
     );
@@ -158,9 +160,7 @@ export default function ProductDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Product not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
+        <InContentBack fallback="/(tabs)/money" />
       </View>
     );
   }
@@ -172,6 +172,7 @@ export default function ProductDetailScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          <InContentBack fallback="/(tabs)/money" />
           {/* Name */}
           <View style={styles.field}>
             <Text style={styles.label}>Name *</Text>
@@ -287,6 +288,7 @@ export default function ProductDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <InContentBack fallback="/(tabs)/money" />
         {/* Header Card */}
         <View style={styles.headerCard}>
           <View style={styles.headerTop}>

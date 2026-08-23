@@ -17,6 +17,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { quotesApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Quote {
   id: string;
@@ -164,6 +165,7 @@ export default function QuotesListScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" color="#8B5CF6" />
         <ActivityIndicator size="large" color="#8B5CF6" />
       </View>
     );
@@ -171,6 +173,9 @@ export default function QuotesListScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.exitRow}>
+        <InContentBack fallback="/(tabs)/money" color="#8B5CF6" />
+      </View>
       {/* Search */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
@@ -257,6 +262,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  exitRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,

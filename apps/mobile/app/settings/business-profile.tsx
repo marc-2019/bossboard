@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { businessProfileApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 export default function BusinessProfileScreen() {
   const router = useRouter();
@@ -119,6 +120,7 @@ export default function BusinessProfileScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/settings" />
         <ActivityIndicator size="large" color="#FF6B35" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
@@ -135,6 +137,7 @@ export default function BusinessProfileScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <InContentBack fallback="/settings" />
         {/* Company Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Company Details</Text>

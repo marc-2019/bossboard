@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { swmsApi } from '../../src/services/api';
 import PhotoAttachments from '../../src/components/PhotoAttachments';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Hazard {
   id: string;
@@ -152,17 +153,23 @@ export default function SWMSDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/work" />
         <ActivityIndicator size="large" color="#2563EB" />
       </View>
     );
   }
 
   if (!document) {
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/work" />
+      </View>
+    );
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/(tabs)/work" />
       <View style={styles.header}>
         <Text style={styles.title}>{document.title}</Text>
         <View style={styles.metaRow}>

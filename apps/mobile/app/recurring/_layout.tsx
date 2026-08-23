@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function RecurringLayout() {
   return (
@@ -10,10 +11,22 @@ export default function RecurringLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Recurring Invoices' }} />
-      <Stack.Screen name="create" options={{ title: 'New Recurring Invoice' }} />
-      <Stack.Screen name="generate" options={{ title: 'Generate Invoices' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Recurring Invoice' }} />
+      <Stack.Screen
+        name="index"
+        options={withBackHeader('Recurring Invoices', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="create"
+        options={withBackHeader('New Recurring Invoice', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="generate"
+        options={withBackHeader('Generate Invoices', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="[id]"
+        options={withBackHeader('Recurring Invoice', { fallback: '/(tabs)/money' })}
+      />
     </Stack>
   );
 }

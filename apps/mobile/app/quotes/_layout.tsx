@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function QuotesLayout() {
   return (
@@ -10,9 +11,18 @@ export default function QuotesLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Quotes' }} />
-      <Stack.Screen name="create" options={{ title: 'New Quote' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Quote Details' }} />
+      <Stack.Screen
+        name="index"
+        options={withBackHeader('Quotes', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="create"
+        options={withBackHeader('New Quote', { fallback: '/(tabs)/money' })}
+      />
+      <Stack.Screen
+        name="[id]"
+        options={withBackHeader('Quote Details', { fallback: '/(tabs)/money' })}
+      />
     </Stack>
   );
 }

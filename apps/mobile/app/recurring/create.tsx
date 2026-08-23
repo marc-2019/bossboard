@@ -22,6 +22,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { recurringInvoicesApi, customersApi, productsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Customer {
   id: string;
@@ -280,6 +281,7 @@ export default function CreateRecurringInvoiceScreen() {
   if (isLoadingData) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" />
         <ActivityIndicator size="large" color="#FF6B35" />
       </View>
     );
@@ -295,6 +297,7 @@ export default function CreateRecurringInvoiceScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <InContentBack fallback="/(tabs)/money" />
         {/* Customer Picker */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Customer *</Text>

@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { teamsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface TeamMember {
   id: string;
@@ -178,6 +179,7 @@ export default function TeamMemberDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/people" />
         <ActivityIndicator size="large" color="#2563EB" />
       </View>
     );
@@ -188,9 +190,7 @@ export default function TeamMemberDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="person-outline" size={48} color="#D1D5DB" />
         <Text style={styles.errorText}>Team member not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
+        <InContentBack fallback="/(tabs)/people" />
       </View>
     );
   }
@@ -200,6 +200,7 @@ export default function TeamMemberDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <InContentBack fallback="/(tabs)/people" />
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={[styles.avatar, { backgroundColor: roleColor + '20' }]}>

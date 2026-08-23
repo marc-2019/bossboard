@@ -17,6 +17,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { InContentBack } from '../../src/components/InContentBack';
 
 const TRADE_TYPES = [
   { value: 'electrician', label: 'Electrician' },
@@ -58,6 +59,7 @@ export default function EditProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/settings" />
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Personal Details</Text>
 

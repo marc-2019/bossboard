@@ -18,6 +18,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { jobLogsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 export default function CreateJobLogScreen() {
   const router = useRouter();
@@ -66,6 +67,7 @@ export default function CreateJobLogScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <InContentBack fallback="/(tabs)" color="#0D9488" />
         {/* Clock In Header */}
         <View style={styles.clockHeader}>
           <View style={styles.clockIconWrap}>

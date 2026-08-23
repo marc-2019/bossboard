@@ -16,6 +16,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { customersApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Customer {
   id: string;
@@ -97,6 +98,7 @@ export default function CustomerDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <InContentBack fallback="/(tabs)/money" />
         <ActivityIndicator size="large" color="#2563EB" />
       </View>
     );
@@ -107,15 +109,14 @@ export default function CustomerDetailScreen() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={48} color="#EF4444" />
         <Text style={styles.errorText}>Customer not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
+        <InContentBack fallback="/(tabs)/money" />
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/(tabs)/money" />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.avatarCircle}>

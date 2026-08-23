@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { authApi, notificationsApi } from '../../src/services/api';
 import { registerForPushNotificationsAsync } from '../../src/hooks/useNotifications';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface MenuItem {
   id: string;
@@ -168,6 +169,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <InContentBack fallback="/(tabs)" />
       {/* Profile Header */}
       <View style={styles.profileCard}>
         <View style={styles.avatar}>

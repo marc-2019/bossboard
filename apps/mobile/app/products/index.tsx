@@ -16,6 +16,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { productsApi } from '../../src/services/api';
+import { InContentBack } from '../../src/components/InContentBack';
 
 interface Product {
   id: string;
@@ -130,6 +131,9 @@ export default function ProductsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.exitRow}>
+        <InContentBack fallback="/(tabs)/money" />
+      </View>
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
           <Ionicons name="search" size={20} color="#9CA3AF" />
@@ -214,6 +218,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  exitRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   searchContainer: {
     padding: 16,
