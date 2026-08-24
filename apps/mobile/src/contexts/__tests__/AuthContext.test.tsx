@@ -212,6 +212,18 @@ describe('AuthContext', () => {
   // -------------------------------------------------------------------------
 
   describe('session restore', () => {
+    it('re-writes stored keys on restore so Keychain accessibility can migrate', async () => {
+      seedSession();
+      mockApiGet.mockResolvedValueOnce(ok({ user: baseUser }));
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(mockSetItem).toHaveBeenCalledWith(TOKEN_KEY, baseTokens.accessToken);
+      expect(mockSetItem).toHaveBeenCalledWith(REFRESH_KEY, baseTokens.refreshToken);
+      expect(mockSetItem).toHaveBeenCalledWith(USER_KEY, JSON.stringify(baseUser));
+    });
+
     it('restores session when stored token is valid', async () => {
       seedSession();
       mockApiGet.mockResolvedValueOnce(ok({ user: baseUser }));
@@ -287,6 +299,27 @@ describe('AuthContext', () => {
       expect(result.current.user?.email).toBe(baseUser.email);
       expect(mockStore[TOKEN_KEY]).toBe(baseTokens.accessToken);
       expect(mockStore[REFRESH_KEY]).toBe(baseTokens.refreshToken);
+    });
+
+    it('restores from user + refresh when the access-token Keychain read throws', async () => {
+      seedSession();
+      mockGetItem.mockImplementation(async (key: string) => {
+        if (key === TOKEN_KEY) {
+          throw new Error('errSecInteractionNotAllowed');
+        }
+        return mockStore[key] ?? null;
+      });
+      mockApiPost.mockResolvedValueOnce(
+        ok({ tokens: { accessToken: 'new-access', refreshToken: 'new-refresh' } })
+      );
+      mockApiGet.mockResolvedValueOnce(ok({ user: baseUser }));
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.user?.email).toBe(baseUser.email);
+      expect(mockStore[TOKEN_KEY]).toBe('new-access');
     });
 
     it('restores stored session after process-death remount without a live login', async () => {

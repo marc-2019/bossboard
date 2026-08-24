@@ -139,6 +139,12 @@ describe('storage on native (ios)', () => {
     expect(mockSecureGet).toHaveBeenCalledTimes(2);
   });
 
+  it('returns null when the Keychain retry also throws', async () => {
+    mockSecureGet.mockRejectedValue(new Error('errSecInteractionNotAllowed'));
+    expect(await storage.getItemAsync('token')).toBeNull();
+    expect(mockSecureGet).toHaveBeenCalledTimes(2);
+  });
+
   it('writes through expo-secure-store with AFTER_FIRST_UNLOCK', async () => {
     await storage.setItemAsync('token', 'secret');
     expect(mockSecureSet).toHaveBeenCalledWith('token', 'secret', {

@@ -43,7 +43,7 @@ export function resolveAuthLanding(input: {
     return '/(auth)/onboarding';
   }
 
-  if (inAuthGroup || segments.length === 0) {
+  if (inAuthGroup || segments.length === 0 || segments[0] === 'index') {
     return '/(tabs)';
   }
 

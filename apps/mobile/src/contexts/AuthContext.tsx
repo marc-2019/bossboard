@@ -66,12 +66,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveJobLogOwner(user?.id ?? null);
   }, [user?.id]);
 
+  async function readStoredKey(key: string): Promise<string | null> {
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch (error) {
+      console.error('Error reading stored auth key:', key, error);
+      return null;
+    }
+  }
+
   async function loadStoredAuth() {
     try {
+      // Isolate reads: one Keychain throw must not abort the other keys.
       const [token, storedUser, refreshToken] = await Promise.all([
-        SecureStore.getItemAsync(TOKEN_KEY),
-        SecureStore.getItemAsync(USER_KEY),
-        SecureStore.getItemAsync(REFRESH_KEY),
+        readStoredKey(TOKEN_KEY),
+        readStoredKey(USER_KEY),
+        readStoredKey(REFRESH_KEY),
+      ]);
+
+      // Re-write readable keys so existing WHEN_UNLOCKED items migrate
+      // to AFTER_FIRST_UNLOCK before the next process-death relaunch.
+      await Promise.all([
+        token ? SecureStore.setItemAsync(TOKEN_KEY, token) : Promise.resolve(),
+        refreshToken ? SecureStore.setItemAsync(REFRESH_KEY, refreshToken) : Promise.resolve(),
+        storedUser ? SecureStore.setItemAsync(USER_KEY, storedUser) : Promise.resolve(),
       ]);
 
       // Optimistic restore so process-death relaunch is signed-in before /me.

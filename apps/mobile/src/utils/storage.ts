@@ -31,7 +31,11 @@ async function getNativeItem(key: string): Promise<string | null> {
   } catch {
     // iOS Keychain can throw errSecInteractionNotAllowed on first process read.
     await delay(50);
-    return SecureStore.getItemAsync(key);
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
+    }
   }
 }
 

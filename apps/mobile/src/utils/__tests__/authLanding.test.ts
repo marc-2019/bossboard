@@ -11,6 +11,10 @@ describe('resolveAuthLanding', () => {
     expect(resolveAuthLanding({ ...signedIn, segments: [] })).toBe('/(tabs)');
   });
 
+  it('sends a restored session to Home from the index entry route', () => {
+    expect(resolveAuthLanding({ ...signedIn, segments: ['index'] })).toBe('/(tabs)');
+  });
+
   it('sends a restored session off Sign In to Home', () => {
     expect(resolveAuthLanding({ ...signedIn, segments: ['(auth)', 'login'] })).toBe(
       '/(tabs)'

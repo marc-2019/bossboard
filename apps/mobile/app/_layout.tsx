@@ -14,6 +14,11 @@ import * as Sentry from '@sentry/react-native';
 import { withBackHeader } from '../src/navigation/headerOptions';
 import { resolveAuthLanding } from '../src/utils/authLanding';
 
+// Cold start must not paint (auth)/login before restore decides.
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
@@ -60,6 +65,7 @@ function RootLayoutNav() {
     <>
       {landing ? <Redirect href={landing as any} /> : null}
       <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
