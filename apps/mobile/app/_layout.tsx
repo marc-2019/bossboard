@@ -3,9 +3,8 @@
  * Provides auth context and navigation structure
  */
 
-import { useEffect, useState } from 'react';
-import { colors } from '@/src/theme/colors';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
@@ -13,6 +12,7 @@ import { useNotifications } from '../src/hooks/useNotifications';
 import { View, ActivityIndicator } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { withBackHeader } from '../src/navigation/headerOptions';
+import { resolveAuthLanding } from '../src/utils/authLanding';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -31,44 +31,9 @@ Sentry.init({
 function RootLayoutNav() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
-  const router = useRouter();
 
   // Register for push notifications when authenticated
   useNotifications(isAuthenticated);
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to login if not authenticated
-      router.replace('/(auth)/login' as any);
-    } else if (isAuthenticated && inAuthGroup) {
-      // Check if user needs verification or onboarding
-      if (!user?.isVerified) {
-        // Need email verification - only redirect if not already on verify screen
-        if ((segments as string[])[1] !== 'verify-email') {
-          router.replace('/(auth)/verify-email' as any);
-        }
-      } else if (!user?.onboardingCompleted) {
-        // Need onboarding - only redirect if not already on onboarding screen
-        if ((segments as string[])[1] !== 'onboarding') {
-          router.replace('/(auth)/onboarding' as any);
-        }
-      } else {
-        // Fully set up - go to tabs
-        router.replace('/(tabs)' as any);
-      }
-    } else if (isAuthenticated && !inAuthGroup) {
-      // Authenticated and in app - check if they still need verification/onboarding
-      if (!user?.isVerified) {
-        router.replace('/(auth)/verify-email' as any);
-      } else if (!user?.onboardingCompleted) {
-        router.replace('/(auth)/onboarding' as any);
-      }
-    }
-  }, [isAuthenticated, user?.isVerified, user?.onboardingCompleted, segments, isLoading]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -84,8 +49,17 @@ function RootLayoutNav() {
     );
   }
 
+  const landing = resolveAuthLanding({
+    isAuthenticated,
+    isVerified: !!user?.isVerified,
+    onboardingCompleted: !!user?.onboardingCompleted,
+    segments: segments as string[],
+  });
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <>
+      {landing ? <Redirect href={landing as any} /> : null}
+      <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
@@ -172,6 +146,7 @@ function RootLayoutNav() {
       <Stack.Screen name="bank/index" options={withBackHeader('Bank Transactions')} />
       <Stack.Screen name="bank/upload" options={withBackHeader('Upload CSV')} />
     </Stack>
+    </>
   );
 }
 

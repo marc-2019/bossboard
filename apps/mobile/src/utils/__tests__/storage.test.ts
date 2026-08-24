@@ -20,6 +20,7 @@ jest.mock(
     getItemAsync: (...a: any[]) => mockSecureGet(...a),
     setItemAsync: (...a: any[]) => mockSecureSet(...a),
     deleteItemAsync: (...a: any[]) => mockSecureDelete(...a),
+    AFTER_FIRST_UNLOCK: 1,
   }),
   { virtual: true }
 );
@@ -130,9 +131,19 @@ describe('storage on native (ios)', () => {
     expect(mockSecureGet).toHaveBeenCalledWith('token');
   });
 
-  it('writes through expo-secure-store', async () => {
+  it('retries a thrown Keychain read once (process-death cold start)', async () => {
+    mockSecureGet
+      .mockRejectedValueOnce(new Error('errSecInteractionNotAllowed'))
+      .mockResolvedValueOnce('secret');
+    expect(await storage.getItemAsync('token')).toBe('secret');
+    expect(mockSecureGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('writes through expo-secure-store with AFTER_FIRST_UNLOCK', async () => {
     await storage.setItemAsync('token', 'secret');
-    expect(mockSecureSet).toHaveBeenCalledWith('token', 'secret');
+    expect(mockSecureSet).toHaveBeenCalledWith('token', 'secret', {
+      keychainAccessible: 1,
+    });
   });
 
   it('deletes through expo-secure-store', async () => {

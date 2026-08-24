@@ -10,6 +10,7 @@ import {
   clearActiveJobLogSuppressions,
   setActiveJobLogOwner,
 } from '../services/activeJobLog';
+import { isDefinitiveAuthRejection } from '../utils/sessionRestore';
 
 interface User {
   id: string;
@@ -67,25 +68,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadStoredAuth() {
     try {
-      const [token, storedUser] = await Promise.all([
+      const [token, storedUser, refreshToken] = await Promise.all([
         SecureStore.getItemAsync(TOKEN_KEY),
         SecureStore.getItemAsync(USER_KEY),
+        SecureStore.getItemAsync(REFRESH_KEY),
       ]);
 
-      if (token && storedUser) {
-        setAuthToken(token);
-        setUser(JSON.parse(storedUser));
-
-        // Verify token is still valid
+      // Optimistic restore so process-death relaunch is signed-in before /me.
+      if (storedUser) {
         try {
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          console.error('Error parsing stored user:', error);
+        }
+      }
+      if (token) {
+        setAuthToken(token);
+      }
+
+      if (!token && !refreshToken) {
+        return;
+      }
+
+      try {
+        if (token) {
           const response = await api.get('/api/v1/auth/me');
           if (response.data.success) {
-            setUser(response.data.data.user);
+            const userData = response.data.data.user;
+            setUser(userData);
+            await SecureStore.setItemAsync(USER_KEY, JSON.stringify(userData));
+            return;
           }
-        } catch {
-          // Token expired, try refresh
-          await tryRefreshToken();
         }
+        await tryRefreshToken({
+          clearOnFailure: false,
+        });
+      } catch (error) {
+        await tryRefreshToken({
+          clearOnFailure: isDefinitiveAuthRejection(error),
+        });
       }
     } catch (error) {
       console.error('Error loading stored auth:', error);
@@ -94,30 +115,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function tryRefreshToken() {
+  async function tryRefreshToken(options?: { clearOnFailure?: boolean }) {
+    const clearOnFailure = options?.clearOnFailure ?? true;
     try {
       const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY);
       if (!refreshToken) {
-        await clearAuth();
+        if (clearOnFailure) {
+          await clearAuth();
+        }
         return;
       }
 
       const response = await api.post('/api/v1/auth/refresh', { refreshToken });
-      if (response.data.success) {
-        const { tokens } = response.data.data;
-        await storeTokens(tokens.accessToken, tokens.refreshToken);
-        setAuthToken(tokens.accessToken);
+      if (!response.data.success) {
+        if (clearOnFailure) {
+          await clearAuth();
+        }
+        return;
+      }
 
-        // Fetch user
+      const { tokens } = response.data.data;
+      await storeTokens(tokens.accessToken, tokens.refreshToken);
+      setAuthToken(tokens.accessToken);
+
+      try {
         const userResponse = await api.get('/api/v1/auth/me');
         if (userResponse.data.success) {
           const userData = userResponse.data.data.user;
           setUser(userData);
           await SecureStore.setItemAsync(USER_KEY, JSON.stringify(userData));
         }
+      } catch {
+        // Tokens refreshed; keep the stored user if /me is unreachable.
       }
-    } catch {
-      await clearAuth();
+    } catch (error) {
+      if (clearOnFailure && isDefinitiveAuthRejection(error)) {
+        await clearAuth();
+      }
     }
   }
 

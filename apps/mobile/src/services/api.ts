@@ -95,9 +95,10 @@ async function trySilentRefresh(): Promise<boolean> {
       }
       const { accessToken, refreshToken: newRefresh } = json.data.tokens;
       authToken = accessToken;
-      await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+      const keychain = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK };
+      await SecureStore.setItemAsync(TOKEN_KEY, accessToken, keychain);
       if (newRefresh) {
-        await SecureStore.setItemAsync(REFRESH_KEY, newRefresh);
+        await SecureStore.setItemAsync(REFRESH_KEY, newRefresh, keychain);
       }
       return true;
     } catch {

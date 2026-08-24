@@ -86,7 +86,14 @@ jest.mock('../../services/api', () => {
 
 import { AuthProvider, useAuth } from '../AuthContext';
 import * as storage from '../../utils/storage';
-import { api, authApi, setAuthToken, notificationsApi } from '../../services/api';
+import {
+  api,
+  authApi,
+  setAuthToken,
+  notificationsApi,
+  NetworkError,
+  ApiError,
+} from '../../services/api';
 import {
   invalidateActiveJobLog,
   isActiveJobLogSuppressed,
@@ -240,7 +247,7 @@ describe('AuthContext', () => {
       mockStore[USER_KEY] = JSON.stringify(baseUser);
       // No REFRESH_KEY
 
-      mockApiGet.mockRejectedValueOnce(new Error('401'));
+      mockApiGet.mockRejectedValueOnce(new ApiError('Token expired', 401, 'TOKEN_EXPIRED'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -249,16 +256,61 @@ describe('AuthContext', () => {
       expect(mockStore[TOKEN_KEY]).toBeUndefined();
     });
 
-    it('clears auth when refresh API call fails', async () => {
+    it('clears auth when refresh is definitively rejected (401)', async () => {
       seedSession(baseUser, 'expired-token');
 
-      mockApiGet.mockRejectedValueOnce(new Error('401'));
-      mockApiPost.mockRejectedValueOnce(new Error('Refresh failed'));
+      mockApiGet.mockRejectedValueOnce(new ApiError('Token expired', 401, 'TOKEN_EXPIRED'));
+      mockApiPost.mockRejectedValueOnce(
+        new ApiError('Invalid refresh token', 401, 'INVALID_TOKEN')
+      );
 
       const { result } = renderHook(() => useAuth(), { wrapper });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       expect(result.current.isAuthenticated).toBe(false);
+      expect(mockStore[TOKEN_KEY]).toBeUndefined();
+    });
+
+    it('keeps stored session when /auth/me is unreachable on cold start', async () => {
+      seedSession();
+      mockApiGet.mockRejectedValue(
+        new NetworkError('Cannot reach BossBoard servers', 'NETWORK_ERROR')
+      );
+      mockApiPost.mockRejectedValue(
+        new NetworkError('Cannot reach BossBoard servers', 'NETWORK_ERROR')
+      );
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.user?.email).toBe(baseUser.email);
+      expect(mockStore[TOKEN_KEY]).toBe(baseTokens.accessToken);
+      expect(mockStore[REFRESH_KEY]).toBe(baseTokens.refreshToken);
+    });
+
+    it('restores stored session after process-death remount without a live login', async () => {
+      seedSession();
+      mockApiGet.mockRejectedValue(
+        new NetworkError('Cannot reach BossBoard servers', 'NETWORK_ERROR')
+      );
+      mockApiPost.mockRejectedValue(
+        new NetworkError('Cannot reach BossBoard servers', 'NETWORK_ERROR')
+      );
+
+      const first = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(first.result.current.isLoading).toBe(false));
+      expect(first.result.current.isAuthenticated).toBe(true);
+
+      first.unmount();
+
+      const second = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(second.result.current.isLoading).toBe(false));
+
+      expect(second.result.current.isAuthenticated).toBe(true);
+      expect(second.result.current.user?.email).toBe(baseUser.email);
+      expect(mockSetAuthToken).toHaveBeenCalledWith(baseTokens.accessToken);
+      expect(mockStore[TOKEN_KEY]).toBe(baseTokens.accessToken);
     });
   });
 
