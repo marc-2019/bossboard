@@ -12,7 +12,7 @@ import { useNotifications } from '../src/hooks/useNotifications';
 import { View, ActivityIndicator } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { withBackHeader } from '../src/navigation/headerOptions';
-import { resolveAuthLanding } from '../src/utils/authLanding';
+import { resolveOwnedAuthRedirect } from '../src/utils/authLanding';
 
 // Cold start must not paint (auth)/login before restore decides.
 export const unstable_settings = {
@@ -54,7 +54,7 @@ function RootLayoutNav() {
     );
   }
 
-  const landing = resolveAuthLanding({
+  const landing = resolveOwnedAuthRedirect('layout', {
     isAuthenticated,
     isVerified: !!user?.isVerified,
     onboardingCompleted: !!user?.onboardingCompleted,

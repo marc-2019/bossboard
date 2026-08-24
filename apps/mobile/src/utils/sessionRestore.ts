@@ -11,5 +11,12 @@ export function isDefinitiveAuthRejection(error: unknown): boolean {
     return false;
   }
   const status = (error as { status?: unknown }).status;
-  return status === 401 || status === 403;
+  if (status === 401 || status === 403) {
+    return true;
+  }
+  const message = (error as { message?: unknown }).message;
+  if (typeof message === 'string' && /^(401|403)\b/.test(message.trim())) {
+    return true;
+  }
+  return false;
 }

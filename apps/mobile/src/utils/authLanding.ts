@@ -49,3 +49,28 @@ export function resolveAuthLanding(input: {
 
   return null;
 }
+
+export type AuthRedirectOwner = 'index' | 'layout';
+
+/** Cold start / index owns the hop; layout owns every other group. Never both. */
+export function authRedirectOwner(segments: string[]): AuthRedirectOwner {
+  if (segments.length === 0 || segments[0] === 'index') {
+    return 'index';
+  }
+  return 'layout';
+}
+
+export function resolveOwnedAuthRedirect(
+  owner: AuthRedirectOwner,
+  input: {
+    isAuthenticated: boolean;
+    isVerified: boolean;
+    onboardingCompleted: boolean;
+    segments: string[];
+  }
+): AuthLandingHref | null {
+  if (authRedirectOwner(input.segments) !== owner) {
+    return null;
+  }
+  return resolveAuthLanding(input);
+}

@@ -1,16 +1,17 @@
 /**
- * Cold-start entry. Default stack used to be (auth)/login, so a restored
- * session could paint Sign In. This route waits for auth restore then
- * Redirects — Home when a stored session is valid.
+ * Cold-start entry. Does not paint (auth)/login. Redirect is owned here
+ * only while segments are empty or `index` — layout owns every other hop
+ * so the two files cannot Redirect at once.
  */
 
-import { Redirect } from 'expo-router';
+import { Redirect, useSegments } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../src/contexts/AuthContext';
-import { resolveAuthLanding } from '../src/utils/authLanding';
+import { resolveOwnedAuthRedirect } from '../src/utils/authLanding';
 
 export default function Index() {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
 
   if (isLoading) {
     return (
@@ -20,12 +21,20 @@ export default function Index() {
     );
   }
 
-  const landing = resolveAuthLanding({
+  const landing = resolveOwnedAuthRedirect('index', {
     isAuthenticated,
     isVerified: !!user?.isVerified,
     onboardingCompleted: !!user?.onboardingCompleted,
-    segments: [],
+    segments: segments as string[],
   });
 
-  return <Redirect href={(landing ?? '/(tabs)') as any} />;
+  if (!landing) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+      </View>
+    );
+  }
+
+  return <Redirect href={landing as any} />;
 }

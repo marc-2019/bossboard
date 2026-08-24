@@ -1,4 +1,8 @@
-import { resolveAuthLanding } from '../authLanding';
+import {
+  authRedirectOwner,
+  resolveAuthLanding,
+  resolveOwnedAuthRedirect,
+} from '../authLanding';
 
 const signedIn = {
   isAuthenticated: true,
@@ -45,5 +49,31 @@ describe('resolveAuthLanding', () => {
         segments: ['(tabs)'],
       })
     ).toBe('/(auth)/login');
+  });
+});
+
+describe('dual Redirect must not fire', () => {
+  const signedOut = {
+    isAuthenticated: false,
+    isVerified: false,
+    onboardingCompleted: false,
+  };
+  const segmentSets = [[], ['index'], ['(auth)', 'login'], ['(tabs)', 'index']];
+  const auths = [signedIn, signedOut];
+
+  it('assigns exactly one owner per segment snapshot', () => {
+    for (const segments of segmentSets) {
+      expect(['index', 'layout']).toContain(authRedirectOwner(segments));
+    }
+  });
+
+  it('never emits a Redirect from both index and layout', () => {
+    for (const auth of auths) {
+      for (const segments of segmentSets) {
+        const indexHref = resolveOwnedAuthRedirect('index', { ...auth, segments });
+        const layoutHref = resolveOwnedAuthRedirect('layout', { ...auth, segments });
+        expect(indexHref && layoutHref).toBeFalsy();
+      }
+    }
   });
 });

@@ -55,6 +55,7 @@ const USER_KEY = 'bossboard_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [hasCredential, setHasCredential] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load stored auth on mount
@@ -92,8 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         storedUser ? SecureStore.setItemAsync(USER_KEY, storedUser) : Promise.resolve(),
       ]);
 
-      // Optimistic restore so process-death relaunch is signed-in before /me.
-      if (storedUser) {
+      const hasSecret = !!(token || refreshToken);
+      if (hasSecret) {
+        setHasCredential(true);
+      }
+
+      // Ghost login: a user blob with no tokens is not a session.
+      if (storedUser && hasSecret) {
         try {
           setUser(JSON.parse(storedUser));
         } catch (error) {
@@ -104,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthToken(token);
       }
 
-      if (!token && !refreshToken) {
+      if (!hasSecret) {
         return;
       }
 
@@ -138,9 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY);
       if (!refreshToken) {
-        if (clearOnFailure) {
-          await clearAuth();
-        }
+        // Missing refresh is a Keychain miss, not a logout. Keep restored keys.
         return;
       }
 
@@ -155,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { tokens } = response.data.data;
       await storeTokens(tokens.accessToken, tokens.refreshToken);
       setAuthToken(tokens.accessToken);
+      setHasCredential(true);
 
       try {
         const userResponse = await api.get('/api/v1/auth/me');
@@ -189,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ]);
     setAuthToken(null);
     setUser(null);
+    setHasCredential(false);
   }
 
   async function login(email: string, password: string) {
@@ -210,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(userData));
       setAuthToken(tokens.accessToken);
       setUser(userData);
+      setHasCredential(true);
     } catch (error) {
       // Surface actionable copy for App Review / users (Guideline 2.1(a))
       if (error instanceof NetworkError) {
@@ -241,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(userData));
     setAuthToken(tokens.accessToken);
     setUser(userData);
+    setHasCredential(true);
 
     return verificationCode;
   }
@@ -324,7 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && hasCredential,
         isLoading,
         login,
         register,

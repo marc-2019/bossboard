@@ -254,18 +254,32 @@ describe('AuthContext', () => {
       expect(mockStore[REFRESH_KEY]).toBe('new-refresh');
     });
 
-    it('clears auth when no refresh token is stored', async () => {
+    it('does not wipe recoverable keys when /me is 401 and refresh Keychain is a miss', async () => {
       mockStore[TOKEN_KEY] = 'expired-token';
       mockStore[USER_KEY] = JSON.stringify(baseUser);
-      // No REFRESH_KEY
+      // No REFRESH_KEY — process-death Keychain miss, not a logout
 
       mockApiGet.mockRejectedValueOnce(new ApiError('Token expired', 401, 'TOKEN_EXPIRED'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.user?.email).toBe(baseUser.email);
+      expect(mockStore[TOKEN_KEY]).toBe('expired-token');
+      expect(mockStore[USER_KEY]).toBe(JSON.stringify(baseUser));
+    });
+
+    it('does not authenticate a user blob that has no access or refresh token (ghost login)', async () => {
+      mockStore[USER_KEY] = JSON.stringify(baseUser);
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
       expect(result.current.isAuthenticated).toBe(false);
-      expect(mockStore[TOKEN_KEY]).toBeUndefined();
+      expect(result.current.user).toBeNull();
+      expect(mockStore[USER_KEY]).toBe(JSON.stringify(baseUser));
+      expect(mockSetAuthToken).not.toHaveBeenCalledWith(expect.any(String));
     });
 
     it('clears auth when refresh is definitively rejected (401)', async () => {
@@ -322,7 +336,29 @@ describe('AuthContext', () => {
       expect(mockStore[TOKEN_KEY]).toBe('new-access');
     });
 
-    it('restores stored session after process-death remount without a live login', async () => {
+    it('treats thrown Error("401") on /me as an expired-access refresh attempt, not a wipe', async () => {
+      seedSession(baseUser, 'expired-token');
+
+      mockApiGet
+        .mockRejectedValueOnce(new Error('401'))
+        .mockResolvedValueOnce(ok({ user: baseUser }));
+      mockApiPost.mockResolvedValueOnce(
+        ok({ tokens: { accessToken: 'new-access', refreshToken: 'new-refresh' } })
+      );
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(mockApiPost).toHaveBeenCalledWith('/api/v1/auth/refresh', {
+        refreshToken: baseTokens.refreshToken,
+      });
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(mockStore[TOKEN_KEY]).toBe('new-access');
+    });
+
+    // Off-device JS remount with a seeded storage adapter. This is not a
+    // Keychain terminate+launch and is not Pam's device walk.
+    it('restores a seeded adapter session after JS remount (not a device Keychain walk)', async () => {
       seedSession();
       mockApiGet.mockRejectedValue(
         new NetworkError('Cannot reach BossBoard servers', 'NETWORK_ERROR')
