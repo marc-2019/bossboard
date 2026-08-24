@@ -138,6 +138,31 @@ async function selectSentAt(quoteId: string): Promise<{
   return result.rows[0];
 }
 
+/**
+ * CI (api-ci.yml) applies database/init.sql via psql before Jest, and does not
+ * record 000_init in _migrations. Re-running init.sql then fails on
+ * CREATE TRIGGER update_users_updated_at. If users already exists, treat
+ * 000_init as applied and only run numbered migrations.
+ */
+async function applyPendingMigrations(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) UNIQUE NOT NULL,
+      applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  const existing = await pool.query<{ t: string | null }>(
+    `SELECT to_regclass('public.users') AS t`
+  );
+  if (existing.rows[0]?.t) {
+    await pool.query(
+      `INSERT INTO _migrations (name) VALUES ('000_init') ON CONFLICT (name) DO NOTHING`
+    );
+  }
+  await runMigrations();
+}
+
 beforeAll(async () => {
   try {
     await pool.query('SELECT 1');
@@ -146,7 +171,7 @@ beforeAll(async () => {
       `Live quote sent_at proofs require a reachable Postgres (DATABASE_URL). ${String(err)}`
     );
   }
-  await runMigrations();
+  await applyPendingMigrations();
   quotesApp = express();
   quotesApp.use(express.json());
   quotesApp.use('/api/v1/quotes', quoteRoutes);
