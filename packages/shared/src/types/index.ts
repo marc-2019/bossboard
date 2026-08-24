@@ -825,8 +825,6 @@ export interface Quote {
   internalMemo: string | null;
   /** ISO timestamptz; set when draft → sent (chase anchor). */
   sentAt?: string | null;
-  lastOperatorNudgeAt?: string | null;
-  operatorNudgeCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }

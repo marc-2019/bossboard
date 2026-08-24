@@ -450,8 +450,11 @@ async function processQuoteOperation(
     INSERT INTO quotes (
       id, user_id, quote_number, client_name, client_email, client_phone,
       customer_id, job_description, line_items, subtotal, gst_amount, total,
-      include_gst, status, valid_until, notes
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      include_gst, status, valid_until, notes, sent_at
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+      CASE WHEN $14 = 'sent' THEN NOW() ELSE NULL END
+    )
     ON CONFLICT (id) DO UPDATE SET
       quote_number = EXCLUDED.quote_number,
       client_name = EXCLUDED.client_name,
@@ -467,6 +470,10 @@ async function processQuoteOperation(
       status = EXCLUDED.status,
       valid_until = EXCLUDED.valid_until,
       notes = EXCLUDED.notes,
+      sent_at = CASE
+        WHEN EXCLUDED.status = 'sent' THEN COALESCE(quotes.sent_at, NOW())
+        ELSE quotes.sent_at
+      END,
       updated_at = CURRENT_TIMESTAMP
     WHERE quotes.user_id = EXCLUDED.user_id
     RETURNING id

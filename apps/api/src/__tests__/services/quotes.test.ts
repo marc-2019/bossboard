@@ -434,8 +434,11 @@ describe('listQuotes', () => {
     expect(result.quotes).toHaveLength(1);
     expect(result.quotes[0].status).toBe('sent');
     expect(result.quotes[0].sent_at).toBe(sentAt.toISOString());
-    expect(result.quotes[0].operator_nudge_count).toBe(0);
-    expect(result.quotes[0].last_operator_nudge_at).toBeNull();
+    // Nudge columns are schema-only — must not leak onto the Quote / mobile transform.
+    expect(result.quotes[0]).not.toHaveProperty('operator_nudge_count');
+    expect(result.quotes[0]).not.toHaveProperty('last_operator_nudge_at');
+    expect(result.quotes[0]).not.toHaveProperty('operatorNudgeCount');
+    expect(result.quotes[0]).not.toHaveProperty('lastOperatorNudgeAt');
   });
 
   it('applies default limit of 20 when not specified', async () => {
@@ -533,20 +536,18 @@ describe('deleteQuote', () => {
 // ===========================================================================
 
 describe('markAsSent', () => {
-  it('T1: transitions draft → sent and stamps sent_at (ISO, near now)', async () => {
-    const now = new Date();
-    const sentRow = makeQuoteRow({ status: 'sent', sent_at: now });
-    mockDbQuery.mockResolvedValueOnce({ rows: [sentRow] });
+  it('T1: SQL stamps sent_at via COALESCE (injected RETURNING is not the write proof)', async () => {
+    // RETURNING row is a mock — asserting it does not prove the write.
+    // The lock here is the SQL. Live SELECT proof lives in quote-sent-at.live.test.ts.
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeQuoteRow({ status: 'sent', sent_at: null })],
+    });
 
     const result = await markAsSent('quote-uuid-1', 'user-1');
 
     expect(result).not.toBeNull();
     expect(result!.status).toBe('sent');
-    expect(result!.sent_at).toBeTruthy();
-    const sentAtMs = new Date(result!.sent_at as string).getTime();
-    expect(Math.abs(sentAtMs - now.getTime())).toBeLessThanOrEqual(2000);
 
-    // SQL must set sent_at via COALESCE(sent_at, NOW())
     const sql = mockDbQuery.mock.calls[0][0] as string;
     expect(sql).toMatch(/sent_at\s*=\s*COALESCE\s*\(\s*sent_at\s*,\s*NOW\s*\(\s*\)\s*\)/i);
     expect(sql).toMatch(/status\s*=\s*'sent'/i);

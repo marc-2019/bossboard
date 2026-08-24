@@ -24,6 +24,14 @@ interface AppError extends Error {
 
 const router = Router();
 
+function quoteHasSentAt(quote: Record<string, unknown> | null | undefined): boolean {
+  if (!quote) return false;
+  const value = quote.sent_at ?? quote.sentAt;
+  if (value == null) return false;
+  if (value instanceof Date) return !Number.isNaN(value.getTime());
+  return String(value).length > 0;
+}
+
 // =============================================================================
 // VALIDATION SCHEMAS
 // =============================================================================
@@ -383,10 +391,27 @@ router.post(
       );
 
       if (quote.status === 'draft') {
-        await quotesService.markAsSent(id, req.user!.userId);
+        const stamped = await quotesService.markAsSent(id, req.user!.userId);
+        if (!quoteHasSentAt(stamped)) {
+          res.status(500).json({
+            success: false,
+            error: 'SENT_AT_STAMP_FAILED',
+            message: 'Quote emailed but first-send stamp was not persisted',
+          });
+          return;
+        }
       }
 
       const updated = await quotesService.getQuoteById(id, req.user!.userId);
+      if (!quoteHasSentAt(updated)) {
+        res.status(500).json({
+          success: false,
+          error: 'SENT_AT_STAMP_FAILED',
+          message: 'Quote emailed but first-send stamp missing on re-GET',
+        });
+        return;
+      }
+
       const message = bccEmail
         ? `Quote emailed to ${recipientEmail} (BCC ${bccEmail})`
         : `Quote emailed to ${recipientEmail}`;

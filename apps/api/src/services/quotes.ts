@@ -228,8 +228,6 @@ function transformQuote(row: Record<string, unknown>): Quote {
     notes: row.notes as string | null,
     internalMemo: (row.internal_memo as string | null) ?? null,
     sentAt: toIsoOrNull(row.sent_at),
-    lastOperatorNudgeAt: toIsoOrNull(row.last_operator_nudge_at),
-    operatorNudgeCount: (row.operator_nudge_count as number | null | undefined) ?? 0,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
   };
@@ -278,8 +276,6 @@ function transformForMobile(quote: Quote): Record<string, unknown> {
     notes: quote.notes,
     internal_memo: quote.internalMemo,
     sent_at: quote.sentAt ?? null,
-    last_operator_nudge_at: quote.lastOperatorNudgeAt ?? null,
-    operator_nudge_count: quote.operatorNudgeCount ?? 0,
     created_at: quote.createdAt,
     updated_at: quote.updatedAt,
   };
