@@ -383,18 +383,30 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
       userEmail: req.user?.email || null,
       recipientEmail,
     });
+    const replyTo = emailService.resolveInvoiceReplyTo({
+      companyEmail: (profile?.company_email as string) || null,
+      userEmail: req.user?.email || null,
+      recipientEmail,
+    });
 
     // Generate PDF
     const pdfBuffer = await pdfService.generateInvoicePDF(invoice);
 
-    // Send email (BCC business mailbox when resolved)
+    // Send email (BCC business mailbox; Reply-To a real inbox, not noreply)
+    const mailOpts =
+      bccEmail || replyTo
+        ? {
+            ...(bccEmail ? { bcc: bccEmail } : {}),
+            ...(replyTo ? { replyTo } : {}),
+          }
+        : undefined;
     const result = await emailService.sendInvoiceEmail(
       invoice,
       pdfBuffer,
       recipientEmail,
       senderName,
       customMessage,
-      bccEmail ? { bcc: bccEmail } : undefined
+      mailOpts
     );
 
     // Auto-mark as sent if currently draft

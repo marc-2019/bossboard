@@ -54,6 +54,7 @@ import {
   sendPasswordResetEmail,
   sendInvoiceEmail,
   resolveInvoiceBcc,
+  resolveInvoiceReplyTo,
   sendTradeConfirmation,
   sendPortfolioAlert,
   sendPaymentFailedEmail,
@@ -311,6 +312,35 @@ describe('sendInvoiceEmail', () => {
     const call = mockEmailsSend.mock.calls[0][0];
     expect(call.bcc).toBeUndefined();
   });
+
+  it('sets reply_to when provided and different from recipient', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@acme.com', 'Bob', undefined, {
+      replyTo: 'office@business.co.nz',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.replyTo).toEqual(['office@business.co.nz']);
+  });
+
+  it('omits reply_to when same as recipient', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@acme.com', 'Bob', undefined, {
+      replyTo: 'client@acme.com',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.replyTo).toBeUndefined();
+  });
+
+  it('keeps both bcc and replyTo on the Resend payload when both are set', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@acme.com', 'Bob', undefined, {
+      bcc: 'accounts@business.co.nz',
+      replyTo: 'office@business.co.nz',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.bcc).toEqual(['accounts@business.co.nz']);
+    expect(call.replyTo).toEqual(['office@business.co.nz']);
+  });
 });
 
 describe('resolveInvoiceBcc', () => {
@@ -362,6 +392,48 @@ describe('resolveInvoiceBcc', () => {
     expect(
       resolveInvoiceBcc({
         invoiceBccEmail: null,
+        companyEmail: null,
+        userEmail: 'client@example.com',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBeNull();
+  });
+});
+
+describe('resolveInvoiceReplyTo', () => {
+  it('prefers company email over user email', () => {
+    expect(
+      resolveInvoiceReplyTo({
+        companyEmail: 'office@co.nz',
+        userEmail: 'me@co.nz',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('office@co.nz');
+  });
+
+  it('falls back to user email when company email unset', () => {
+    expect(
+      resolveInvoiceReplyTo({
+        companyEmail: null,
+        userEmail: 'me@co.nz',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('me@co.nz');
+  });
+
+  it('skips the recipient so replies do not bounce to the client', () => {
+    expect(
+      resolveInvoiceReplyTo({
+        companyEmail: 'client@example.com',
+        userEmail: 'me@co.nz',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('me@co.nz');
+  });
+
+  it('returns null when no distinct mailbox is available', () => {
+    expect(
+      resolveInvoiceReplyTo({
         companyEmail: null,
         userEmail: 'client@example.com',
         recipientEmail: 'client@example.com',

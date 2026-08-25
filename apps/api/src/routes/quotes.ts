@@ -371,15 +371,27 @@ router.post(
         userEmail: req.user?.email || null,
         recipientEmail,
       });
+      const replyTo = emailService.resolveInvoiceReplyTo({
+        companyEmail: (profile?.company_email as string) || null,
+        userEmail: req.user?.email || null,
+        recipientEmail,
+      });
 
       const pdfBuffer = await pdfService.generateQuotePDF(quote);
+      const mailOpts =
+        bccEmail || replyTo
+          ? {
+              ...(bccEmail ? { bcc: bccEmail } : {}),
+              ...(replyTo ? { replyTo } : {}),
+            }
+          : undefined;
       const result = await emailService.sendQuoteEmail(
         quote,
         pdfBuffer,
         recipientEmail,
         senderName,
         customMessage,
-        bccEmail ? { bcc: bccEmail } : undefined
+        mailOpts
       );
 
       if (quote.status === 'draft') {
