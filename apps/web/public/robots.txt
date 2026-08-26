@@ -1,28 +1,30 @@
 # bossboard.instilligent.com robots.txt
-# Policy: allow classical search + AI retrieval bots (we want our app
-# cited in AI answers about NZ tradie compliance/SWMS); block AI training
-# crawlers (corpus-building without attribution or compensation).
+# Policy: classical search + AI retrieval/citation allowed; AI training blocked.
+#
+# Anthropic (2026): Claude-SearchBot + Claude-User = citation/retrieval;
+# ClaudeBot = training. Do not Allow ClaudeBot if the intent is "cite, don't train".
+#
+# Cloudflare may prepend a managed Disallow for ClaudeBot. Origin cannot remove it.
+# Marc EXTERNAL: AI Crawl Control on this zone — allow search/citation crawlers;
+# keep training blocked.
+# See ~/.grok/docs/sales-marketing/geo-crawler-policy-2026-08-26.md
 
 User-agent: *
 Allow: /
 
-# Cloudflare Content Signals — emerging standard
 Content-Signal: search=yes,ai-input=yes,ai-train=no
 
-# AI retrieval bots (live answer surfacing — ALLOWED so we get cited)
+# AI retrieval / citation
 User-agent: ChatGPT-User
 Allow: /
 
 User-agent: OAI-SearchBot
 Allow: /
 
-User-agent: ClaudeBot
+User-agent: Claude-SearchBot
 Allow: /
 
-User-agent: Claude-Web
-Allow: /
-
-User-agent: anthropic-ai
+User-agent: Claude-User
 Allow: /
 
 User-agent: PerplexityBot
@@ -34,7 +36,17 @@ Allow: /
 User-agent: Applebot
 Allow: /
 
-# AI training crawlers (BLOCKED — express reservation under EU CDSM 2019/790)
+# Deprecated Anthropic tokens (no-op if unused)
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# AI training
+User-agent: ClaudeBot
+Disallow: /
+
 User-agent: GPTBot
 Disallow: /
 
