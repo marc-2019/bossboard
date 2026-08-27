@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import bankTransactionsService from '../services/bank-transactions.js';
+import { parseSpreadsheet } from '../services/mapped-spreadsheet.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -15,8 +16,15 @@ const router = Router();
 // =============================================================================
 
 const uploadSchema = z.object({
-  csvContent: z.string().min(1, 'CSV content is required'),
+  csvContent: z.string().min(1, 'Spreadsheet content is required'),
   filename: z.string().min(1, 'Filename is required'),
+  columnMap: z
+    .object({
+      date: z.string().min(1),
+      amount: z.string().min(1),
+      description: z.string().min(1),
+    })
+    .optional(),
 });
 
 // =============================================================================
@@ -25,8 +33,43 @@ const uploadSchema = z.object({
 
 /**
  * POST /api/v1/bank-transactions/upload
- * Upload Wise CSV (base64-encoded content in JSON body)
+ * Upload a mapped spreadsheet (operator maps Date, Amount, Description).
  */
+
+/**
+ * POST /api/v1/bank-transactions/preview
+ * Return spreadsheet headers so the operator can map Date, Amount, Description.
+ */
+router.post('/preview', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validation = uploadSchema.pick({ csvContent: true, filename: true }).safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: validation.error.errors[0].message,
+      });
+      return;
+    }
+    let content: string | Buffer = validation.data.csvContent;
+    try {
+      const buf = Buffer.from(validation.data.csvContent, 'base64');
+      if (buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b) {
+        content = buf;
+      }
+    } catch {
+      // keep text
+    }
+    const table = parseSpreadsheet(content, validation.data.filename);
+    res.json({
+      success: true,
+      data: { headers: table.headers, rowCount: table.rows.length },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/upload', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validation = uploadSchema.safeParse(req.body);
@@ -39,23 +82,21 @@ router.post('/upload', authenticate, async (req: Request, res: Response, next: N
       return;
     }
 
-    // Decode base64 if needed
     let csvContent = validation.data.csvContent;
     try {
-      // Try base64 decode
       const decoded = Buffer.from(csvContent, 'base64').toString('utf-8');
-      // If it looks like CSV (has commas and newlines), use decoded version
       if (decoded.includes(',') && decoded.includes('\n')) {
         csvContent = decoded;
       }
     } catch {
-      // Not base64, use as-is (plain text CSV)
+      // plain text
     }
 
     const result = await bankTransactionsService.uploadCSV(
       req.user!.userId,
       csvContent,
-      validation.data.filename
+      validation.data.filename,
+      validation.data.columnMap
     );
 
     res.status(201).json({

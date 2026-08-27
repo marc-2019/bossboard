@@ -462,12 +462,24 @@ export const bankTransactionsClient = {
       await clientFetch<unknown>('/api/bank-transactions/summary'),
     ),
 
-  /** csvContent may be plain CSV text or base64 (API accepts both). */
-  upload: async (csvContent: string, filename: string) =>
+  preview: async (csvContent: string, filename: string) =>
+    deepCamelize<{ headers: string[]; rowCount: number }>(
+      await clientFetch<unknown>('/api/bank-transactions/preview', {
+        method: 'POST',
+        body: { csvContent, filename },
+      }),
+    ),
+
+  /** Spreadsheet text or base64. columnMap is required for the leftover mapper. */
+  upload: async (
+    csvContent: string,
+    filename: string,
+    columnMap: { date: string; amount: string; description: string },
+  ) =>
     deepCamelize<{ imported: number; duplicates: number; batchId?: string }>(
       await clientFetch<unknown>('/api/bank-transactions/upload', {
         method: 'POST',
-        body: { csvContent, filename },
+        body: { csvContent, filename, columnMap },
       }),
     ),
 
