@@ -92,12 +92,18 @@ router.post('/upload', authenticate, async (req: Request, res: Response, next: N
       // plain text
     }
 
-    const result = await bankTransactionsService.uploadCSV(
-      req.user!.userId,
-      csvContent,
-      validation.data.filename,
-      validation.data.columnMap
-    );
+    const result = validation.data.columnMap
+      ? await bankTransactionsService.uploadCSV(
+          req.user!.userId,
+          csvContent,
+          validation.data.filename,
+          validation.data.columnMap
+        )
+      : await bankTransactionsService.uploadCSV(
+          req.user!.userId,
+          csvContent,
+          validation.data.filename
+        );
 
     res.status(201).json({
       success: true,
