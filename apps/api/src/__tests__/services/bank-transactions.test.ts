@@ -2,9 +2,9 @@
  * Bank Transactions Service Tests
  *
  * Covers financial correctness paths:
- *   - parseWiseCSV (via uploadCSV): standard columns, column name variations, NZ date formats,
- *     quoted fields, amount-to-cents conversion, invalid rows skipped
- *   - uploadCSV: duplicate detection (PG error 23505), batch ID assignment
+ *   - parseBankCSV / uploadCSV: Wise, ANZ, ASB, BNZ formats; NZ dates; cents; invalid rows skipped
+ *   - detectBankCsvFormat: header fingerprints
+ *   - uploadCSV: duplicate detection (PG error 23505), batch ID assignment, format field
  *   - autoMatch: exact amount + invoice-number ref → high; exact amount + client name → high;
  *     exact amount only → medium; ~5% tolerance → low; no match → skipped; debit skipped
  *   - confirmMatch: reconciles transaction + marks invoice paid; not-found returns null
@@ -42,6 +42,8 @@ import {
   confirmMatch,
   unmatchTransaction,
   getTransactionSummary,
+  detectBankCsvFormat,
+  parseBankCSV,
 } from '../../services/bank-transactions.js';
 
 // ---------------------------------------------------------------------------
@@ -110,12 +112,131 @@ wise-007,2026-01-01,N/A,NZD,Bad amount,,0`;
 const INVALID_DATE_CSV = `TransferWise ID,Date,Amount,Currency,Description,Payment Reference,Running Balance
 wise-008,not-a-date,100.00,NZD,Bad date,,0`;
 
+/** ASB FastNet Classic export shape (Date, Unique Id, Tran Type, Cheque Number, Payee, Memo, Amount) */
+const ASB_CSV = `Date,Unique Id,Tran Type,Cheque Number,Payee,Memo,Amount
+15/01/2026,asb-uid-001,D/C,,Acme Ltd,INV-0001,1150.00
+10/01/2026,asb-uid-002,FEE,,ASB,Monthly fee,-5.00`;
+
+/** ANZ NZ classic accounting CSV (Type, Details, Particulars, Code, Reference, Amount, Date, ...) */
+const ANZ_CSV = `Type,Details,Particulars,Code,Reference,Amount,Date,ForeignCurrencyAmount,ConversionCharge
+,TFR CREDIT,ACME LTD,INV-0001,INV-0001,2300.00,25/03/2026,,
+,POS,COFFEE SHOP,,, -12.50,24/03/2026,,`;
+
+/**
+ * BNZ internet banking / business export shape
+ * Date,Amount,Payee,Particulars,Code,Reference,Tran Type,This Party Account,Other Party Account,Serial,...
+ */
+const BNZ_CSV = `Date,Amount,Payee,Particulars,Code,Reference,Tran Type,This Party Account,Other Party Account,Serial,Transaction Code,Batch Number,Originating Bank/Branch,Processed Date
+15/01/2026,1150.00,Acme Ltd,INV-0001,,INV-0001,D/C,12-3456-7890123-00,01-2345-6789012-00,bnz-serial-001,50,,BNZ,15/01/2026
+10/01/2026,-9.50,BNZ,Monthly fee,,,FEE,12-3456-7890123-00,,bnz-serial-002,20,,BNZ,10/01/2026`;
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   jest.clearAllMocks();
+});
+
+// ===========================================================================
+// detectBankCsvFormat / parseBankCSV — multi-format detection
+// ===========================================================================
+
+describe('detectBankCsvFormat', () => {
+  it('detects Wise from TransferWise ID header', () => {
+    expect(
+      detectBankCsvFormat(
+        'TransferWise ID,Date,Amount,Currency,Description,Payment Reference,Running Balance'
+      )
+    ).toBe('wise');
+  });
+
+  it('detects ASB from Unique Id + Tran Type + Amount', () => {
+    expect(
+      detectBankCsvFormat(
+        'Date,Unique Id,Tran Type,Cheque Number,Payee,Memo,Amount'
+      )
+    ).toBe('asb');
+  });
+
+  it('detects ANZ from Type/Details/Particulars/Amount/Date', () => {
+    expect(
+      detectBankCsvFormat(
+        'Type,Details,Particulars,Code,Reference,Amount,Date,ForeignCurrencyAmount,ConversionCharge'
+      )
+    ).toBe('anz');
+  });
+
+  it('detects BNZ from Date/Amount/Particulars/Tran Type/Serial party fields', () => {
+    expect(
+      detectBankCsvFormat(
+        'Date,Amount,Payee,Particulars,Code,Reference,Tran Type,This Party Account,Other Party Account,Serial,Transaction Code,Batch Number,Originating Bank/Branch,Processed Date'
+      )
+    ).toBe('bnz');
+  });
+
+  it('falls back to generic for simple Date/Amount headers', () => {
+    expect(detectBankCsvFormat('Date,Amount,Description')).toBe('generic');
+  });
+});
+
+describe('parseBankCSV', () => {
+  it('parses ASB fixture with NZ dates, cents, and unique ids', () => {
+    const { format, transactions } = parseBankCSV(ASB_CSV);
+    expect(format).toBe('asb');
+    expect(transactions).toHaveLength(2);
+
+    expect(transactions[0].transactionId).toBe('asb-uid-001');
+    expect(transactions[0].date).toBe('2026-01-15');
+    expect(transactions[0].amount).toBe(115000);
+    expect(transactions[0].currency).toBe('NZD');
+    expect(transactions[0].description).toContain('Acme Ltd');
+    expect(transactions[0].paymentReference).toBe('INV-0001');
+
+    expect(transactions[1].amount).toBe(-500);
+    expect(transactions[1].date).toBe('2026-01-10');
+  });
+
+  it('parses ANZ fixture with signed amounts and content-hash ids when missing', () => {
+    const { format, transactions } = parseBankCSV(ANZ_CSV);
+    expect(format).toBe('anz');
+    expect(transactions).toHaveLength(2);
+
+    expect(transactions[0].date).toBe('2026-03-25');
+    expect(transactions[0].amount).toBe(230000);
+    expect(transactions[0].paymentReference).toBe('INV-0001');
+    expect(transactions[0].description).toMatch(/TFR CREDIT/i);
+    expect(transactions[0].transactionId).toMatch(/^[a-f0-9]{32}$/);
+    expect(transactions[0].currency).toBe('NZD');
+
+    expect(transactions[1].date).toBe('2026-03-24');
+    expect(transactions[1].amount).toBe(-1250);
+  });
+
+  it('still parses Wise standard CSV as wise', () => {
+    const { format, transactions } = parseBankCSV(STANDARD_CSV);
+    expect(format).toBe('wise');
+    expect(transactions).toHaveLength(2);
+    expect(transactions[0].amount).toBe(115000);
+    expect(transactions[0].transactionId).toBe('wise-001');
+  });
+
+  it('parses BNZ fixture with NZ dates, cents, serial ids, and invoice ref', () => {
+    const { format, transactions } = parseBankCSV(BNZ_CSV);
+    expect(format).toBe('bnz');
+    expect(transactions).toHaveLength(2);
+
+    expect(transactions[0].transactionId).toBe('bnz-serial-001');
+    expect(transactions[0].date).toBe('2026-01-15');
+    expect(transactions[0].amount).toBe(115000);
+    expect(transactions[0].currency).toBe('NZD');
+    expect(transactions[0].paymentReference).toBe('INV-0001');
+    expect(transactions[0].description).toMatch(/Acme Ltd/i);
+
+    expect(transactions[1].transactionId).toBe('bnz-serial-002');
+    expect(transactions[1].amount).toBe(-950);
+    expect(transactions[1].date).toBe('2026-01-10');
+  });
 });
 
 // ===========================================================================
@@ -131,7 +252,56 @@ describe('uploadCSV', () => {
     expect(result.imported).toBe(2);
     expect(result.duplicates).toBe(0);
     expect(result.batchId).toBe('mock-uuid');
+    expect(result.format).toBe('wise');
     expect(mockDbQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('imports ASB CSV and reports format asb', async () => {
+    mockDbQuery.mockResolvedValue({ rows: [] });
+
+    const result = await uploadCSV('user-1', ASB_CSV, 'asb_export.csv');
+
+    expect(result.format).toBe('asb');
+    expect(result.imported).toBe(2);
+
+    const creditParams = mockDbQuery.mock.calls[0][1] as unknown[];
+    expect(creditParams[2]).toBe('asb-uid-001'); // transaction_id
+    expect(creditParams[3]).toBe('2026-01-15');
+    expect(creditParams[4]).toBe(115000);
+    expect(creditParams[5]).toBe('NZD');
+    expect(creditParams[7]).toBe('INV-0001');
+  });
+
+  it('imports BNZ CSV and reports format bnz', async () => {
+    mockDbQuery.mockResolvedValue({ rows: [] });
+
+    const result = await uploadCSV('user-1', BNZ_CSV, 'bnz_export.csv');
+
+    expect(result.format).toBe('bnz');
+    expect(result.imported).toBe(2);
+
+    const creditParams = mockDbQuery.mock.calls[0][1] as unknown[];
+    expect(creditParams[2]).toBe('bnz-serial-001');
+    expect(creditParams[3]).toBe('2026-01-15');
+    expect(creditParams[4]).toBe(115000);
+    expect(creditParams[5]).toBe('NZD');
+    expect(creditParams[7]).toBe('INV-0001');
+  });
+
+  it('imports ANZ CSV with cents and NZ date normalisation', async () => {
+    mockDbQuery.mockResolvedValue({ rows: [] });
+
+    const result = await uploadCSV('user-1', ANZ_CSV, 'anz_export.csv');
+
+    expect(result.format).toBe('anz');
+    expect(result.imported).toBe(2);
+
+    const creditParams = mockDbQuery.mock.calls[0][1] as unknown[];
+    expect(creditParams[3]).toBe('2026-03-25');
+    expect(creditParams[4]).toBe(230000);
+    expect(creditParams[7]).toBe('INV-0001');
+    // Content-hash transaction_id when bank omits id
+    expect(String(creditParams[2])).toMatch(/^[a-f0-9]{32}$/);
   });
 
   it('inserts correct field values including cents conversion', async () => {

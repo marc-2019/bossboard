@@ -77,8 +77,8 @@ export default function BankUploadPage() {
 
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Upload bank CSV</h1>
       <p className="text-sm text-gray-600 mb-6">
-        Export a CSV from your bank (Wise, ASB, ANZ, and similar formats with Date, Amount, and
-        Description columns). Duplicates from previous uploads are skipped.
+        Export a CSV from Wise, ASB, ANZ, or BNZ. Duplicates from previous uploads are skipped.
+        This is not a live bank feed and does not sync to Xero.
       </p>
 
       {error && (

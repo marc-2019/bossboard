@@ -25,7 +25,7 @@ const uploadSchema = z.object({
 
 /**
  * POST /api/v1/bank-transactions/upload
- * Upload Wise CSV (base64-encoded content in JSON body)
+ * Upload bank CSV (Wise / ANZ / ASB / BNZ / generic; base64 or plain text in JSON body)
  */
 router.post('/upload', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
