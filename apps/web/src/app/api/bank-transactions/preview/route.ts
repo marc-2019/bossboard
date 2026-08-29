@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       );
     }
     const body = await request.text();
-    const res = await fetch(`${API_URL}/api/v1/bank-transactions/upload`, {
+    const res = await fetch(`${API_URL}/api/v1/bank-transactions/preview`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     return NextResponse.json(json, { status: res.status });
   } catch {
     return NextResponse.json(
-      { success: false, error: 'PROXY_ERROR', message: 'Failed to upload spreadsheet' },
+      { success: false, error: 'PROXY_ERROR', message: 'Failed to preview spreadsheet' },
       { status: 502 },
     );
   }

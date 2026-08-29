@@ -8,45 +8,83 @@ import { Button } from '@/components/ui/button';
 import { bankTransactionsClient, ApiError } from '@/lib/api-client';
 import { ArrowLeft, Upload } from 'lucide-react';
 
+type ColumnMap = { date: string; amount: string; description: string };
+
 export default function BankUploadPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
+  const [filePayload, setFilePayload] = useState<string>('');
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [columnMap, setColumnMap] = useState<ColumnMap>({
+    date: '',
+    amount: '',
+    description: '',
+  });
   const [submitting, setSubmitting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ imported: number; duplicates: number } | null>(null);
   const [autoMatching, setAutoMatching] = useState(false);
   const [matched, setMatched] = useState<number | null>(null);
 
-  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
+  const mapped =
+    columnMap.date && columnMap.amount && columnMap.description;
+
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] || null;
     setFile(f);
     setResult(null);
     setMatched(null);
     setError(null);
+    setHeaders([]);
+    setColumnMap({ date: '', amount: '', description: '' });
+    setFilePayload('');
+    if (!f) return;
+    setPreviewing(true);
+    try {
+      const buf = await f.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      const isZip = bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b;
+      let payload: string;
+      if (isZip) {
+        let binary = '';
+        bytes.forEach((b) => {
+          binary += String.fromCharCode(b);
+        });
+        payload = btoa(binary);
+      } else {
+        payload = new TextDecoder('utf-8').decode(bytes);
+      }
+      setFilePayload(payload);
+      const preview = await bankTransactionsClient.preview(payload, f.name);
+      setHeaders(preview.headers || []);
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.message : 'Could not read this spreadsheet.');
+    } finally {
+      setPreviewing(false);
+    }
   };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      setError('Choose a CSV file first.');
+    if (!file || !filePayload) {
+      setError('Choose a spreadsheet first.');
+      return;
+    }
+    if (!mapped) {
+      setError('Map Date, Amount, and Description.');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const text = await file.text();
-      if (!text.trim() || !text.includes(',')) {
-        setError('File does not look like a CSV (expected commas and rows).');
-        setSubmitting(false);
-        return;
-      }
-      const data = await bankTransactionsClient.upload(text, file.name);
+      const data = await bankTransactionsClient.upload(filePayload, file.name, columnMap);
       setResult({
         imported: data.imported ?? 0,
         duplicates: data.duplicates ?? 0,
       });
     } catch (err: unknown) {
-      setError(err instanceof ApiError ? err.message : 'Upload failed. Check the file format.');
+      setError(err instanceof ApiError ? err.message : 'Upload failed. Check the column map.');
     } finally {
       setSubmitting(false);
     }
@@ -75,10 +113,10 @@ export default function BankUploadPage() {
         Back to bank
       </Link>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Upload bank CSV</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Upload spreadsheet</h1>
       <p className="text-sm text-gray-600 mb-6">
-        Export a CSV from your bank (Wise, ASB, ANZ, and similar formats with Date, Amount, and
-        Description columns). Duplicates from previous uploads are skipped.
+        Upload a CSV or Excel file, then map which columns are Date, Amount, and Description.
+        Duplicates from previous uploads are skipped.
       </p>
 
       {error && (
@@ -91,10 +129,10 @@ export default function BankUploadPage() {
         <Card>
           <form onSubmit={onSubmit} className="space-y-4">
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">CSV file</span>
+              <span className="text-sm font-medium text-gray-700">Spreadsheet</span>
               <input
                 type="file"
-                accept=".csv,text/csv,text/comma-separated-values,application/csv"
+                accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={onFile}
                 className="mt-1 block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-accent file:text-white file:text-sm file:font-medium hover:file:bg-accent/90"
               />
@@ -104,7 +142,35 @@ export default function BankUploadPage() {
                 Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
               </p>
             )}
-            <Button type="submit" loading={submitting} disabled={!file}>
+            {previewing && <p className="text-sm text-gray-600">Reading columns…</p>}
+            {headers.length > 0 && (
+              <div className="space-y-3">
+                {([
+                  ['date', 'Date'],
+                  ['amount', 'Amount'],
+                  ['description', 'Description'],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="block">
+                    <span className="text-sm font-medium text-gray-700">{label} column</span>
+                    <select
+                      value={columnMap[key]}
+                      onChange={(ev) =>
+                        setColumnMap((m) => ({ ...m, [key]: ev.target.value }))
+                      }
+                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="">Select a column</option>
+                      {headers.map((h) => (
+                        <option key={`${key}-${h}`} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            )}
+            <Button type="submit" loading={submitting} disabled={!file || !mapped}>
               <Upload size={16} className="mr-1" />
               Import transactions
             </Button>

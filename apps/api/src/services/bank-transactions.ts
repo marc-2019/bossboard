@@ -9,6 +9,10 @@ import {
   BankTransaction,
   MatchConfidence,
 } from '../types/index.js';
+import {
+  parseMappedSpreadsheet,
+  type ColumnMap,
+} from './mapped-spreadsheet.js';
 
 /**
  * Transform DB row to BankTransaction type
@@ -198,9 +202,23 @@ function normalizeDate(dateStr: string): string | null {
 export async function uploadCSV(
   userId: string,
   csvContent: string,
-  filename: string
+  filename: string,
+  columnMap?: ColumnMap
 ): Promise<{ imported: number; duplicates: number; batchId: string }> {
-  const transactions = parseWiseCSV(csvContent);
+  const mapped = columnMap
+    ? parseMappedSpreadsheet(csvContent, filename, columnMap)
+    : null;
+  const transactions = mapped
+    ? mapped.map((row) => ({
+        transactionId: null as string | null,
+        date: row.date,
+        amount: row.amount,
+        currency: 'NZD',
+        description: row.description,
+        paymentReference: null as string | null,
+        runningBalance: null as number | null,
+      }))
+    : parseWiseCSV(csvContent);
   const batchId = uuidv4();
   let imported = 0;
   let duplicates = 0;
@@ -507,3 +525,5 @@ export default {
   unmatchTransaction,
   getTransactionSummary,
 };
+
+export type { ColumnMap };
