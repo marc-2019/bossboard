@@ -44,39 +44,43 @@ export async function runOperatorQuoteNudges(
 
     const rows = result.rows;
     for (const row of rows) {
-      if (!isOperatorNudgeDue(row, at)) continue;
+      try {
+        if (!isOperatorNudgeDue(row, at)) continue;
 
-      const day = nextNudgeDay(Number(row.operator_nudge_count) || 0);
-      if (day == null) continue;
+        const day = nextNudgeDay(Number(row.operator_nudge_count) || 0);
+        if (day == null) continue;
 
-      const token = await notificationsService.getPushToken(row.user_id);
-      if (!token) continue;
+        const token = await notificationsService.getPushToken(row.user_id);
+        if (!token) continue;
 
-      const tickets = await notificationsService.sendPushNotifications([
-        {
-          to: token,
-          title: NUDGE_TITLE,
-          body: operatorNudgeBody(day, row.quote_number),
-          data: {
-            type: 'quote_operator_nudge',
-            quoteId: row.id,
+        const tickets = await notificationsService.sendPushNotifications([
+          {
+            to: token,
+            title: NUDGE_TITLE,
+            body: operatorNudgeBody(day, row.quote_number),
+            data: {
+              type: 'quote_operator_nudge',
+              quoteId: row.id,
+            },
+            sound: 'default',
           },
-          sound: 'default',
-        },
-      ]);
+        ]);
 
-      if (tickets[0]?.status !== 'ok') continue;
+        if (tickets[0]?.status !== 'ok') continue;
 
-      const stamped = await db.query(
-        `UPDATE quotes
-         SET operator_nudge_count = operator_nudge_count + 1,
-             last_operator_nudge_at = NOW()
-         WHERE id = $1 AND user_id = $2 AND status = 'sent'`,
-        [row.id, row.user_id]
-      );
+        const stamped = await db.query(
+          `UPDATE quotes
+           SET operator_nudge_count = operator_nudge_count + 1,
+               last_operator_nudge_at = NOW()
+           WHERE id = $1 AND user_id = $2 AND status = 'sent'`,
+          [row.id, row.user_id]
+        );
 
-      if ((stamped.rowCount ?? 0) > 0) {
-        notified += 1;
+        if ((stamped.rowCount ?? 0) > 0) {
+          notified += 1;
+        }
+      } catch (error) {
+        console.error(`[QuoteNudge] Failed for quote ${row.id}:`, error);
       }
     }
 

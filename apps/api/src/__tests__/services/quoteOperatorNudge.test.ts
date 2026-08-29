@@ -69,6 +69,12 @@ describe('isOperatorNudgeDue', () => {
     ).toBe(false);
   });
 
+  it('is not due on declined, expired, or converted', () => {
+    expect(isOperatorNudgeDue(candidate({ status: 'declined' }), daysFromSent(2))).toBe(false);
+    expect(isOperatorNudgeDue(candidate({ status: 'expired' }), daysFromSent(2))).toBe(false);
+    expect(isOperatorNudgeDue(candidate({ status: 'converted' }), daysFromSent(2))).toBe(false);
+  });
+
   it('day-1 is not open before 24h', () => {
     expect(isOperatorNudgeDue(candidate(), hoursFromSent(23))).toBe(false);
   });

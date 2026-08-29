@@ -93,7 +93,15 @@ describe('runOperatorQuoteNudges', () => {
     expect(updateSql).toMatch(/WHERE[\s\S]*id\s*=\s*\$/i);
     expect(updateSql).toMatch(/user_id\s*=\s*\$/i);
     expect(updateSql).toMatch(/status\s*=\s*'sent'/i);
-    expect(updateParams).toEqual(expect.arrayContaining(['quote-uuid-1', 'user-1']));
+    expect(updateParams).toEqual(['quote-uuid-1', 'user-1']);
+
+    const selectCall = mockDbQuery.mock.calls.find(([sql]) =>
+      String(sql).match(/SELECT[\s\S]*FROM\s+quotes/i)
+    );
+    expect(selectCall).toBeDefined();
+    expect(String(selectCall![0])).toMatch(/status\s*=\s*'sent'/i);
+    expect(String(selectCall![0])).toMatch(/sent_at\s+IS\s+NOT\s+NULL/i);
+    expect(String(selectCall![0])).toMatch(/operator_nudge_count\s*<\s*3/i);
 
     const used = `${allSql()}\n${allNotificationPayload()}`.toLowerCase();
     expect(used).not.toContain('client@example.com');
@@ -113,6 +121,51 @@ describe('runOperatorQuoteNudges', () => {
     expect(mockGetPushToken).not.toHaveBeenCalled();
     expect(mockSendPushNotifications).not.toHaveBeenCalled();
     expect(allSql()).not.toMatch(/UPDATE\s+quotes/i);
+  });
+
+  it('does not stamp when the operator has no push token', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeRow()] });
+    mockGetPushToken.mockResolvedValueOnce(null);
+
+    const result = await runOperatorQuoteNudges(NOW);
+
+    expect(result.notified).toBe(0);
+    expect(mockSendPushNotifications).not.toHaveBeenCalled();
+    expect(allSql()).not.toMatch(/UPDATE\s+quotes/i);
+  });
+
+  it('does not stamp when the Expo ticket is not ok', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeRow()] });
+    mockSendPushNotifications.mockResolvedValueOnce([{ status: 'error' }]);
+
+    const result = await runOperatorQuoteNudges(NOW);
+
+    expect(result.notified).toBe(0);
+    expect(allSql()).not.toMatch(/UPDATE\s+quotes/i);
+  });
+
+  it('continues after one quote throws', async () => {
+    const first = makeRow({ id: 'quote-uuid-1', user_id: 'user-1' });
+    const second = makeRow({
+      id: 'quote-uuid-2',
+      user_id: 'user-2',
+      quote_number: 'QTE-0002',
+    });
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [first, second] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    mockGetPushToken
+      .mockRejectedValueOnce(new Error('token lookup failed'))
+      .mockResolvedValueOnce('ExponentPushToken[user-2]');
+
+    const result = await runOperatorQuoteNudges(NOW);
+
+    expect(result.notified).toBe(1);
+    expect(mockSendPushNotifications).toHaveBeenCalledTimes(1);
+    const updateCall = mockDbQuery.mock.calls.find(([sql]) =>
+      String(sql).match(/UPDATE\s+quotes/i)
+    );
+    expect(updateCall?.[1]).toEqual(['quote-uuid-2', 'user-2']);
   });
 
   it('skips a due quote that is only 2 days old after the first nudge', async () => {
