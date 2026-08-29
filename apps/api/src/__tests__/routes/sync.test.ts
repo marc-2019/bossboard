@@ -326,6 +326,39 @@ describe('POST /api/v1/sync/batch', () => {
       expect(upsertCall).toBeUndefined();
     });
 
+    it('quote UPSERT stamps sent_at via COALESCE when payload status is sent', async () => {
+      mockDbQuery.mockResolvedValue({ rows: [{ id: 'quote-sent-uuid' }] });
+
+      const response = await request(app)
+        .post('/api/v1/sync/batch')
+        .send({
+          operations: [
+            makeOp({
+              entity_type: 'quotes',
+              entity_id: 'quote-sent-uuid',
+              payload: {
+                quote_number: 'QTE-SENT',
+                client_name: 'Batch Sent',
+                status: 'sent',
+                total: 1000,
+              },
+            }),
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      const upsertCall = mockDbQuery.mock.calls.find(
+        (call: unknown[]) =>
+          typeof call[0] === 'string' &&
+          (call[0] as string).includes('INSERT INTO quotes') &&
+          (call[0] as string).includes('ON CONFLICT')
+      );
+      expect(upsertCall).toBeDefined();
+      const sql = upsertCall![0] as string;
+      expect(sql).toMatch(/sent_at/i);
+      expect(sql).toMatch(/COALESCE/i);
+    });
+
     it('processes a swms create operation successfully (uses transaction)', async () => {
       mockClientQuery
         .mockResolvedValueOnce(undefined)               // BEGIN

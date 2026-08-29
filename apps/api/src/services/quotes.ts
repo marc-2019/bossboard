@@ -227,9 +227,18 @@ function transformQuote(row: Record<string, unknown>): Quote {
     gstNumber: decryptField(row.gst_number as string | null),
     notes: row.notes as string | null,
     internalMemo: (row.internal_memo as string | null) ?? null,
+    sentAt: toIsoOrNull(row.sent_at),
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
   };
+}
+
+/** Normalize timestamptz DB values to ISO string for API/shared Quote fields. */
+function toIsoOrNull(value: unknown): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  return null;
 }
 
 /**
@@ -266,6 +275,7 @@ function transformForMobile(quote: Quote): Record<string, unknown> {
     gst_number: quote.gstNumber,
     notes: quote.notes,
     internal_memo: quote.internalMemo,
+    sent_at: quote.sentAt ?? null,
     created_at: quote.createdAt,
     updated_at: quote.updatedAt,
   };
@@ -453,7 +463,11 @@ export async function markAsSent(
   userId: string
 ): Promise<Record<string, unknown> | null> {
   const result = await db.query<Record<string, unknown>>(
-    `UPDATE quotes SET status = 'sent', updated_at = NOW()
+    `UPDATE quotes
+     SET
+       status = 'sent',
+       sent_at = COALESCE(sent_at, NOW()),
+       updated_at = NOW()
      WHERE id = $1 AND user_id = $2 AND status = 'draft'
      RETURNING *`,
     [quoteId, userId]

@@ -823,6 +823,8 @@ export interface Quote {
   notes: string | null;
   /** Staff-only memo — never on quote PDF */
   internalMemo: string | null;
+  /** ISO timestamptz; set when draft → sent (chase anchor). */
+  sentAt?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

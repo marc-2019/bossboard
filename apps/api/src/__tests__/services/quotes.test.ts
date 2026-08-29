@@ -8,10 +8,9 @@
  *   - listQuotes: pagination, status filter
  *   - updateQuote: draft OK, non-draft throws, not found returns null, recalculates totals
  *   - deleteQuote: found returns true, not found returns false
- *   - markAsSent: draft → sent, returns null when not found
- *   - markAsAccepted: sent → accepted, returns null when not found
- *   - markAsDeclined: sent → declined, returns null when not found
- *   - convertToInvoice: accepted/sent → converted, creates invoice, throws on wrong status, double-convert
+ *   - markAsSent: draft → sent stamps sent_at; second call no-op; returns null when not found
+ *   - markAsAccepted / markAsDeclined / convertToInvoice: preserve sent_at
+ *   - listQuotes: includes sent_at when present
  *   - getQuoteStats: aggregate counts and amounts
  */
 
@@ -109,6 +108,10 @@ function makeQuoteRow(overrides: Record<string, unknown> = {}): Record<string, u
     ird_number: null,
     gst_number: null,
     notes: null,
+    internal_memo: null,
+    sent_at: null,
+    last_operator_nudge_at: null,
+    operator_nudge_count: 0,
     created_at: new Date('2026-01-01'),
     updated_at: new Date('2026-01-01'),
     ...overrides,
@@ -412,6 +415,32 @@ describe('listQuotes', () => {
     expect(result.quotes[0].status).toBe('sent');
   });
 
+  it('T6: list ?status=sent includes sent_at on each item when set', async () => {
+    const sentAt = new Date('2026-08-10T09:00:00.000Z');
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ count: '1' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          makeQuoteRow({
+            status: 'sent',
+            sent_at: sentAt,
+            operator_nudge_count: 0,
+          }),
+        ],
+      });
+
+    const result = await listQuotes('user-1', { status: 'sent' });
+
+    expect(result.quotes).toHaveLength(1);
+    expect(result.quotes[0].status).toBe('sent');
+    expect(result.quotes[0].sent_at).toBe(sentAt.toISOString());
+    // Nudge columns are schema-only — must not leak onto the Quote / mobile transform.
+    expect(result.quotes[0]).not.toHaveProperty('operator_nudge_count');
+    expect(result.quotes[0]).not.toHaveProperty('last_operator_nudge_at');
+    expect(result.quotes[0]).not.toHaveProperty('operatorNudgeCount');
+    expect(result.quotes[0]).not.toHaveProperty('lastOperatorNudgeAt');
+  });
+
   it('applies default limit of 20 when not specified', async () => {
     mockDbQuery
       .mockResolvedValueOnce({ rows: [{ count: '0' }] })
@@ -507,14 +536,33 @@ describe('deleteQuote', () => {
 // ===========================================================================
 
 describe('markAsSent', () => {
-  it('transitions draft quote to sent status', async () => {
-    const sentRow = makeQuoteRow({ status: 'sent' });
-    mockDbQuery.mockResolvedValueOnce({ rows: [sentRow] });
+  it('T1: SQL stamps sent_at via COALESCE (injected RETURNING is not the write proof)', async () => {
+    // RETURNING row is a mock — asserting it does not prove the write.
+    // The lock here is the SQL. Live SELECT proof lives in quote-sent-at.live.test.ts.
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeQuoteRow({ status: 'sent', sent_at: null })],
+    });
 
     const result = await markAsSent('quote-uuid-1', 'user-1');
 
     expect(result).not.toBeNull();
     expect(result!.status).toBe('sent');
+
+    const sql = mockDbQuery.mock.calls[0][0] as string;
+    expect(sql).toMatch(/sent_at\s*=\s*COALESCE\s*\(\s*sent_at\s*,\s*NOW\s*\(\s*\)\s*\)/i);
+    expect(sql).toMatch(/status\s*=\s*'sent'/i);
+    expect(sql).toMatch(/status\s*=\s*'draft'/i);
+  });
+
+  it('T2: second call on already-sent is no-op (null); sent_at would be unchanged on re-read', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await markAsSent('quote-uuid-1', 'user-1');
+    expect(result).toBeNull();
+
+    // WHERE still requires draft — already-sent cannot re-stamp
+    const sql = mockDbQuery.mock.calls[0][0] as string;
+    expect(sql).toMatch(/status\s*=\s*'draft'/i);
   });
 
   it('returns null when quote not found or not in draft status', async () => {
@@ -540,6 +588,21 @@ describe('markAsAccepted', () => {
     expect(result!.status).toBe('accepted');
   });
 
+  it('T3: accept after send preserves sent_at', async () => {
+    const sentAt = new Date('2026-08-01T10:00:00.000Z');
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeQuoteRow({ status: 'accepted', sent_at: sentAt })],
+    });
+
+    const result = await markAsAccepted('quote-uuid-1', 'user-1');
+
+    expect(result!.status).toBe('accepted');
+    expect(result!.sent_at).toBe(sentAt.toISOString());
+
+    const sql = mockDbQuery.mock.calls[0][0] as string;
+    expect(sql).not.toMatch(/sent_at\s*=/);
+  });
+
   it('returns null when quote not found or not in sent status', async () => {
     mockDbQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -561,6 +624,21 @@ describe('markAsDeclined', () => {
 
     expect(result).not.toBeNull();
     expect(result!.status).toBe('declined');
+  });
+
+  it('T4: decline after send preserves sent_at', async () => {
+    const sentAt = new Date('2026-08-02T12:30:00.000Z');
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeQuoteRow({ status: 'declined', sent_at: sentAt })],
+    });
+
+    const result = await markAsDeclined('quote-uuid-1', 'user-1');
+
+    expect(result!.status).toBe('declined');
+    expect(result!.sent_at).toBe(sentAt.toISOString());
+
+    const sql = mockDbQuery.mock.calls[0][0] as string;
+    expect(sql).not.toMatch(/sent_at\s*=/);
   });
 
   it('returns null when quote not found or not in sent status', async () => {
@@ -594,6 +672,32 @@ describe('convertToInvoice', () => {
     expect(result!.quote.converted_invoice_id).toBe('inv-123');
     expect(result!.invoice.id).toBe('inv-123');
     expect(result!.invoice.invoiceNumber).toBe('INV-0001');
+  });
+
+  it('T5: convert after send preserves sent_at and still creates invoice', async () => {
+    const sentAt = new Date('2026-07-15T08:00:00.000Z');
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeQuoteRow({ status: 'sent', sent_at: sentAt })],
+    });
+    mockCreateInvoice.mockResolvedValueOnce({ id: 'inv-789', invoiceNumber: 'INV-0003' });
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [
+        makeQuoteRow({
+          status: 'converted',
+          converted_invoice_id: 'inv-789',
+          sent_at: sentAt,
+        }),
+      ],
+    });
+
+    const result = await convertToInvoice('quote-uuid-1', 'user-1');
+
+    expect(result!.invoice.id).toBe('inv-789');
+    expect(result!.quote.status).toBe('converted');
+    expect(result!.quote.sent_at).toBe(sentAt.toISOString());
+
+    const updateSql = mockDbQuery.mock.calls[1][0] as string;
+    expect(updateSql).not.toMatch(/sent_at\s*=/);
   });
 
   it('converts a sent quote to an invoice', async () => {

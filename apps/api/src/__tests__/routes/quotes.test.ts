@@ -40,6 +40,23 @@ jest.mock('../../services/pdf.js', () => ({
   },
 }));
 
+const mockIsEmailConfigured = jest.fn();
+const mockSendQuoteEmail = jest.fn();
+const mockResolveInvoiceBcc = jest.fn();
+jest.mock('../../services/email.js', () => ({
+  __esModule: true,
+  default: {
+    isEmailConfigured: mockIsEmailConfigured,
+    sendQuoteEmail: mockSendQuoteEmail,
+    resolveInvoiceBcc: mockResolveInvoiceBcc,
+  },
+}));
+
+const mockGetBusinessProfile = jest.fn();
+jest.mock('../../services/business-profile.js', () => ({
+  getBusinessProfile: (...args: unknown[]) => mockGetBusinessProfile(...args),
+}));
+
 jest.mock('../../middleware/auth.js', () => ({
   authenticate: function (req: any, _res: any, next: any) {
     req.user = { userId: 'test-user-id', email: 'test@example.com' };
@@ -297,6 +314,71 @@ describe('Quote Routes', () => {
       const response = await request(app).get('/api/v1/quotes/missing/pdf');
 
       expect(response.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/v1/quotes/:id/email', () => {
+    beforeEach(() => {
+      mockIsEmailConfigured.mockReturnValue(true);
+      mockGetBusinessProfile.mockResolvedValue({ company_name: 'Test Co' });
+      mockResolveInvoiceBcc.mockReturnValue(null);
+      mockGetQuoteByIdRaw.mockResolvedValue({
+        id: 'q-1',
+        quoteNumber: 'QTE-0001',
+        status: 'draft',
+        notes: null,
+      });
+    });
+
+    it('must not 200 when sendQuoteEmail succeeds but markAsSent returns no stamp', async () => {
+      mockSendQuoteEmail.mockResolvedValue({ messageId: 'msg-discard' });
+      mockMarkAsSent.mockResolvedValue(null);
+      mockGetQuoteById.mockResolvedValue({ id: 'q-1', status: 'draft', sent_at: null });
+
+      const response = await request(app)
+        .post('/api/v1/quotes/q-1/email')
+        .send({ recipientEmail: 'client@example.com' });
+
+      expect(mockSendQuoteEmail).toHaveBeenCalled();
+      expect(response.status).not.toBe(200);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('SENT_AT_STAMP_FAILED');
+    });
+
+    it('must not 200 when markAsSent returns sent without sent_at', async () => {
+      mockSendQuoteEmail.mockResolvedValue({ messageId: 'msg-nostamp' });
+      mockMarkAsSent.mockResolvedValue({ id: 'q-1', status: 'sent' });
+      mockGetQuoteById.mockResolvedValue({ id: 'q-1', status: 'sent' });
+
+      const response = await request(app)
+        .post('/api/v1/quotes/q-1/email')
+        .send({ recipientEmail: 'client@example.com' });
+
+      expect(response.status).not.toBe(200);
+      expect(response.body.error).toBe('SENT_AT_STAMP_FAILED');
+    });
+
+    it('emails a draft and returns sent_at after a real stamp', async () => {
+      mockSendQuoteEmail.mockResolvedValue({ messageId: 'msg-ok' });
+      mockMarkAsSent.mockResolvedValue({
+        id: 'q-1',
+        status: 'sent',
+        sent_at: '2026-08-24T07:00:00.000Z',
+      });
+      mockGetQuoteById.mockResolvedValue({
+        id: 'q-1',
+        status: 'sent',
+        sent_at: '2026-08-24T07:00:00.000Z',
+      });
+
+      const response = await request(app)
+        .post('/api/v1/quotes/q-1/email')
+        .send({ recipientEmail: 'client@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.messageId).toBe('msg-ok');
+      expect(response.body.data.quote.sent_at).toBe('2026-08-24T07:00:00.000Z');
+      expect(mockMarkAsSent).toHaveBeenCalledWith('q-1', 'test-user-id');
     });
   });
 });
