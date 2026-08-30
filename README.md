@@ -7,7 +7,6 @@ Mobile-first compliance-doc generation and invoicing app for New Zealand tradies
 BossBoard helps plumbers, electricians, builders, and landscapers with:
 - **Compliance Documentation**: AI-assisted SWMS drafts and risk-assessment starting material aligned to NZ Health and Safety at Work Act 2015 — templates not legal advice, operator stays accountable.
 - **Invoicing & Revenue Tracking**: Quotes, invoices, GST, basic revenue dashboard
-- **Cashflow Forecasting (Coming Q2 2026)**: Xero integration, invoice chasing, full cashflow position
 - **Visa/Hiring Compliance (Coming Q3-Q4 2026)**: Employee visa tracking, certification management
 
 ## Quick Start
