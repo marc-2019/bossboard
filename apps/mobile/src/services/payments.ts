@@ -35,6 +35,42 @@ function isIapEnabled(): boolean {
   return isNativeStorePlatform();
 }
 
+/**
+ * Hardcoded SKUs matching App Store Connect / Play Console.
+ * GET /iap/products is preferred, but purchase start must not fail if the
+ * catalog call is empty or down (Guideline 2.1(b) error at purchase start).
+ */
+export const FALLBACK_IAP_SKUS = {
+  ios: {
+    tradie: 'nz.instilligent.bossboard.tradie.weekly',
+    team: 'nz.instilligent.bossboard.team.weekly',
+  },
+  android: {
+    tradie: 'bossboard_tradie_weekly',
+    team: 'bossboard_team_weekly',
+  },
+} as const;
+
+export async function resolveIapProductId(tier: PaidTier): Promise<string> {
+  const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+  const fallback = FALLBACK_IAP_SKUS[platform][tier];
+  try {
+    const cat = await subscriptionsApi.getIapProducts();
+    const products = cat.data?.data?.products;
+    const productId =
+      platform === 'ios' ? products?.ios?.[tier] : products?.android?.[tier];
+    if (typeof productId === 'string' && productId.length > 0) return productId;
+  } catch (e) {
+    console.warn('[payments] IAP catalog', e);
+  }
+  return fallback;
+}
+
+function knownIapSkuList(): string[] {
+  const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+  return [FALLBACK_IAP_SKUS[platform].tradie, FALLBACK_IAP_SKUS[platform].team];
+}
+
 /** Phase 1: open Stripe-hosted Checkout (web / non-store only). */
 export async function openStripeCheckout(tier: PaidTier): Promise<'opened' | 'beta' | 'error'> {
   const res = await subscriptionsApi.createCheckoutSession({
@@ -143,7 +179,10 @@ async function verifyPurchaseWithServer(
     transactionId,
     receiptOrToken,
   });
-  if (verify.data?.data?.betaMode) return 'beta';
+  if (verify.data?.data?.betaMode) {
+    // Native store builds must not take a beta/launch-free short-circuit (Guideline 2.2).
+    return isNativeStorePlatform() ? 'error' : 'beta';
+  }
   if (verify.data?.data?.verified) return 'verified';
   return 'error';
 }
@@ -166,11 +205,7 @@ export async function purchaseWithStoreIap(tier: PaidTier): Promise<IapOutcome> 
   }
 
   try {
-    const cat = await subscriptionsApi.getIapProducts();
-    const products = cat.data?.data?.products;
-    const productId =
-      Platform.OS === 'ios' ? products?.ios?.[tier] : products?.android?.[tier];
-    if (!productId) return 'error';
+    const productId = await resolveIapProductId(tier);
 
     await RNIap.initConnection();
 
@@ -250,13 +285,19 @@ export async function restoreStorePurchases(): Promise<
   }
 
   try {
-    const cat = await subscriptionsApi.getIapProducts();
-    const products = cat.data?.data?.products;
-    const known = new Set(
-      Platform.OS === 'ios'
-        ? [products?.ios?.tradie, products?.ios?.team].filter(Boolean)
-        : [products?.android?.tradie, products?.android?.team].filter(Boolean)
-    );
+    const known = new Set<string>(knownIapSkuList());
+    try {
+      const cat = await subscriptionsApi.getIapProducts();
+      const products = cat.data?.data?.products;
+      const extra = Platform.OS === 'ios'
+        ? [products?.ios?.tradie, products?.ios?.team]
+        : [products?.android?.tradie, products?.android?.team];
+      for (const sku of extra) {
+        if (typeof sku === 'string' && sku.length > 0) known.add(sku);
+      }
+    } catch (e) {
+      console.warn('[payments] IAP catalog (restore)', e);
+    }
 
     await RNIap.initConnection();
     const available: any[] =
@@ -270,7 +311,10 @@ export async function restoreStorePurchases(): Promise<
         purchase?.productId || purchase?.productIds?.[0] || purchase?.id;
       if (!productId || !known.has(productId)) continue;
       const result = await verifyPurchaseWithServer(String(productId), purchase);
-      if (result === 'beta') return 'beta';
+      if (result === 'beta') {
+        if (isNativeStorePlatform()) continue;
+        return 'beta';
+      }
       if (result === 'verified') {
         anyVerified = true;
         try {
@@ -306,7 +350,10 @@ export async function startPaidUpgrade(tier: PaidTier): Promise<{
   // ── App Store / Play: IAP only ──────────────────────────────────────────
   if (isNativeStorePlatform()) {
     const iap = await purchaseWithStoreIap(tier);
-    if (iap === 'beta') return { channel: 'beta', result: 'beta' };
+    if (iap === 'beta') {
+      // Native IAP must not surface a beta channel (Guideline 2.2).
+      return { channel: 'iap', result: 'error' };
+    }
     if (iap === 'verified') return { channel: 'iap', result: 'verified' };
     if (iap === 'canceled') return { channel: 'iap', result: 'canceled' };
     // Do not open Stripe from the binary — 3.1.1 / Play Billing policy.
