@@ -447,6 +447,18 @@ export const swmsApi = {
     useAI?: boolean;
   }) => api.post('/api/v1/swms/generate', data),
 
+  /** Clone last (or named) SWMS into a new draft. Signatures are never copied. */
+  copy: (data: {
+    sourceSwmsId?: string;
+    tradeType?: string;
+    sameClient?: string;
+    jobDescription?: string;
+    siteAddress?: string;
+    clientName?: string;
+    expectedDuration?: string;
+    title?: string;
+  } = {}) => api.post('/api/v1/swms/copy', data),
+
   list: (params?: { status?: string; limit?: number; offset?: number }) => {
     const queryParams = new URLSearchParams();
     if (params?.status) queryParams.append('status', params.status);

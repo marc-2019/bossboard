@@ -74,8 +74,8 @@ export default function SWMSDetailScreen() {
 
   async function handleSign(role: 'worker' | 'supervisor') {
     Alert.alert(
-      'Sign Document',
-      `Sign as ${role}? This action cannot be undone.`,
+      'Sign as PCBU / crew',
+      `Sign as ${role}? You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant. This action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -172,6 +172,10 @@ export default function SWMSDetailScreen() {
       <InContentBack fallback="/(tabs)/work" />
       <View style={styles.header}>
         <Text style={styles.title}>{document.title}</Text>
+        <Text style={styles.pcbuDisclaimer}>
+          You remain the PCBU and must sign off for this site. This draft is not WorkSafe
+          compliant, not affiliated with WorkSafe NZ, and not legal advice.
+        </Text>
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <Ionicons name="construct" size={14} color="#6B7280" />
@@ -391,6 +395,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 8,
+  },
+  pcbuDisclaimer: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 18,
+    marginBottom: 10,
   },
   metaRow: {
     flexDirection: 'row',

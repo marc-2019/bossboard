@@ -77,7 +77,9 @@ import {
   updateSWMS,
   deleteSWMS,
   signSWMS,
+  copySWMS,
   buildSWMSTitle,
+  SWMS_PCBU_DISCLAIMER,
 } from '../../services/swms.js';
 
 // ---------------------------------------------------------------------------
@@ -967,4 +969,192 @@ describe('trade-specific hardcoded hazard fallbacks', () => {
       expect(hazardDescriptions.some((d) => d.includes(expected))).toBe(true);
     });
   }
+});
+
+
+// ===========================================================================
+// copySWMS — clone last / named SWMS into a new draft
+// ===========================================================================
+
+/** Raw source row as returned by resolveSourceSWMS SELECT */
+function makeSourceRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 'source-swms-1',
+    user_id: 'user-1',
+    template_type: 'electrician',
+    title: 'SWMS - Install new switchboard',
+    status: 'signed',
+    job_description: 'Install new switchboard in commercial premises',
+    site_address: '1 Test St, Auckland',
+    client_name: 'Test Client Ltd',
+    expected_duration: '4 hours',
+    hazards: JSON.stringify([
+      { id: 'hazard-0', category: 'ai-suggested', description: 'Electric shock', riskLevel: 'high', aiGenerated: true },
+    ]),
+    controls: JSON.stringify([
+      { hazardId: 'hazard-0', controlType: 'administrative', description: 'Isolate power', ppeRequired: ['Gloves'], aiGenerated: true },
+    ]),
+    ppe_required: JSON.stringify(['Safety boots']),
+    emergency_plan: 'Call 111',
+    isolation_procedure: 'Lockout tagout',
+    ...overrides,
+  };
+}
+
+describe('copySWMS', () => {
+  it('copies hazards/controls/PPE/method notes from explicit source into a draft', async () => {
+    const source = makeSourceRow();
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [source] }) // resolve source
+      .mockResolvedValueOnce({ rows: [{ id: 'mock-uuid-1234' }] }) // INSERT
+      .mockResolvedValueOnce({ rows: [makeDbRow({
+        id: 'mock-uuid-1234',
+        status: 'draft',
+        title: 'Copy of SWMS - Install new switchboard',
+        workerSignature: null,
+        supervisorSignature: null,
+      })] }); // getSWMSById
+
+    const result = await copySWMS('user-1', { sourceSwmsId: 'source-swms-1' });
+
+    expect(result.swmsId).toBe('mock-uuid-1234');
+    expect(result.sourceSwmsId).toBe('source-swms-1');
+    expect(result.copiedFields).toEqual(
+      expect.arrayContaining(['hazards', 'controls', 'ppe_required', 'emergency_plan', 'isolation_procedure'])
+    );
+
+    const insertCall = mockDbQuery.mock.calls[1];
+    const [sql, params] = insertCall;
+    expect(sql).toMatch(/INSERT INTO swms_documents/i);
+    expect(sql).toMatch(/'draft'/);
+    expect(params[0]).toBe('mock-uuid-1234'); // new id
+    expect(params[1]).toBe('user-1');
+    expect(params[2]).toBe('electrician');
+    expect(params[3]).toMatch(/^Copy of /);
+    // hazards / controls stringified from source
+    expect(JSON.parse(params[8] as string)).toEqual(JSON.parse(source.hazards as string));
+    expect(JSON.parse(params[9] as string)).toEqual(JSON.parse(source.controls as string));
+    expect(params[11]).toBe('Call 111'); // emergency_plan
+    expect(params[12]).toBe('Lockout tagout'); // isolation_procedure
+  });
+
+  it('resolves last SWMS when sourceSwmsId omitted (ORDER BY created_at DESC)', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [makeSourceRow({ id: 'last-swms' })] })
+      .mockResolvedValueOnce({ rows: [{ id: 'mock-uuid-1234' }] })
+      .mockResolvedValueOnce({ rows: [makeDbRow({ id: 'mock-uuid-1234' })] });
+
+    const result = await copySWMS('user-1', {});
+
+    expect(result.sourceSwmsId).toBe('last-swms');
+    const [sql, params] = mockDbQuery.mock.calls[0];
+    expect(sql).toMatch(/ORDER BY created_at DESC/i);
+    expect(sql).toMatch(/LIMIT 1/i);
+    expect(params[0]).toBe('user-1');
+  });
+
+  it('filters last SWMS by tradeType and sameClient when provided', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [makeSourceRow({ id: 'filtered' })] })
+      .mockResolvedValueOnce({ rows: [{ id: 'mock-uuid-1234' }] })
+      .mockResolvedValueOnce({ rows: [makeDbRow()] });
+
+    await copySWMS('user-1', { tradeType: 'plumber', sameClient: 'Acme Plumbing' });
+
+    const [sql, params] = mockDbQuery.mock.calls[0];
+    expect(sql).toMatch(/template_type/i);
+    expect(sql).toMatch(/LOWER\(client_name\)/i);
+    expect(params).toEqual(['user-1', 'plumber', 'Acme Plumbing']);
+  });
+
+  it('applies site-specific overrides and marks those fields as not copied', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [makeSourceRow()] })
+      .mockResolvedValueOnce({ rows: [{ id: 'mock-uuid-1234' }] })
+      .mockResolvedValueOnce({ rows: [makeDbRow({
+        siteAddress: '99 New Site Rd',
+        clientName: 'New Client',
+        jobDescription: 'Rewire kitchen switchboard for new client',
+      })] });
+
+    const result = await copySWMS('user-1', {
+      sourceSwmsId: 'source-swms-1',
+      jobDescription: 'Rewire kitchen switchboard for new client',
+      siteAddress: '99 New Site Rd',
+      clientName: 'New Client',
+    });
+
+    const [, params] = mockDbQuery.mock.calls[1];
+    expect(params[3]).toBe(buildSWMSTitle('Rewire kitchen switchboard for new client'));
+    expect(params[4]).toBe('Rewire kitchen switchboard for new client');
+    expect(params[5]).toBe('99 New Site Rd');
+    expect(params[6]).toBe('New Client');
+    expect(result.copiedFields).not.toContain('job_description');
+    expect(result.copiedFields).not.toContain('site_address');
+    expect(result.copiedFields).not.toContain('client_name');
+    expect(result.copiedFields).toContain('hazards');
+  });
+
+  it('never copies signatures — INSERT forces NULL signature columns', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [makeSourceRow({ status: 'signed' })] })
+      .mockResolvedValueOnce({ rows: [{ id: 'mock-uuid-1234' }] })
+      .mockResolvedValueOnce({ rows: [makeDbRow({ status: 'draft' })] });
+
+    await copySWMS('user-1', { sourceSwmsId: 'source-swms-1' });
+
+    const [sql] = mockDbQuery.mock.calls[1];
+    expect(sql).toMatch(/worker_signature/);
+    expect(sql).toMatch(/NULL, NULL,\s*NULL, NULL/s);
+    expect(sql).toMatch(/'draft'/);
+  });
+
+  it('throws SOURCE_NOT_FOUND for missing explicit source (tenant-safe)', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [] });
+
+    await expect(copySWMS('user-1', { sourceSwmsId: 'missing-uuid-xxxx' })).rejects.toMatchObject({
+      code: 'SOURCE_NOT_FOUND',
+      statusCode: 404,
+    });
+    // Only the scoped SELECT — no INSERT
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
+    const [sql, params] = mockDbQuery.mock.calls[0];
+    expect(sql).toMatch(/user_id = \$2/);
+    expect(params).toEqual(['missing-uuid-xxxx', 'user-1']);
+  });
+
+  it('throws NO_SOURCE_SWMS when user has no prior documents', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [] });
+
+    await expect(copySWMS('user-1', {})).rejects.toMatchObject({
+      code: 'NO_SOURCE_SWMS',
+      statusCode: 404,
+    });
+  });
+
+  it('scopes explicit source lookup to the requesting user (cross-tenant refuse)', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      copySWMS('attacker-user', { sourceSwmsId: 'source-swms-1' })
+    ).rejects.toMatchObject({ code: 'SOURCE_NOT_FOUND' });
+
+    const [, params] = mockDbQuery.mock.calls[0];
+    expect(params[1]).toBe('attacker-user');
+  });
+
+  it('returns PCBU sign-off disclaimer and never claims WorkSafe compliant', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [makeSourceRow()] })
+      .mockResolvedValueOnce({ rows: [{ id: 'mock-uuid-1234' }] })
+      .mockResolvedValueOnce({ rows: [makeDbRow({ status: 'draft' })] });
+
+    const result = await copySWMS('user-1', { sourceSwmsId: 'source-swms-1' });
+
+    expect(result.disclaimer).toBe(SWMS_PCBU_DISCLAIMER);
+    expect(result.disclaimer).toMatch(/PCBU/);
+    expect(result.disclaimer).toMatch(/not WorkSafe compliant/i);
+    expect(result.disclaimer).not.toMatch(/WorkSafe approved/i);
+    expect(result.disclaimer).not.toMatch(/guaranteed compliant/i);
+  });
 });

@@ -566,6 +566,236 @@ export async function signSWMS(
   return getSWMSById(swmsId, userId);
 }
 
+
+/** User-facing copy. PCBU signs off; never claim WorkSafe compliant. */
+export const SWMS_PCBU_DISCLAIMER =
+  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
+
+export const SWMS_COPY_SUCCESS_MESSAGE =
+  'SWMS draft copied. You remain the PCBU and must sign off. This draft is not WorkSafe compliant.';
+
+/**
+ * Input for cloning an existing SWMS into a new draft.
+ * Thin slice: copy hazards/controls/PPE/method notes; strip signatures;
+ * force status=draft. User must review before sign-off (PCBU remains responsible).
+ */
+export interface SWMSCopyInput {
+  /** Explicit source document. If omitted, resolve "last" for this user. */
+  sourceSwmsId?: string;
+  /** When resolving last: optional trade filter (template_type). */
+  tradeType?: TradeType;
+  /** When resolving last: optional client_name exact match (case-insensitive). */
+  sameClient?: string;
+  /** Site-specific overrides (prefilled from source when omitted). */
+  jobDescription?: string;
+  siteAddress?: string;
+  clientName?: string;
+  expectedDuration?: string;
+  title?: string;
+}
+
+export interface SWMSCopyResponse {
+  swmsId: string;
+  sourceSwmsId: string;
+  document: Record<string, unknown>;
+  /** Field names copied from source (for client UI "review these" hints). */
+  copiedFields: string[];
+  disclaimer: string;
+}
+
+/** Columns selected for clone — raw DB shape, not mobile transform. */
+interface SWMSSourceRow {
+  id: string;
+  user_id: string;
+  template_type: TradeType;
+  title: string;
+  status: string;
+  job_description: string | null;
+  site_address: string | null;
+  client_name: string | null;
+  expected_duration: string | null;
+  hazards: unknown;
+  controls: unknown;
+  ppe_required: unknown;
+  emergency_plan: string | null;
+  isolation_procedure: string | null;
+}
+
+const SOURCE_SELECT = `
+  id, user_id, template_type, title, status,
+  job_description, site_address, client_name, expected_duration,
+  hazards, controls, ppe_required, emergency_plan, isolation_procedure
+`;
+
+/**
+ * Resolve source SWMS: explicit id (tenant-scoped) or most recent for user
+ * with optional trade / client filters.
+ */
+async function resolveSourceSWMS(
+  userId: string,
+  input: SWMSCopyInput
+): Promise<SWMSSourceRow> {
+  if (input.sourceSwmsId) {
+    const result = await db.query<SWMSSourceRow>(
+      `SELECT ${SOURCE_SELECT}
+       FROM swms_documents
+       WHERE id = $1 AND user_id = $2`,
+      [input.sourceSwmsId, userId]
+    );
+    if (result.rows.length === 0) {
+      throw createError('Source SWMS document not found', 404, 'SOURCE_NOT_FOUND');
+    }
+    return result.rows[0];
+  }
+
+  const params: unknown[] = [userId];
+  let where = 'user_id = $1';
+
+  if (input.tradeType) {
+    params.push(input.tradeType);
+    where += ` AND template_type = $${params.length}`;
+  }
+  if (input.sameClient) {
+    params.push(input.sameClient);
+    where += ` AND LOWER(client_name) = LOWER($${params.length})`;
+  }
+
+  const result = await db.query<SWMSSourceRow>(
+    `SELECT ${SOURCE_SELECT}
+     FROM swms_documents
+     WHERE ${where}
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    params
+  );
+
+  if (result.rows.length === 0) {
+    throw createError(
+      'No previous SWMS found to copy. Generate a SWMS first.',
+      404,
+      'NO_SOURCE_SWMS'
+    );
+  }
+  return result.rows[0];
+}
+
+function normalizeJsonColumn(value: unknown, fallback: unknown = []): unknown {
+  if (value == null) return fallback;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return value;
+}
+
+/**
+ * Copy an existing SWMS into a new draft for the same user.
+ * Never copies signatures or signed status. Tenant isolation via user_id.
+ */
+export async function copySWMS(
+  userId: string,
+  input: SWMSCopyInput = {}
+): Promise<SWMSCopyResponse> {
+  const source = await resolveSourceSWMS(userId, input);
+  const swmsId = uuidv4();
+
+  const jobDescription =
+    input.jobDescription !== undefined ? input.jobDescription : source.job_description;
+  const siteAddress =
+    input.siteAddress !== undefined ? input.siteAddress : source.site_address;
+  const clientName =
+    input.clientName !== undefined ? input.clientName : source.client_name;
+  const expectedDuration =
+    input.expectedDuration !== undefined
+      ? input.expectedDuration
+      : source.expected_duration;
+
+  const hazards = normalizeJsonColumn(source.hazards, []);
+  const controls = normalizeJsonColumn(source.controls, []);
+  const ppeRequired = normalizeJsonColumn(source.ppe_required, []);
+
+  let title: string;
+  if (input.title) {
+    title = input.title.slice(0, 255);
+  } else if (input.jobDescription) {
+    title = buildSWMSTitle(input.jobDescription);
+  } else if (source.title) {
+    const base = source.title.startsWith('Copy of ')
+      ? source.title
+      : `Copy of ${source.title}`;
+    title = base.slice(0, 255);
+  } else {
+    title = buildSWMSTitle(jobDescription || 'Copied SWMS');
+  }
+
+  const copiedFields = [
+    'template_type',
+    'hazards',
+    'controls',
+    'ppe_required',
+    'emergency_plan',
+    'isolation_procedure',
+  ];
+  if (input.jobDescription === undefined) copiedFields.push('job_description');
+  if (input.siteAddress === undefined) copiedFields.push('site_address');
+  if (input.clientName === undefined) copiedFields.push('client_name');
+  if (input.expectedDuration === undefined) copiedFields.push('expected_duration');
+
+  await db.query(
+    `INSERT INTO swms_documents (
+      id, user_id, template_type, title, status,
+      job_description, site_address, client_name, expected_duration,
+      hazards, controls, ppe_required,
+      emergency_plan, isolation_procedure,
+      worker_signature, worker_signed_at,
+      supervisor_signature, supervisor_signed_at,
+      pdf_url, is_synced, local_id
+    )
+    VALUES (
+      $1, $2, $3, $4, 'draft',
+      $5, $6, $7, $8,
+      $9, $10, $11,
+      $12, $13,
+      NULL, NULL,
+      NULL, NULL,
+      NULL, true, $14
+    )
+    RETURNING id`,
+    [
+      swmsId,
+      userId,
+      source.template_type,
+      title,
+      jobDescription,
+      siteAddress,
+      clientName,
+      expectedDuration,
+      JSON.stringify(hazards),
+      JSON.stringify(controls),
+      JSON.stringify(ppeRequired),
+      source.emergency_plan,
+      source.isolation_procedure,
+      uuidv4(),
+    ]
+  );
+
+  const document = await getSWMSById(swmsId, userId);
+  if (!document) {
+    throw createError('Failed to load copied SWMS', 500, 'COPY_LOAD_FAILED');
+  }
+
+  return {
+    swmsId,
+    sourceSwmsId: source.id,
+    document: document as unknown as Record<string, unknown>,
+    copiedFields,
+    disclaimer: SWMS_PCBU_DISCLAIMER,
+  };
+}
+
 export default {
   getTemplates,
   getTemplate,
@@ -575,4 +805,5 @@ export default {
   updateSWMS,
   deleteSWMS,
   signSWMS,
+  copySWMS,
 };

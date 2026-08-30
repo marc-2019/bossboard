@@ -20,6 +20,7 @@ import {
   Leaf,
   Paintbrush,
   Wrench,
+  Copy,
 } from 'lucide-react';
 
 const TRADE_OPTIONS: { id: TradeType; label: string; Icon: typeof Zap }[] = [
@@ -32,6 +33,9 @@ const TRADE_OPTIONS: { id: TradeType; label: string; Icon: typeof Zap }[] = [
 ];
 
 const MIN_JOB_DESCRIPTION = 10;
+
+const SWMS_PCBU_DISCLAIMER =
+  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
 
 export default function NewSwmsPage() {
   const router = useRouter();
@@ -46,6 +50,7 @@ export default function NewSwmsPage() {
   const [expectedDuration, setExpectedDuration] = useState('');
   const [useAI, setUseAI] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitMode, setSubmitMode] = useState<'generate' | 'copy'>('generate');
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -71,12 +76,38 @@ export default function NewSwmsPage() {
     if (clientName.trim()) payload.clientName = clientName.trim();
     if (expectedDuration.trim()) payload.expectedDuration = expectedDuration.trim();
 
+    setSubmitMode('generate');
     setSubmitting(true);
     try {
       const result = await swmsClient.generate(payload);
       router.push(`/swms/${result.swmsId}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not generate SWMS.');
+      setSubmitting(false);
+    }
+  };
+
+  const handleCopyLast = async () => {
+    setError(null);
+    const payload: {
+      jobDescription?: string;
+      siteAddress?: string;
+      clientName?: string;
+      expectedDuration?: string;
+    } = {};
+    const trimmedJob = jobDescription.trim();
+    if (trimmedJob.length >= MIN_JOB_DESCRIPTION) payload.jobDescription = trimmedJob;
+    if (siteAddress.trim()) payload.siteAddress = siteAddress.trim();
+    if (clientName.trim()) payload.clientName = clientName.trim();
+    if (expectedDuration.trim()) payload.expectedDuration = expectedDuration.trim();
+
+    setSubmitMode('copy');
+    setSubmitting(true);
+    try {
+      const result = await swmsClient.copy(payload);
+      router.push(`/swms/${result.swmsId}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not copy last SWMS.');
       setSubmitting(false);
     }
   };
@@ -91,10 +122,12 @@ export default function NewSwmsPage() {
               <Sparkles size={28} className="text-accent animate-pulse" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900 mb-1">
-              Generating your SWMS…
+              {submitMode === 'copy' ? 'Copying last SWMS…' : 'Generating your SWMS…'}
             </h2>
             <p className="text-sm text-gray-600 max-w-md">
-              {useAI
+              {submitMode === 'copy'
+                ? 'Cloning hazards and controls into a new draft. You remain the PCBU and must sign off. This draft is not WorkSafe compliant.'
+                : useAI
                 ? 'Our AI is identifying site-specific hazards and control measures for your job. This can take 15–30 seconds — please don’t close this page.'
                 : 'Building your SWMS from the trade template. This will only take a moment.'}
             </p>
@@ -220,10 +253,19 @@ export default function NewSwmsPage() {
           </label>
         </Card>
 
-        <div className="flex gap-3">
-          <Button type="submit" loading={submitting}>
+        <div className="flex gap-3 flex-wrap">
+          <Button type="submit" loading={submitting && submitMode === 'generate'}>
             <HardHat size={14} className="mr-2" />
             Generate SWMS
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            loading={submitting && submitMode === 'copy'}
+            onClick={handleCopyLast}
+          >
+            <Copy size={14} className="mr-2" />
+            Copy last SWMS
           </Button>
           <Link
             href="/swms"
@@ -235,11 +277,7 @@ export default function NewSwmsPage() {
 
         <div className="flex items-start gap-2 text-xs text-gray-500">
           <Info size={14} className="mt-0.5 shrink-0" />
-          <p>
-            Generated documents are designed to align with the NZ Health and Safety at Work
-            Act 2015. BossBoard is not affiliated with WorkSafe NZ or any government agency.
-            Always review and customise the SWMS for your specific site before use.
-          </p>
+          <p>{SWMS_PCBU_DISCLAIMER}</p>
         </div>
       </form>
     </div>

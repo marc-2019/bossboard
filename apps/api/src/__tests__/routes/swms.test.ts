@@ -14,9 +14,12 @@ const mockListSWMS = jest.fn();
 const mockUpdateSWMS = jest.fn();
 const mockDeleteSWMS = jest.fn();
 const mockSignSWMS = jest.fn();
+const mockCopySWMS = jest.fn();
 
 jest.mock('../../services/swms.js', () => ({
   __esModule: true,
+  SWMS_COPY_SUCCESS_MESSAGE:
+    'SWMS draft copied. You remain the PCBU and must sign off. This draft is not WorkSafe compliant.',
   default: {
     getTemplates: mockGetTemplates,
     getTemplate: mockGetTemplate,
@@ -26,6 +29,7 @@ jest.mock('../../services/swms.js', () => ({
     updateSWMS: mockUpdateSWMS,
     deleteSWMS: mockDeleteSWMS,
     signSWMS: mockSignSWMS,
+    copySWMS: mockCopySWMS,
   },
 }));
 
@@ -488,6 +492,108 @@ describe('SWMS Routes', () => {
         success: false,
         error: 'VALIDATION_ERROR',
       });
+    });
+  });
+
+  describe('POST /api/v1/swms/copy', () => {
+    const copyResult = {
+      swmsId: 'new-swms-1',
+      sourceSwmsId: 'source-swms-1',
+      document: {
+        id: 'new-swms-1',
+        title: 'Copy of SWMS - Install switchboard',
+        status: 'draft',
+        trade_type: 'electrician',
+      },
+      copiedFields: ['hazards', 'controls', 'ppe_required', 'emergency_plan'],
+    };
+
+    it('should copy SWMS into a new draft (201)', async () => {
+      mockCopySWMS.mockResolvedValue(copyResult);
+
+      const response = await request(app)
+        .post('/api/v1/swms/copy')
+        .set('Authorization', 'Bearer mock-token')
+        .send({ sourceSwmsId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toMatchObject({
+        success: true,
+        data: copyResult,
+      });
+      expect(response.body.message).toMatch(/PCBU/);
+      expect(response.body.message).toMatch(/not WorkSafe compliant/i);
+      expect(response.body.message).not.toMatch(/WorkSafe approved/i);
+      expect(mockCopySWMS).toHaveBeenCalledWith(
+        'test-user-id',
+        expect.objectContaining({ sourceSwmsId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' })
+      );
+      expect(mockAuditRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityType: 'swms',
+          entityId: 'new-swms-1',
+          action: 'create',
+          metadata: expect.objectContaining({ copiedFrom: 'source-swms-1' }),
+        })
+      );
+    });
+
+    it('should accept empty body (copy last job)', async () => {
+      mockCopySWMS.mockResolvedValue(copyResult);
+
+      const response = await request(app)
+        .post('/api/v1/swms/copy')
+        .set('Authorization', 'Bearer mock-token')
+        .send({});
+
+      expect(response.status).toBe(201);
+      expect(response.body.message).toMatch(/PCBU/);
+      expect(response.body.message).toMatch(/not WorkSafe compliant/i);
+      expect(mockCopySWMS).toHaveBeenCalledWith('test-user-id', {});
+    });
+
+    it('should reject invalid sourceSwmsId (not uuid)', async () => {
+      const response = await request(app)
+        .post('/api/v1/swms/copy')
+        .set('Authorization', 'Bearer mock-token')
+        .send({ sourceSwmsId: 'not-a-uuid' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(mockCopySWMS).not.toHaveBeenCalled();
+    });
+
+    it('should map SOURCE_NOT_FOUND from service to 404', async () => {
+      const error = new Error('Source SWMS document not found') as any;
+      error.statusCode = 404;
+      error.code = 'SOURCE_NOT_FOUND';
+      mockCopySWMS.mockRejectedValue(error);
+
+      const response = await request(app)
+        .post('/api/v1/swms/copy')
+        .set('Authorization', 'Bearer mock-token')
+        .send({ sourceSwmsId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({
+        success: false,
+        error: 'SOURCE_NOT_FOUND',
+      });
+    });
+
+    it('should map NO_SOURCE_SWMS to 404', async () => {
+      const error = new Error('No previous SWMS found to copy') as any;
+      error.statusCode = 404;
+      error.code = 'NO_SOURCE_SWMS';
+      mockCopySWMS.mockRejectedValue(error);
+
+      const response = await request(app)
+        .post('/api/v1/swms/copy')
+        .set('Authorization', 'Bearer mock-token')
+        .send({});
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('NO_SOURCE_SWMS');
     });
   });
 

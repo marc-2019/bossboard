@@ -5,7 +5,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import swmsService from '../services/swms.js';
+import swmsService, { SWMS_COPY_SUCCESS_MESSAGE } from '../services/swms.js';
 import pdfService, { SWMSPdfInput } from '../services/pdf.js';
 import auditLog from '../services/audit-log.js';
 import { authenticate } from '../middleware/auth.js';
@@ -49,6 +49,17 @@ const updateSchema = z.object({
 const signSchema = z.object({
   signature: z.string().min(1, 'Signature is required'),
   role: z.enum(['worker', 'supervisor']),
+});
+
+const copySchema = z.object({
+  sourceSwmsId: z.string().uuid().optional(),
+  tradeType: z.enum(['electrician', 'plumber', 'builder', 'landscaper', 'painter', 'other']).optional(),
+  sameClient: z.string().min(1).optional(),
+  jobDescription: z.string().min(10).optional(),
+  siteAddress: z.string().optional(),
+  clientName: z.string().optional(),
+  expectedDuration: z.string().optional(),
+  title: z.string().min(1).max(255).optional(),
 });
 
 // =============================================================================
@@ -146,6 +157,64 @@ router.post(
     next(error);
   }
 });
+
+
+/**
+ * POST /api/v1/swms/copy
+ * Clone last (or named) SWMS into a new draft. No AI; subscription SWMS limit applies.
+ * Always status=draft; signatures are never copied. PCBU must review before sign-off.
+ */
+router.post(
+  '/copy',
+  authenticate,
+  attachSubscription,
+  checkLimit('swms'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validation = copySchema.safeParse(req.body ?? {});
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          error: 'VALIDATION_ERROR',
+          message: validation.error.errors[0].message,
+          details: validation.error.errors,
+        });
+        return;
+      }
+
+      const result = await swmsService.copySWMS(req.user!.userId, validation.data);
+
+      void auditLog.record({
+        entityType: 'swms',
+        entityId: result.swmsId,
+        action: 'create',
+        actorUserId: req.user!.userId,
+        metadata: {
+          copiedFrom: result.sourceSwmsId,
+          copiedFields: result.copiedFields,
+          title: (result.document as { title?: string }).title,
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: SWMS_COPY_SUCCESS_MESSAGE,
+      });
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error) {
+        const appError = error as AppError;
+        res.status(appError.statusCode).json({
+          success: false,
+          error: appError.code,
+          message: appError.message,
+        });
+        return;
+      }
+      next(error);
+    }
+  }
+);
 
 /**
  * GET /api/v1/swms
