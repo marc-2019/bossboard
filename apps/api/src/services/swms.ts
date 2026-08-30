@@ -567,6 +567,13 @@ export async function signSWMS(
 }
 
 
+/** User-facing copy. PCBU signs off; never claim WorkSafe compliant. */
+export const SWMS_PCBU_DISCLAIMER =
+  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
+
+export const SWMS_COPY_SUCCESS_MESSAGE =
+  'SWMS draft copied. You remain the PCBU and must sign off. This draft is not WorkSafe compliant.';
+
 /**
  * Input for cloning an existing SWMS into a new draft.
  * Thin slice: copy hazards/controls/PPE/method notes; strip signatures;
@@ -593,6 +600,7 @@ export interface SWMSCopyResponse {
   document: Record<string, unknown>;
   /** Field names copied from source (for client UI "review these" hints). */
   copiedFields: string[];
+  disclaimer: string;
 }
 
 /** Columns selected for clone — raw DB shape, not mobile transform. */
@@ -784,6 +792,7 @@ export async function copySWMS(
     sourceSwmsId: source.id,
     document: document as unknown as Record<string, unknown>,
     copiedFields,
+    disclaimer: SWMS_PCBU_DISCLAIMER,
   };
 }
 

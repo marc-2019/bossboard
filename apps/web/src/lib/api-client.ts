@@ -662,6 +662,25 @@ export const swmsClient = {
       await clientFetch<unknown>('/api/swms/generate', { method: 'POST', body: data }),
     ),
 
+  /** Clone last (or named) SWMS into a new draft. PCBU must sign off. */
+  copy: async (data: {
+    sourceSwmsId?: string;
+    tradeType?: import('@bossboard/shared').TradeType;
+    sameClient?: string;
+    jobDescription?: string;
+    siteAddress?: string;
+    clientName?: string;
+    expectedDuration?: string;
+    title?: string;
+  } = {}) =>
+    deepCamelize<{
+      swmsId: string;
+      sourceSwmsId: string;
+      document: Partial<import('@bossboard/shared').SWMSDocument>;
+      copiedFields: string[];
+      disclaimer: string;
+    }>(await clientFetch<unknown>('/api/swms/copy', { method: 'POST', body: data })),
+
   listTemplates: () =>
     clientFetch<{ templates: import('@bossboard/shared').SWMSTemplate[] }>(
       '/api/swms/templates',

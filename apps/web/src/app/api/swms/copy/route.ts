@@ -1,0 +1,37 @@
+import { NextResponse } from 'next/server';
+import { API_URL } from '@/lib/constants';
+import { getAccessToken } from '@/lib/auth';
+
+/**
+ * Proxies SWMS copy-from-last to the Express API.
+ * Draft clone only — PCBU must sign off; never WorkSafe compliant.
+ */
+export async function POST(request: Request) {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: 'NOT_AUTHENTICATED', message: 'No session' },
+        { status: 401 },
+      );
+    }
+
+    const body = await request.text();
+    const res = await fetch(`${API_URL}/api/v1/swms/copy`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: body || '{}',
+    });
+
+    const json = await res.json();
+    return NextResponse.json(json, { status: res.status });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'PROXY_ERROR', message: 'Failed to copy SWMS' },
+      { status: 502 },
+    );
+  }
+}

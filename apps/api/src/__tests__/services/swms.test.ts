@@ -79,6 +79,7 @@ import {
   signSWMS,
   copySWMS,
   buildSWMSTitle,
+  SWMS_PCBU_DISCLAIMER,
 } from '../../services/swms.js';
 
 // ---------------------------------------------------------------------------
@@ -1140,5 +1141,20 @@ describe('copySWMS', () => {
 
     const [, params] = mockDbQuery.mock.calls[0];
     expect(params[1]).toBe('attacker-user');
+  });
+
+  it('returns PCBU sign-off disclaimer and never claims WorkSafe compliant', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [makeSourceRow()] })
+      .mockResolvedValueOnce({ rows: [{ id: 'mock-uuid-1234' }] })
+      .mockResolvedValueOnce({ rows: [makeDbRow({ status: 'draft' })] });
+
+    const result = await copySWMS('user-1', { sourceSwmsId: 'source-swms-1' });
+
+    expect(result.disclaimer).toBe(SWMS_PCBU_DISCLAIMER);
+    expect(result.disclaimer).toMatch(/PCBU/);
+    expect(result.disclaimer).toMatch(/not WorkSafe compliant/i);
+    expect(result.disclaimer).not.toMatch(/WorkSafe approved/i);
+    expect(result.disclaimer).not.toMatch(/guaranteed compliant/i);
   });
 });

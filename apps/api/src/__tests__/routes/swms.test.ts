@@ -18,6 +18,8 @@ const mockCopySWMS = jest.fn();
 
 jest.mock('../../services/swms.js', () => ({
   __esModule: true,
+  SWMS_COPY_SUCCESS_MESSAGE:
+    'SWMS draft copied. You remain the PCBU and must sign off. This draft is not WorkSafe compliant.',
   default: {
     getTemplates: mockGetTemplates,
     getTemplate: mockGetTemplate,
@@ -519,7 +521,9 @@ describe('SWMS Routes', () => {
         success: true,
         data: copyResult,
       });
-      expect(response.body.message).toMatch(/review/i);
+      expect(response.body.message).toMatch(/PCBU/);
+      expect(response.body.message).toMatch(/not WorkSafe compliant/i);
+      expect(response.body.message).not.toMatch(/WorkSafe approved/i);
       expect(mockCopySWMS).toHaveBeenCalledWith(
         'test-user-id',
         expect.objectContaining({ sourceSwmsId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' })
@@ -543,6 +547,8 @@ describe('SWMS Routes', () => {
         .send({});
 
       expect(response.status).toBe(201);
+      expect(response.body.message).toMatch(/PCBU/);
+      expect(response.body.message).toMatch(/not WorkSafe compliant/i);
       expect(mockCopySWMS).toHaveBeenCalledWith('test-user-id', {});
     });
 

@@ -161,6 +161,10 @@ export default function SwmsDetailPage() {
               {' · Created '}
               {formatDate(doc.createdAt)}
             </p>
+            <p className="text-xs text-gray-500 mt-2 max-w-xl">
+              You remain the PCBU and must sign off for this site. This draft is not WorkSafe
+              compliant, not affiliated with WorkSafe NZ, and not legal advice.
+            </p>
           </div>
 
           <a

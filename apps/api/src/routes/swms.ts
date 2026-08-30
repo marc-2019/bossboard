@@ -5,7 +5,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import swmsService from '../services/swms.js';
+import swmsService, { SWMS_COPY_SUCCESS_MESSAGE } from '../services/swms.js';
 import pdfService, { SWMSPdfInput } from '../services/pdf.js';
 import auditLog from '../services/audit-log.js';
 import { authenticate } from '../middleware/auth.js';
@@ -199,7 +199,7 @@ router.post(
       res.status(201).json({
         success: true,
         data: result,
-        message: 'SWMS draft copied successfully. Review site-specific details before sign-off.',
+        message: SWMS_COPY_SUCCESS_MESSAGE,
       });
     } catch (error) {
       if (error instanceof Error && 'statusCode' in error) {

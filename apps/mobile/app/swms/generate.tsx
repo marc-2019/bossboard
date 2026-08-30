@@ -38,6 +38,9 @@ const TRADE_OPTIONS = [
   { id: 'painter', label: 'Painter', icon: 'color-palette' },
 ];
 
+const SWMS_PCBU_DISCLAIMER =
+  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
+
 export default function GenerateSWMSScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -97,6 +100,52 @@ export default function GenerateSWMSScreen() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function copyPayload() {
+    const trimmedJob = jobDescription.trim();
+    return {
+      ...(trimmedJob.length >= 10 ? { jobDescription: trimmedJob } : {}),
+      ...(siteAddress.trim() ? { siteAddress: siteAddress.trim() } : {}),
+      ...(clientName.trim() ? { clientName: clientName.trim() } : {}),
+      ...(duration.trim() ? { expectedDuration: duration.trim() } : {}),
+    };
+  }
+
+  function handleCopyLast() {
+    Alert.alert(
+      'Copy last SWMS?',
+      `${SWMS_PCBU_DISCLAIMER} Signatures are never copied.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Copy draft',
+          onPress: async () => {
+            setIsLoading(true);
+            try {
+              const response = await swmsApi.copy(copyPayload());
+              if (response.data.success) {
+                const docId = response.data.data.document.id as string;
+                const serverNote =
+                  (response.data.message as string | undefined) || SWMS_PCBU_DISCLAIMER;
+                Alert.alert('Draft copied', serverNote, [
+                  {
+                    text: 'Review draft',
+                    onPress: () => router.replace(`/swms/${docId}` as any),
+                  },
+                ]);
+              }
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'Could not copy last SWMS';
+              Alert.alert('Copy failed', message);
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -230,12 +279,20 @@ export default function GenerateSWMSScreen() {
         )}
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.copyButton, isLoading && styles.buttonDisabled]}
+        onPress={handleCopyLast}
+        disabled={isLoading}
+        accessibilityLabel="Copy last SWMS into a new draft"
+        testID="copy-last-swms"
+      >
+        <Ionicons name="copy-outline" size={20} color="#FF6B35" />
+        <Text style={styles.copyButtonText}>Copy last SWMS</Text>
+      </TouchableOpacity>
+
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
-        <Text style={styles.disclaimerText}>
-          Generated documents are designed to align with the NZ Health and Safety at Work Act 2015. This app is not affiliated with WorkSafe NZ or any government agency.
-          Always review and customise for your specific situation.
-        </Text>
+        <Text style={styles.disclaimerText}>{SWMS_PCBU_DISCLAIMER}</Text>
       </View>
     </ScrollView>
     </KeyboardAvoidingView>
@@ -366,6 +423,23 @@ const styles = StyleSheet.create({
   },
   generateButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  copyButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FF6B35',
+  },
+  copyButtonText: {
+    color: '#FF6B35',
     fontSize: 16,
     fontWeight: '600',
   },
