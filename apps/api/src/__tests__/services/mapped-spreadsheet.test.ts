@@ -148,3 +148,104 @@ describe('mapped spreadsheet (Westpac Business Online Accounts CSV headers)', ()
     expect(rows[0].description).toBe('Fixture Paint Co');
   });
 });
+
+/**
+ * Kiwibank Full CSV — mapped path only (vd-bb-bank-kiwibank).
+ *
+ * PROVEN (official Kiwibank pages — export formats exist; columns are NOT documented):
+ * - https://www.kiwibank.co.nz/banking-with-us/online-banking/internet-banking/a-new-internet-banking-experience-is-coming/
+ *   Export CSV, JSON, OFX, QIF, PDF; ~2yr limit
+ * - https://www.kiwibank.co.nz/business-banking/thrive-hq/online-banking/internet-banking/view-and-export-your-transactions/
+ * - https://www.kiwibank.co.nz/business-banking/thrive-hq/online-banking/internet-banking/accounting-software-integration/
+ *   24mo QIF/PDF/OFC/OFX/CSV
+ *
+ * INFERRED only (community nz-bank-parser; not official — replace when a redacted
+ * real export is available): header names below, dates often DD-MM-YYYY, signed Amount.
+ *
+ * Operator map — not bank-brand detect. No affiliation claim. Fixture amounts only.
+ * Does not revive PR #90.
+ */
+const KIWIBANK_FULL_CSV = [
+  'Account number,Date,Memo/Description,Source Code (payment type),TP ref,TP part,TP code,OP ref,OP part,OP code,OP name,OP Bank Account Number,Amount (credit),Amount (debit),Amount,Balance',
+  '00-0000-0000000-00,25-03-2026,Fixture paint,EFTPOS,TP1,TPP,TPC,OP1,OPP,OPC,Fixture Paint Co,00-0000-0000001-00,0.00,12.50,-12.50,1000.00',
+  '00-0000-0000000-00,13-03-2026,Fixture credit,CREDIT,TP2,TPP,TPC,OP2,OPP,OPC,Fixture Client Ltd,00-0000-0000001-00,88.00,0.00,88.00,1088.00',
+].join('\n');
+
+describe('Kiwibank Full CSV (INFERRED headers)', () => {
+  it('returns the INFERRED Full CSV field names for the operator to map', () => {
+    const table = parseSpreadsheet(KIWIBANK_FULL_CSV, 'kiwibank-full-fixture.csv');
+    expect(table.headers).toEqual([
+      'Account number',
+      'Date',
+      'Memo/Description',
+      'Source Code (payment type)',
+      'TP ref',
+      'TP part',
+      'TP code',
+      'OP ref',
+      'OP part',
+      'OP code',
+      'OP name',
+      'OP Bank Account Number',
+      'Amount (credit)',
+      'Amount (debit)',
+      'Amount',
+      'Balance',
+    ]);
+    expect(table.rows).toHaveLength(2);
+  });
+
+  it('maps Memo/Description as Description (operator choice)', () => {
+    const rows = parseMappedSpreadsheet(KIWIBANK_FULL_CSV, 'kiwibank-full-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Memo/Description',
+    });
+    expect(rows).toEqual([
+      { date: '2026-03-25', amount: -1250, description: 'Fixture paint' },
+      { date: '2026-03-13', amount: 8800, description: 'Fixture credit' },
+    ]);
+  });
+
+  it('maps OP name when the operator chooses that header instead', () => {
+    const rows = parseMappedSpreadsheet(KIWIBANK_FULL_CSV, 'kiwibank-full-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'OP name',
+    });
+    expect(rows).toEqual([
+      { date: '2026-03-25', amount: -1250, description: 'Fixture Paint Co' },
+      { date: '2026-03-13', amount: 8800, description: 'Fixture Client Ltd' },
+    ]);
+  });
+
+  it('normalizes INFERRED DD-MM-YYYY dates (day > 12) via existing normalizeDate', () => {
+    const rows = parseMappedSpreadsheet(KIWIBANK_FULL_CSV, 'kiwibank-full-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Memo/Description',
+    });
+    expect(rows.map((r) => r.date)).toEqual(['2026-03-25', '2026-03-13']);
+  });
+
+  it('treats signed Amount as credit (positive) or debit (negative)', () => {
+    const rows = parseMappedSpreadsheet(KIWIBANK_FULL_CSV, 'kiwibank-full-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Memo/Description',
+    });
+    expect(rows[0].amount).toBe(-1250);
+    expect(rows[1].amount).toBe(8800);
+  });
+
+  it('strips a UTF-8 BOM and still matches the operator map', () => {
+    const withBom = `\uFEFF${KIWIBANK_FULL_CSV}`;
+    const rows = parseMappedSpreadsheet(withBom, 'kiwibank-full-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Memo/Description',
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[0].description).toBe('Fixture paint');
+  });
+});
