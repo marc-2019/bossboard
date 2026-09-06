@@ -114,9 +114,13 @@ export default function BankUploadPage() {
       </Link>
 
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Upload spreadsheet</h1>
-      <p className="text-sm text-gray-600 mb-6">
+      <p className="text-sm text-gray-600 mb-2">
         Upload a CSV or Excel file, then map which columns are Date, Amount, and Description.
         Duplicates from previous uploads are skipped.
+      </p>
+      <p className="text-sm text-gray-500 mb-6">
+        Example Westpac Business Online CSV headers include Date, Amount, Other Party Name.
+        Choose those columns in the map — we do not auto-detect bank brands.
       </p>
 
       {error && (

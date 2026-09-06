@@ -65,3 +65,86 @@ describe('mapped spreadsheet (generic Date / Amount / Description)', () => {
     expect(rows).toEqual([{ date: '2026-03-07', amount: 100, description: 'Fixture keep' }]);
   });
 });
+
+/**
+ * Westpac NZ Business Online Accounts CSV — mapped path only (vd-bb-bank-westpac).
+ * Header names from Westpac “Import & Export (Download) Formats” guide,
+ * CSV Format (Accounts): Date, Amount, Other Party Name, Description, Particulars,
+ * Analysis Code, Reference, Transaction Notes.
+ * https://assets.dam.westpac.co.nz/is/content/wnzl/dist/ways-to-bank/digital/business-online/Business-Online_Transaction-Import-and-Export-File-Formats_guide.pdf
+ * Operator map — not bank-brand detect. Fixture amounts only.
+ */
+const WESTPAC_ACCOUNTS_CSV = `Date,Amount,Other Party Name,Description,Particulars,Analysis Code,Reference,Transaction Notes
+13/03/2026,-12.50,Fixture Paint Co,EFTPOS,INV-FIX,AP,REF-001,Fixture note
+25/03/2026,88.00,Fixture Client Ltd,CREDIT,DEP,DC,INV-FIX,Fixture credit`;
+
+describe('mapped spreadsheet (Westpac Business Online Accounts CSV headers)', () => {
+  it('returns the PDF Accounts CSV field names for the operator to map', () => {
+    const table = parseSpreadsheet(WESTPAC_ACCOUNTS_CSV, 'westpac-accounts-fixture.csv');
+    expect(table.headers).toEqual([
+      'Date',
+      'Amount',
+      'Other Party Name',
+      'Description',
+      'Particulars',
+      'Analysis Code',
+      'Reference',
+      'Transaction Notes',
+    ]);
+    expect(table.rows).toHaveLength(2);
+  });
+
+  it('maps Other Party Name as Description (operator choice; reconciliation-friendly)', () => {
+    const rows = parseMappedSpreadsheet(WESTPAC_ACCOUNTS_CSV, 'westpac-accounts-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Other Party Name',
+    });
+    expect(rows).toEqual([
+      { date: '2026-03-13', amount: -1250, description: 'Fixture Paint Co' },
+      { date: '2026-03-25', amount: 8800, description: 'Fixture Client Ltd' },
+    ]);
+  });
+
+  it('maps the Description column when the operator chooses that header instead', () => {
+    const rows = parseMappedSpreadsheet(WESTPAC_ACCOUNTS_CSV, 'westpac-accounts-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Description',
+    });
+    expect(rows).toEqual([
+      { date: '2026-03-13', amount: -1250, description: 'EFTPOS' },
+      { date: '2026-03-25', amount: 8800, description: 'CREDIT' },
+    ]);
+  });
+
+  it('normalizes Westpac dd/mm/yyyy dates (day > 12) via existing normalizeDate', () => {
+    const rows = parseMappedSpreadsheet(WESTPAC_ACCOUNTS_CSV, 'westpac-accounts-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Other Party Name',
+    });
+    expect(rows.map((r) => r.date)).toEqual(['2026-03-13', '2026-03-25']);
+  });
+
+  it('treats leading-minus Amount as a debit, matching the Westpac Accounts format note', () => {
+    const rows = parseMappedSpreadsheet(WESTPAC_ACCOUNTS_CSV, 'westpac-accounts-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Other Party Name',
+    });
+    expect(rows[0].amount).toBe(-1250);
+    expect(rows[1].amount).toBe(8800);
+  });
+
+  it('strips a UTF-8 BOM and still matches the operator map', () => {
+    const withBom = `\uFEFF${WESTPAC_ACCOUNTS_CSV}`;
+    const rows = parseMappedSpreadsheet(withBom, 'westpac-accounts-fixture.csv', {
+      date: 'Date',
+      amount: 'Amount',
+      description: 'Other Party Name',
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[0].description).toBe('Fixture Paint Co');
+  });
+});
