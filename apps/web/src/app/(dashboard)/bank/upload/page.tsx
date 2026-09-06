@@ -120,7 +120,7 @@ export default function BankUploadPage() {
       </p>
       <p className="text-sm text-gray-500 mb-6">
         Example Westpac Business Online CSV headers include Date, Amount, Other Party Name.
-        Map those columns yourself — this is not bank-brand detect.
+        Choose those columns in the map — we do not auto-detect bank brands.
       </p>
 
       {error && (
