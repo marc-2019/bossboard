@@ -26,11 +26,7 @@ import './landing.css';
  */
 
 const HOME_DESCRIPTION =
-  "Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.";
-
-/** JSON-LD only: same sentence as metadata minus the "$4.99/week" suffix so SoftwareApplication.description does not read as current charged pricing beside Offer.price 0. Live hero qualifies $4.99 as future billing. Do not invent ratings. */
-const HOME_JSON_LD_DESCRIPTION =
-  "Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies.";
+  "Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies. Free during beta; paid tiers when we launch billing.";
 
 export const metadata: Metadata = {
   title: 'BossBoard | The All-in-One App for NZ Tradies',
@@ -52,7 +48,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'BossBoard | The All-in-One App for NZ Tradies',
     description:
-      'Jobs, teams, safety paperwork and revenue insights in one app. Built for Kiwi tradies. From $4.99/week.',
+      'Jobs, teams, safety paperwork and revenue insights in one app. Built for Kiwi tradies. Free during beta; paid tiers when we launch billing.',
     url: 'https://bossboard.instilligent.com',
     type: 'website',
   },
@@ -61,7 +57,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="landing-page">
-      {/* BB-AI-1: intentional — no aggregateRating/review (none exist). Rich-result SoftwareApplication eligibility incomplete until real visible reviews exist. Offers.price 0 mirrors visible Free / beta. SoftwareApplication.description omits metadata's "From $4.99/week" so it does not read as current charged pricing beside a free Offer. Do not invent ratings. */}
+      {/* BB-AI-1: intentional — no aggregateRating/review (none exist). Rich-result SoftwareApplication eligibility incomplete until real visible reviews exist. Offers.price 0 and HOME_DESCRIPTION both mirror visible Free / beta (no current charged price in the description/JSON-LD path). Do not invent ratings. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -84,7 +80,7 @@ export default function Home() {
               url: 'https://bossboard.instilligent.com/',
               applicationCategory: 'BusinessApplication',
               operatingSystem: 'Web',
-              description: HOME_JSON_LD_DESCRIPTION,
+              description: HOME_DESCRIPTION,
               offers: {
                 '@type': 'Offer',
                 price: '0',
