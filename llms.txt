@@ -1,5 +1,7 @@
 # BossBoard
 
+> BossBoard is a mobile-first business-management app for New Zealand tradies. The product is free during beta; Tradie and Team paid tiers are listed for when billing launches. AI-assisted SWMS drafts are templates and starting material, not legal advice — the operator stays the PCBU. Published by Instilligent Limited (NZBN 9429041896853).
+
 BossBoard is a mobile-first business management app for New Zealand tradespeople (electricians, plumbers, builders, etc.) with AI-assisted compliance-doc drafting.
 
 ## About
@@ -14,10 +16,13 @@ BossBoard streamlines the "paperwork" of running a trade business. It provides A
 
 ## Key Pages
 - [Homepage](https://bossboard.instilligent.com) - Main landing page and feature overview.
-- [Sign Up](https://bossboard.instilligent.com/auth/signup) - User registration.
-- [Pricing](https://bossboard.instilligent.com#pricing) - Subscription tiers (Free, Tradie, Team).
-- [Privacy Policy](https://bossboard.instilligent.com/privacy) - Privacy and data handling.
-- [Terms of Service](https://bossboard.instilligent.com/terms) - Usage terms.
+- [Register](https://bossboard.instilligent.com/register) - Create account.
+- [Login](https://bossboard.instilligent.com/login) - Sign in.
+- [Pricing](https://bossboard.instilligent.com#pricing) - Subscription tiers listed when billing launches (Free, Tradie, Team).
+- [Privacy Policy](https://api.instilligent.com/legal/privacy) - Privacy and data handling (footer-canonical; HTTP 200).
+- [Terms of Service](https://api.instilligent.com/legal/terms) - Usage terms (footer-canonical; HTTP 200).
+# UNKNOWN: on-site https://bossboard.instilligent.com/privacy currently HTTP 307 to /login?redirect=... — not a public cite target until Marc picks an on-site privacy page.
+# UNKNOWN: on-site https://bossboard.instilligent.com/terms currently HTTP 307 to /login?redirect=... — not a public cite target until Marc picks an on-site terms page.
 
 ## Contact
 - **Email**: info@instilligent.com
