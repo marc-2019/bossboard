@@ -427,6 +427,22 @@
       "notes": "Added 2026-06-24 (COMPLY): registered NZBN as it appears in llms.txt (colon form), after correcting the stale 9429051796284."
     },
     {
+      "id": "bossboard.llms-key-pages-canonical-urls",
+      "claim": "llms.txt Key Pages cite live public URLs: homepage, /register, /login, homepage #pricing, and footer-canonical api.instilligent.com/legal/privacy + /legal/terms. On-site /privacy and /terms are UNKNOWN as public cite targets (HTTP 307 to login).",
+      "surfaces": [
+        "apps/web/public/llms.txt",
+        "llms.txt"
+      ],
+      "evidence_references": [
+        "PROVEN 2026-09-13 PT (Marc Mac): live sitemap locs /, /register, /login, /forgot-password only; /register HTTP 200 (Create account); /auth/signup HTTP 307 to /login?redirect=/auth/signup; on-site /privacy and /terms HTTP 307 to login; footer-canonical https://api.instilligent.com/legal/privacy and https://api.instilligent.com/legal/terms HTTP 200; homepage #pricing still valid.",
+        "llmstxt.org optional blockquote summary immediately after H1"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-09-13",
+      "notes": "BB-AI-2. Blockquote after H1 mirrors live homepage posture: free during beta; Tradie/Team paid tiers listed when billing launches (no dollar amounts as current paid facts); SWMS drafts are templates/starting material, not legal advice; operator stays PCBU; publisher Instilligent Limited NZBN 9429041896853. Does not add /tools/gst-invoice (BB-AI-3). Live publish of llms.txt is Marc L3 — this registry entry covers git copy only.",
+      "previous_overclaim": "Key Pages cited /auth/signup (307, not a working signup URL) and on-site /privacy + /terms (307 to login, not public)."
+    },
+    {
       "id": "bossboard.meta-keywords-worksafe",
       "claim": "Meta keywords use HSWA 2015 / health and safety framing, not WorkSafe NZ branding.",
       "surfaces": [
