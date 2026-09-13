@@ -25,10 +25,12 @@ import './landing.css';
  *  - Inter typeface loaded via the layout's metadata, not here.
  */
 
+const HOME_DESCRIPTION =
+  "Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.";
+
 export const metadata: Metadata = {
   title: 'BossBoard | The All-in-One App for NZ Tradies',
-  description:
-    "Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.",
+  description: HOME_DESCRIPTION,
   keywords: [
     'tradie app',
     'NZ tradies',
@@ -55,6 +57,47 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="landing-page">
+      {/* BB-AI-1: intentional — no aggregateRating/review (none exist). Rich-result SoftwareApplication eligibility incomplete until real visible reviews exist. Offers.price 0 mirrors visible Free / beta. Do not invent ratings. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'Instilligent Limited',
+              url: 'https://instilligent.com',
+              identifier: {
+                '@type': 'PropertyValue',
+                name: 'NZBN',
+                value: '9429041896853',
+              },
+            },
+            {
+              '@context': 'https://schema.org',
+              '@type': 'SoftwareApplication',
+              name: 'BossBoard',
+              url: 'https://bossboard.instilligent.com/',
+              applicationCategory: 'BusinessApplication',
+              operatingSystem: 'Web',
+              description: HOME_DESCRIPTION,
+              offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'NZD',
+                description:
+                  'Free during beta; Free tier $0 to get started (visible on homepage)',
+              },
+              publisher: {
+                '@type': 'Organization',
+                name: 'Instilligent Limited',
+                url: 'https://instilligent.com',
+              },
+            },
+          ]),
+        }}
+      />
+
       {/* Inter font — loaded via <link> instead of next/font to avoid a
           server-side font fetch in the build pipeline. */}
       <link
