@@ -282,10 +282,12 @@
         "apps/mobile/src/services/payments.ts (StoreKit / Play Billing dual-rail)",
         "apps/api/src/services/stripe.ts (web checkout only)"
       ],
-      "verdict": "PARTIAL",
-      "last_verified": "2026-08-23",
-      "notes": "Copy is in legal.ts (1A). Not IMPLEMENTED until curl of https://api.instilligent.com/legal/terms, /privacy, /support matches and has no beta-free / Stripe-as-iOS-processor claims.",
-      "previous_overclaim": "Terms said 'Beta Programme' (Tradie-tier free) and 'Subscription payments are processed by Stripe' on the page Apple Review taps. Privacy listed Stripe as the payment processor. Support FAQ said all features free in beta."
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-09-16",
+      "notes": "PROVEN live curl 2026-09-16 NZ: GET https://api.instilligent.com/legal/{terms,privacy,support} all HTTP 200. No \"free during beta\" / prior overclaim phrases. Terms+Support: iOS billing via App Store. Privacy: Stripe = \"Website payments only (not iOS in-app purchases)\". Support FAQ: free tier limits + paid from $4.99 NZD/week — not beta-free. Evidence: /home/marc/local-agent-workspace/artifacts/bb-legal-verify-2026-09-16.json",
+      "previous_overclaim": "Terms said 'Beta Programme' (Tradie-tier free) and 'Subscription payments are processed by Stripe' on the page Apple Review taps. Privacy listed Stripe as the payment processor. Support FAQ said all features free in beta.",
+      "decision": "keep",
+      "decision_notes": "Local verify closed PARTIAL→IMPLEMENTED; code rails already dual StoreKit/Play + Stripe web-only."
     },
     {
       "id": "bossboard.privacy-consent-banner",
