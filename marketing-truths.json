@@ -98,12 +98,18 @@
       "claim": "Cashflow Forecasting (Coming Q2 2026): Xero integration, invoice chasing, full cashflow position",
       "surfaces": [],
       "code_references": [
-        "Module 2 in CLAUDE.md (Q2-Q3 2026 — UNRELEASED)"
+        "Module 2 in CLAUDE.md (Q2-Q3 2026 — UNRELEASED)",
+        "docs/technical/MODULE_2_XERO_CASHFLOW_DESIGN.md (DESIGN ONLY, no code)"
       ],
       "verdict": "ABSENT",
       "decision": "drop",
-      "decision_notes": "Copy dropped 2026-08-30 (Marc yes A+B). Live https://bossboard.instilligent.com/llms.txt already had no cashflow/Xero/Q2. Root llms.txt replaced with apps/web/public/llms.txt (deployed crawler file). README Q2 cashflow line removed. Q2 2026 has passed. Feature still ABSENT in code: no Xero OAuth, no invoice-chase service, stats.ts is revenue history only.",
-      "last_verified": "2026-08-30",
+      "decision_notes": "ABSENT_CONFIRMED 2026-09-16 (CF leftover / trades equal-pull — marketing-truth cashflow ABSENT). Re-verify: apps/api/src grep xero|cashflow = 0; no /xero or /cashflow routes; no invoice-chase service; stats/insights are revenue history + AR aging only. Live https://bossboard.instilligent.com/llms.txt HTTP 200 with no cashflow/Xero/Q2. Copy already dropped 2026-08-30 (Marc yes A+B). Q2 2026 has passed. Marc 2026-07-14: Module 2 not committed. Do not invent Module 2/3 features.",
+      "last_verified": "2026-09-16",
+      "evidence_references": [
+        "docs/marketing-audit-2026-09-16-cashflow-xero-absent.md",
+        "CF report: bb leftover / trades equal-pull 2026-09-16 (marketing-truth cashflow ABSENT)",
+        "docs/marketing-audit-2026-08-30-match-live-llms.md"
+      ],
       "previous_overclaim": "Was framed as available core feature, then as Coming Q2 2026 on git root llms.txt + README while live llms was already clean."
     },
     {
@@ -625,7 +631,7 @@
   ],
   "open_items": [
     "TestFlight/App Store: ship master after-job SWMS→invoice (EAS login required on Mac) — see docs/BB_TESTFLIGHT_AFTER_JOB.md in local-agent-workspace",
-    "Cashflow forecasting + Xero integration: Module 2 (Q2-Q3 2026 per CLAUDE.md)",
+    "Cashflow forecasting + Xero integration: ABSENT_CONFIRMED 2026-09-16 — not shipped; Module 2 not committed (Marc 2026-07-14). Do not market as Coming Q2 2026.",
     "Visa/hiring compliance: Module 3 (Q3-Q4 2026 per CLAUDE.md)",
     "Stripe NZ integration: pending at ~50 paying users target"
   ]
