@@ -6,7 +6,7 @@
 **Status:** **ABSENT_CONFIRMED**  
 **Scope:** Register/claim hygiene only. Docs + `marketing-truths.json`. No Module 2/3 product work.
 
-Mac agent draft `docs/bb-cashflow-absent-hygiene-2026-09-16` @ `5a68686` could not push (Auto-review). This file recreates the equivalent honesty record from the leftover report.
+Mac agent draft branch `docs/bb-cashflow-absent-hygiene-2026-09-16` (local SHA `5a68686`, not on origin — Auto-review blocked push). This file recreates the equivalent honesty record from the leftover report.
 
 ## Verdict
 
@@ -24,7 +24,8 @@ Q2 2026 has passed. Dated “Coming Q2 2026” is stale even as a future-tense p
 |-------|--------|
 | `apps/api/src` grep `xero` / `cashflow` | **0 matches** |
 | `apps/api/src/routes/` + `services/` files named xero/cashflow | **none** |
-| `GET /api/v1/stats/dashboard` + `/insights` | Revenue history, invoice aging, top customers — **not** a cash-position forecast |
+| `GET /api/v1/stats/dashboard` | SWMS / invoice / quote / cert **counts** — not a cash-position forecast |
+| `GET /api/v1/stats/insights` | Revenue history, AR aging, top customers — **not** Xero/cash-position forecast |
 | Design doc `docs/technical/MODULE_2_XERO_CASHFLOW_DESIGN.md` | **DESIGN ONLY (no code)** |
 | Live `https://bossboard.instilligent.com/llms.txt` | HTTP 200, **no** cashflow / Xero / Q2 2026 |
 | Git `llms.txt` + `apps/web/public/llms.txt` | Same as live — already honest |
@@ -48,9 +49,13 @@ These files still mention Xero/cashflow as future or splash copy. They are **not
 |---------|---------|-------|
 | `nginx/html/support.html` | FAQ “Xero integration is on our roadmap for Q2-Q3 2026…” | Stale dated promise |
 | `nginx/html/index.html` | “We're adding Xero integration soon…” | Stale |
-| `apps/mobile/STORE_LISTING.md` | “Coming soon: Xero and MYOB integration” | Store-draft leftover; not a shipped feature |
+| `apps/mobile/STORE_LISTING.md` | Present-tense “Know your cashflow position at a glance” + “Coming soon: Xero and MYOB integration” | Store-draft leftover; not a shipped feature |
+| `apps/mobile/store-listing.json` | ROADMAP: “Xero integration for automatic accounting sync” | Submission-shaped listing leftover |
 | `apps/mobile/App.tsx` | Splash cards “Xero Integration… Q2 2026” | Unused entry (`expo-router/entry` is `main`) |
+| `docs/DISASTER_RECOVERY.md` | “Xero Integration” runbook / “Issue: Xero integration fails” | Internal DR leftover; no live Xero app |
 | `CLAUDE.md` / `docs/CHANGELOG.md` Planned | Module 2 still listed as future | Internal roadmap, not crawler copy |
+
+Brand-word “cashflow” in About copy (`apps/mobile/app/settings/index.tsx`) is category language, **not** a Module 2 forecasting claim.
 
 Any later copy recall of those surfaces needs a Marc-approved marketing-truth commit. This leftover item is **register honesty only**.
 
