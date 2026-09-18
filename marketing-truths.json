@@ -234,7 +234,7 @@
     },
     {
       "id": "bossboard.photos",
-      "claim": "Photo documentation with GPS tagging, attached to jobs/invoices/SWMS",
+      "claim": "Photo documentation attached to jobs/invoices/SWMS",
       "surfaces": [
         "apps/web/src/app/page.tsx#L182-190",
         "llms.txt#L11"
@@ -251,7 +251,7 @@
       ],
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-09-19",
-      "notes": "Attachment-to-entity path re-verified 2026-09-19. GPS tagging evidence still thin / UNKNOWN: photos table has no lat/lng; API + PhotoAttachments do not persist EXIF GPS. Location is used for job/SWMS site-address assist (apps/mobile/PRIVACY_POLICY.md), not photo geotags. Verdict left IMPLEMENTED (pre-existing)."
+      "notes": "Attachment-to-entity path re-verified 2026-09-19 (API POST /api/v1/photos, photos table, PhotoAttachments, photo-uploader). GPS tagging remains UNKNOWN / not proven: photos table has no lat/lng; API + PhotoAttachments do not persist EXIF GPS. Location is used for job/SWMS site-address assist (apps/mobile/PRIVACY_POLICY.md), not photo geotags. Public claim text softened 2026-09-19 — no GPS/geotag implication. Verdict left IMPLEMENTED for attachments only (pre-existing). Homepage / llms.txt surfaces still mention GPS; that is residual marketing copy, not a proven capability."
     },
     {
       "id": "bossboard.certifications",
