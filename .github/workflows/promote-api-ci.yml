@@ -1,0 +1,106 @@
+# Promote-path API CI — staging → master
+#
+# BossBoard's promotion hop is staging → master. There is no `develop`
+# branch, so this workflow does not invent a develop → staging gate.
+#
+# Runs the same API test + build steps as .github/workflows/api-ci.yml when:
+#   - code is pushed to staging (the promote source), or
+#   - a pull request promotes staging into master/main, or
+#   - someone re-runs it with workflow_dispatch.
+#
+# Other pull requests into master skip these jobs (no runner) so feature
+# and Dependabot PRs are unchanged.
+#
+# This workflow does not deploy. It does not call Railway, and it does not
+# replace api-ci.yml's master/main deploy-notification. Railway production
+# stays on the existing GitHub integration for master.
+
+name: Promote API CI
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-api-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  test:
+    name: Test API (staging → master)
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
+      (github.event_name == 'pull_request' && github.head_ref == 'staging' &&
+        (github.base_ref == 'master' || github.base_ref == 'main'))
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bossboard_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: bossboard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://bossboard_test:test_password@localhost:5432/bossboard_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret-32-chars-minimum
+      JWT_REFRESH_SECRET: test-refresh-secret-32-chars-min
+      NODE_ENV: test
+      PORT: 29000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Initialize test database
+        run: |
+          PGPASSWORD=test_password psql -h localhost -U bossboard_test -d bossboard_test -f database/init.sql
+
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
+
+      - name: Run tests
+        working-directory: apps/api
+        run: npm test
+
+      - name: Build TypeScript
+        working-directory: apps/api
+        run: npm run build

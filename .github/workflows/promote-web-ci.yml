@@ -1,0 +1,68 @@
+# Promote-path web CI — staging → master
+#
+# BossBoard's promotion hop is staging → master. There is no `develop`
+# branch, so this workflow does not invent a develop → staging gate.
+#
+# Runs the same web route-integrity + typecheck steps as
+# .github/workflows/web-ci.yml when:
+#   - code is pushed to staging (the promote source), or
+#   - a pull request promotes staging into master/main, or
+#   - someone re-runs it with workflow_dispatch.
+#
+# Other pull requests into master skip these jobs (no runner).
+#
+# This workflow does not deploy and does not call Railway. Production web
+# deploy stays on the existing master integration.
+
+name: Promote Web CI
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-web-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  check:
+    name: Web checks (staging → master)
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
+      (github.event_name == 'pull_request' && github.head_ref == 'staging' &&
+        (github.base_ref == 'master' || github.base_ref == 'main'))
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
+
+      - name: Route-link integrity check
+        working-directory: apps/web
+        run: npm run check:routes
+
+      - name: TypeScript build
+        working-directory: apps/web
+        run: npx tsc --noEmit
