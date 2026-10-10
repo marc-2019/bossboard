@@ -17,6 +17,10 @@
 dockerfilePath = "Dockerfile.api"
 
 # Build context is the project root (Dockerfile copies from apps/api/ and packages/shared/)
+# watchPatterns only choose which GitHub pushes Railway rebuilds. This file
+# cannot wait for GitHub Actions. "Wait for CI" is a Railway service setting
+# (not a key in this schema). Until that is enabled, a failed api-ci.yml run
+# does not stop this service from deploying.
 watchPatterns = ["apps/api/src/**", "apps/api/package*.json", "apps/api/tsconfig.json", "packages/shared/src/**", "packages/shared/package.json", "Dockerfile.api"]
 
 [deploy]

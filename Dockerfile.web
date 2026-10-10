@@ -13,8 +13,9 @@ COPY package.json package-lock.json ./
 COPY apps/mobile/package.json apps/mobile/
 COPY apps/api/package.json apps/api/
 
-# Install all dependencies (needed for monorepo resolution)
-RUN npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+# Lockfile install. The previous `|| npm install` hid a failed npm ci and
+# could ship unlocked versions. --ignore-scripts matches the prior install.
+RUN npm ci --ignore-scripts
 
 # =============================================================================
 # BUILDER STAGE - Build Expo web export

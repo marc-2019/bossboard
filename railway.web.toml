@@ -23,7 +23,8 @@ dockerfilePath = "Dockerfile.nextweb"
 
 # Trigger rebuilds only when something the webapp actually depends on
 # changes. Stops every API or mobile commit from kicking off a webapp
-# rebuild.
+# rebuild. These patterns do not wait for GitHub Actions. "Wait for CI"
+# is a Railway service setting, not a key here. web-ci.yml does not deploy.
 watchPatterns = [
   "apps/web/**",
   "packages/shared/**",

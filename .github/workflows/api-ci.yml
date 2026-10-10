@@ -1,8 +1,14 @@
-# BossBoard API - Railway Deployment
-# Deploys the Express API to Railway on push to main/master
-# Railway auto-deploys from GitHub when connected - this workflow handles testing
+# BossBoard API CI
+# Fails this GitHub check when API tests or the TypeScript build fail.
+# This workflow does not deploy and does not call Railway.
+#
+# Railway GitHub autodeploy, if the service is connected, is separate.
+# railway.toml watchPatterns choose which pushes rebuild. They do not
+# wait for this check. "Wait for CI" is a Railway service setting, not
+# a railway.toml key. Until that is on, a red run here does not stop a
+# Railway release. Required status checks are not set in this repo.
 
-name: BossBoard API CI/CD
+name: BossBoard API CI
 
 on:
   push:
@@ -14,11 +20,21 @@ on:
       - 'Dockerfile.api'
       - 'docker-compose.production.yml'
       - 'railway.toml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/api-ci.yml'
   pull_request:
     branches: [master, main]
     paths:
       - 'apps/api/**'
       - 'packages/shared/**'
+      - 'database/**'
+      - 'Dockerfile.api'
+      - 'docker-compose.production.yml'
+      - 'railway.toml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/api-ci.yml'
   workflow_dispatch:
 
 env:
@@ -82,6 +98,7 @@ jobs:
       - name: Build shared package
         run: npm run build --workspace=packages/shared
 
+      # Fail closed. Do not add continue-on-error, `|| true`, or `|| echo`.
       - name: Run tests
         working-directory: apps/api
         run: npm test
@@ -90,15 +107,17 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-  # Railway auto-deploys on push to main when connected via GitHub integration
-  # No manual deploy step needed - Railway watches the repo
-  deploy-notification:
-    name: Deploy Status
+  # Does not deploy. success() is written out so this gate stays tied to
+  # the test job. GitHub also applies success() when an if has no status
+  # function; do not replace that with always() or failure().
+  # Railway is not invoked here. See the file header.
+  ci-gate:
+    name: CI gate (does not deploy)
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: ${{ success() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
     steps:
-      - name: Deployment triggered
+      - name: Tests passed; this job does not deploy
         run: |
-          echo "Tests passed! Railway will auto-deploy from this push."
-          echo "Check Railway dashboard for deployment status."
+          echo "API tests and the TypeScript build passed. This workflow does not deploy."
+          echo "Railway autodeploy is not gated by this job until Wait for CI is enabled on the service."

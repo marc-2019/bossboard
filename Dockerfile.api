@@ -21,7 +21,9 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
-RUN npm install --omit=dev --workspace=packages/shared --workspace=apps/api \
+# Lockfile install. Do not fall back to npm install: a drift would ship
+# versions that were not reviewed.
+RUN npm ci --omit=dev --workspace=packages/shared --workspace=apps/api \
     && npm cache clean --force
 # npm only creates apps/api/node_modules when version conflicts force nested
 # installs; with a fully-hoisted lockfile (true since ~2026-05) the directory
@@ -37,7 +39,7 @@ FROM base AS builder
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
-RUN npm install --workspace=packages/shared --workspace=apps/api
+RUN npm ci --workspace=packages/shared --workspace=apps/api
 
 # Build shared package first (API depends on its compiled output).
 # Emit CommonJS so apps/api (CJS) can require('@bossboard/shared') in production.
@@ -74,6 +76,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
+# Dev-only stage (compose target: development), not the production image.
 RUN npm install --workspace=packages/shared --workspace=apps/api
 
 COPY packages/shared/src ./packages/shared/src
