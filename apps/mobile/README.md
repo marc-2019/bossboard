@@ -1,6 +1,6 @@
 # BossBoard Mobile App
 
-Mobile-first compliance & cashflow platform for NZ tradies, built with React Native (Expo).
+Invoicing, quotes and job records for NZ tradies, built with React Native (Expo).
 
 For development setup, build, and deployment instructions see [SETUP.md](./SETUP.md).
 

@@ -243,7 +243,7 @@ export default function NewSwmsPage() {
             <span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-gray-900">
                 <Sparkles size={15} className="text-accent" />
-                AI-powered generation
+                AI-assisted generation
               </span>
               <span className="block text-xs text-gray-500 mt-0.5">
                 Get smart, site-specific hazard suggestions and control measures. Turn off

@@ -11,7 +11,7 @@ Use this prompt to resume work on BossBoard in a new Claude Code session.
 
 ## Project Context
 
-- **Project**: BossBoard - Mobile compliance & cashflow platform for NZ tradies
+- **Project**: BossBoard - Invoicing, quotes and job records for NZ tradies
 - **Location**: `/home/marc/projects/trademate-nz` (legacy on-disk path; `package.json` `"name": "bossboard"`)
 - **GitHub**: `git@github.com:marc-2019/trademate-nz.git` (rename to `marc-2019/bossboard` pending Marc-action)
 - **Main Branch**: `master`
@@ -99,7 +99,7 @@ curl http://localhost:29000/health
 ## Copy-Paste Prompt
 
 ```
-I'm continuing work on BossBoard, a mobile-first compliance and cashflow platform for NZ tradies.
+I'm continuing work on BossBoard, invoicing, quotes and job records for NZ tradies.
 
 Project location: /home/marc/projects/trademate-nz  (legacy on-disk name; package.json "name": "bossboard")
 

@@ -263,7 +263,7 @@ export default function AddCertificationScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={20} color="#FF6B35" />
           <Text style={styles.infoText}>
-            Track your certifications to stay compliant and get reminders before
+            Track your certifications and get reminders before
             they expire. Under NZ law, you must hold a current practising licence
             for regulated trades.
           </Text>

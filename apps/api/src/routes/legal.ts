@@ -146,7 +146,7 @@ function renderPrivacyPolicy(): string {
       <p>Under IPP 10 (Limits on Use), we use personal information only for the purpose for which it was collected or a directly related purpose:</p>
       <ul>
         <li>Provide, operate, and maintain the Service, including generating invoices, quotes, and compliance documents.</li>
-        <li>Generate AI-powered compliance documentation (SWMS, hazard suggestions, control measures) using the Anthropic Claude API.</li>
+        <li>Generate AI-assisted SWMS drafts (hazard suggestions, control measures) using the Anthropic Claude API.</li>
         <li>Send push notifications for certification expiry reminders, invoice updates, and team invitations.</li>
         <li>Process subscription billing and manage your account.</li>
         <li>Generate business insights, dashboard statistics, and revenue reports.</li>
@@ -155,10 +155,10 @@ function renderPrivacyPolicy(): string {
         <li>Comply with legal obligations under New Zealand law.</li>
       </ul>
 
-      <h2>3. AI-Powered Features <small>(third-party AI &mdash; limited use)</small></h2>
-      <p>${appName} uses the Anthropic Claude API to generate compliance documents such as Safe Work Method Statements. This is <strong>limited use</strong> only for the document you requested &mdash; not for advertising, not for selling data, and not for training public foundation models under our control.</p>
+      <h2>3. AI-Assisted Features <small>(third-party AI &mdash; limited use)</small></h2>
+      <p>${appName} uses the Anthropic Claude API to draft Safe Work Method Statements. This is <strong>limited use</strong> only for the document you requested &mdash; not for advertising, not for selling data, and not for training public foundation models under our control.</p>
       <ul>
-        <li>When you enable <strong>AI-Powered Generation</strong> (in-app toggle) and generate a SWMS, relevant job details you entered (trade type, job description, site details) are sent via our API to Anthropic.</li>
+        <li>When you enable <strong>AI-assisted generation</strong> (in-app toggle) and generate a SWMS, relevant job details you entered (trade type, job description, site details) are sent via our API to Anthropic.</li>
         <li>Turning the toggle <strong>off</strong> uses template hazards only and does <strong>not</strong> call the third-party AI path for that request. Using the feature with the toggle on is your consent to that limited processing.</li>
         <li>We do not send your password or payment card numbers to the AI service.</li>
         <li>AI-generated content is suggestions only and must be reviewed and customised by you before use on site.</li>
@@ -498,9 +498,8 @@ function renderSupportPage(): string {
           <summary>What is ${appName}?</summary>
           <p>
             ${appName} is a mobile app built specifically for New Zealand tradespeople and small
-            service businesses. It brings together invoicing, quoting, expense tracking, job logging,
-            compliance documentation (SWMS), certification tracking, and team management in one
-            affordable, easy-to-use app.
+            service businesses. It brings together invoicing, quoting, job logging, expense tracking,
+            certification tracking, team management and AI-assisted SWMS drafts in one app.
           </p>
         </details>
 

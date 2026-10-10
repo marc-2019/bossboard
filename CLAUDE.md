@@ -1,4 +1,4 @@
-# BossBoard - Mobile-First Compliance & Cashflow Platform
+# BossBoard - Invoicing, Quotes & Jobs for NZ Tradies
 
 ## Project Brain
 

@@ -715,6 +715,12 @@
       "claim_dropped": "llms.txt: 'leverages AI to generate compliant Safe Work Method Statements' / 'Free $0 forever' / apps/web/public/llms.txt: 'AI-powered compliance documents'",
       "verdict_at_recall": "RECALLED",
       "reason": "Straggler scrub after Group 3 — residual 'compliant SWMS' promise (Rule B: compliance-promise), 'forever' free-tier qualifier (Rule G: free-forever recall per Marc-note in page.tsx:20-22), and 'AI-powered' framing without operator-accountable disclaimer (Rule F: disclaimer pattern miss). Auto/bb-copy-audit-fixes-2026-05-11 Group 6."
+    },
+    {
+      "date": "2026-10-10",
+      "claim_dropped": "package.json/README/app.json/App.tsx/settings About: 'compliance and cashflow platform' / 'Compliance, cashflow & operations'; STORE_LISTING.md: 'Compliant with Health and Safety at Work Act 2015', 'WorkSafe NZ compliant templates', crew tracking/dispatch, digital signatures, cashflow position, Xero/MYOB coming soon; store-listing.json: 'AI-powered', 'all-in-one', 'aligned to WorkSafe categories', Xero/visa roadmap; nginx/html legacy landing: invented testimonials, '8+ hours a week' stat, competitor prices, 'WorkSafe-compliant', Xero roadmap; web + API landing: 'The All-in-One App', 'safety paperwork and revenue insights' lead, 'Full audit trail for billing and compliance', 'Get started in under a minute', paid-tier 'Start Free' CTAs on the API landing (FTA-B2)",
+      "verdict_at_recall": "RECALLED",
+      "reason": "CPO claims fix (surface 3 of 6, branch cpo/bb-claims-fix-1010). Lead with invoicing, quotes and jobs; SWMS kept in the bossboard.compliance-framing form ('aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off'); bossboard.cashflow-forecasting is ABSENT. Gate: apps/api/tests/unit/customer-copy-banned-phrases.test.ts."
     }
   ],
   "verified_clean_directives": [

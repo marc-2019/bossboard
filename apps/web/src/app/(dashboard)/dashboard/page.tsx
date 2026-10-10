@@ -258,7 +258,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">Log a job</h3>
                 <p className="text-xs text-gray-600">
-                  Track time on site, per-worker hours, and a full audit trail for billing.
+                  Track time on site and per-worker hours for billing.
                 </p>
               </Link>
               <Link

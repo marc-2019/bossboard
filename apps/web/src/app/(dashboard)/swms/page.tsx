@@ -101,7 +101,7 @@ export default function SwmsPage() {
             </div>
             <h2 className="text-base font-semibold text-gray-900 mb-1">No SWMS documents yet</h2>
             <p className="text-sm text-gray-600 max-w-md mx-auto mb-4">
-              Generate an AI-assisted Safe Work Method Statement in seconds — site-specific
+              Draft an AI-assisted Safe Work Method Statement — site-specific
               hazard ID, control measures, and PDF export. Sign on site in the BossBoard
               mobile app.
             </p>
