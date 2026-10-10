@@ -151,7 +151,7 @@ https://bossboard.instilligent.com
 ### iPhone (6.7" - iPhone 15 Pro Max)
 Titles mirror `store-listing.json` `screenshots.titles`:
 1. Dashboard - "Your business at a glance - revenue & quick actions"
-2. SWMS Generator - "Draft SWMS aligned to the HSWA 2015 - you sign off as PCBU"
+2. SWMS Generator - "Draft SWMS aligned to HSWA 2015 — you stay the PCBU and sign off"
 3. Invoice Creation - "Professional invoices with GST - create, send & track"
 4. Expense Tracking - "Track expenses & snap receipt photos on the go"
 5. Team Management - "Manage your team with role-based access & invites"

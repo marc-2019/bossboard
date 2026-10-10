@@ -152,7 +152,7 @@ export default function App() {
           />
           <FeatureCard
             title="SWMS Drafts"
-            description="Aligned to HSWA 2015, you stay the PCBU and sign off"
+            description="SWMS templates aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off"
             icon="📋"
             status="Available"
           />

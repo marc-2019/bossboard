@@ -95,15 +95,12 @@ export default function Home() {
       <section className="hero" id="top">
         <div className="lp-container">
           <div className="hero-badge">Built for NZ tradies · Made in Aotearoa</div>
-          <h1>
-            Your whole business.
-            <br />
-            One screen.
-          </h1>
+          <h1>Invoicing, quotes and job records for NZ tradies</h1>
+          <p className="hero-slogan">Your whole business. One screen.</p>
           <p>
-            Invoicing, quotes and job records in one app, with 15% GST built
-            in. BossBoard helps electricians, plumbers, builders and tradies
-            across Aotearoa run their business from their pocket.
+            With 15% GST built in. BossBoard helps electricians, plumbers,
+            builders and tradies across Aotearoa run their business from their
+            pocket.
           </p>
           <div className="hero-cta">
             <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large" data-cf-event="cta_click" data-cf-cta="start_free" data-cf-location="hero">
@@ -233,7 +230,6 @@ export default function Home() {
               <div className="price-amount">
                 $4.99<span>/week</span>
               </div>
-              <div className="price-period">~$19.99/month</div>
               <ul className="price-features">
                 <li>Unlimited invoices &amp; quotes</li>
                 <li>Unlimited SWMS</li>
@@ -263,7 +259,6 @@ export default function Home() {
               <div className="price-amount">
                 $9.99<span>/week</span>
               </div>
-              <div className="price-period">~$39.99/month</div>
               <ul className="price-features">
                 <li>Everything in Tradie</li>
                 <li>Up to 5 team members</li>

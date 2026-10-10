@@ -39,7 +39,7 @@ const TRADE_OPTIONS = [
 ];
 
 const SWMS_PCBU_DISCLAIMER =
-  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
+  'You remain the PCBU and must sign off for this site. This draft is not affiliated with WorkSafe NZ and is not legal advice.';
 
 export default function GenerateSWMSScreen() {
   const router = useRouter();

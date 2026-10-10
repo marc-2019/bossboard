@@ -9,41 +9,67 @@
  * bossboard.compliance-framing / .swms = "aligned to the Health and Safety at
  * Work Act 2015 — you stay the PCBU and sign off", bossboard.pricing-tiers).
  */
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readdirSync, readFileSync, statSync } from 'fs';
+import { extname, join } from 'path';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 
-const SURFACES = [
-  // Live web (bossboard.instilligent.com)
-  'apps/web/src/app/page.tsx',
-  'apps/web/public/llms.txt',
-  'apps/web/src/app/(dashboard)/dashboard/page.tsx',
-  'apps/web/src/app/(dashboard)/swms/page.tsx',
-  'apps/web/src/app/(dashboard)/swms/new/page.tsx',
-  // API host (api.instilligent.com): landing + legal/support pages + push copy
+/** Directories walked in full so a new page is covered without editing this list. */
+const CUSTOMER_DIRS: Array<{ dir: string; exts: string[] }> = [
+  { dir: 'apps/web/src/app', exts: ['.tsx', '.css'] },
+  { dir: 'apps/web/public', exts: ['.txt', '.html', '.md', '.json'] },
+  { dir: 'apps/mobile/app', exts: ['.tsx'] },
+  { dir: 'nginx/html', exts: ['.html', '.txt'] },
+  { dir: 'landing', exts: ['.html'] },
+];
+
+/**
+ * Customer copy that lives outside those trees (store listing, legal route,
+ * push copy, API disclaimer strings, repo landing mirrors).
+ */
+const CUSTOMER_FILES = [
   'apps/api/src/landing.html',
   'apps/api/src/routes/legal.ts',
   'apps/api/src/services/notifications.ts',
-  // Mobile app + store listing
-  'apps/mobile/app.json',
+  'apps/api/src/services/swms.ts',
   'apps/mobile/App.tsx',
-  'apps/mobile/app/settings/index.tsx',
-  'apps/mobile/app/swms/generate.tsx',
-  'apps/mobile/app/certifications/add.tsx',
+  'apps/mobile/app.json',
+  'apps/mobile/PRIVACY_POLICY.md',
   'apps/mobile/store-listing.json',
   'apps/mobile/STORE_LISTING.md',
-  // Repo-level / legacy publish roots
-  'llms.txt',
-  'landing/index.html',
-  'nginx/html/index.html',
-  'nginx/html/support.html',
-  'nginx/html/privacy.html',
-  'nginx/html/terms.html',
-  'package.json',
-  'README.md',
   'apps/mobile/README.md',
+  'llms.txt',
+  'README.md',
+  'package.json',
 ];
+
+const SKIP_DIR = new Set(['api', '__tests__', 'node_modules']);
+
+function walk(dir: string, exts: Set<string>): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (SKIP_DIR.has(entry.name)) continue;
+      out.push(...walk(rel, exts));
+      continue;
+    }
+    if (entry.name.includes('.test.') || entry.name.includes('.spec.')) continue;
+    if (exts.has(extname(entry.name))) out.push(rel);
+  }
+  return out;
+}
+
+function collectSurfaces(): string[] {
+  const found = new Set<string>(CUSTOMER_FILES);
+  for (const { dir, exts } of CUSTOMER_DIRS) {
+    if (!statSync(join(ROOT, dir)).isDirectory()) continue;
+    for (const rel of walk(dir, new Set(exts))) found.add(rel);
+  }
+  return [...found].sort();
+}
+
+const SURFACES = collectSurfaces();
 
 const BANNED: Array<[string, RegExp]> = [
   ['compliance and cashflow positioning', /compliance\s*(and|&|&amp;)\s*cash\s?flow/i],
@@ -51,7 +77,10 @@ const BANNED: Array<[string, RegExp]> = [
   ['Health & safety compliance positioning', /health\s*(and|&|&amp;)\s*safety\s+compliance\s+for/i],
   ['AI receptionist', /receptionist/i],
   ['AI-powered framing (use AI-assisted)', /AI[- ]powered/i],
-  ['WorkSafe compliant claim (negated disclaimers allowed)', /(?<!not )WorkSafe[- ](NZ )?compliant/i],
+  ['WorkSafe compliant claim', /WorkSafe[-\s]+(NZ[-\s]+)?compliant/i],
+  ['WorkSafe approved claim', /WorkSafe[-\s]+(NZ[-\s]+)?approved/i],
+  ['align with WorkSafe claim', /align(?:ed)?\s+with\s+WorkSafe/i],
+  ['legally compliant claim', /legally\s+compliant/i],
   ['compliant with HSWA claim', /compliant with (the )?Health and Safety/i],
   ['all-in-one claim', /all[- ]in[- ]one/i],
   ['Xero / MYOB promise', /\b(Xero|MYOB)\b/],
@@ -64,18 +93,59 @@ const BANNED: Array<[string, RegExp]> = [
   ['invented testimonials', /Dave Mitchell|Sarah Hohepa|Tane Pukekura/],
   ['invented admin-hours stat', /8\+\s*hours/i],
   ['negative US-app framing', /Not another US app/i],
+  ['understated weekly-to-monthly price', /~\$19\.99|~\$39\.99/],
 ];
+
+/** U+2010–U+2015 → ASCII hyphen, then drop the only allowed negation. */
+function prepare(text: string): string {
+  return text
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-')
+    .replace(/not\s+legal\s+advice/gi, ' ');
+}
+
+function bannedHits(text: string): string[] {
+  return BANNED.filter(([, re]) => re.test(text)).map(([name]) => name);
+}
 
 function read(rel: string): string {
   return readFileSync(join(ROOT, rel), 'utf8');
 }
 
 describe('customer-facing copy: banned claims are absent', () => {
+  it('covers the nginx hero, support page, and mobile privacy policy', () => {
+    expect(SURFACES).toEqual(expect.arrayContaining([
+      'nginx/html/index.html',
+      'nginx/html/support.html',
+      'apps/mobile/PRIVACY_POLICY.md',
+    ]));
+  });
+
+  it('treats unicode hyphens as ascii and allows only "not legal advice"', () => {
+    const hyphenated = 'WorkSafe\u2013compliant AI\u2011powered';
+    expect(bannedHits(prepare(hyphenated))).toEqual(
+      expect.arrayContaining([
+        'WorkSafe compliant claim',
+        'AI-powered framing (use AI-assisted)',
+      ]),
+    );
+    expect(bannedHits(prepare('This draft is not WorkSafe compliant'))).toContain(
+      'WorkSafe compliant claim',
+    );
+    expect(bannedHits(prepare('This draft is not legal advice'))).toEqual([]);
+    expect(bannedHits(prepare('aligned with WorkSafe NZ guidelines'))).toContain(
+      'align with WorkSafe claim',
+    );
+    expect(bannedHits(prepare('WorkSafe approved templates'))).toContain(
+      'WorkSafe approved claim',
+    );
+    expect(bannedHits(prepare('Are the documents legally compliant?'))).toContain(
+      'legally compliant claim',
+    );
+  });
+
   for (const rel of SURFACES) {
     it(`${rel} has no banned claims`, () => {
-      const text = read(rel);
-      const hits = BANNED.filter(([, re]) => re.test(text)).map(([name]) => name);
-      expect(hits).toEqual([]);
+      expect(bannedHits(prepare(read(rel)))).toEqual([]);
     });
   }
 });
@@ -91,10 +161,34 @@ describe('customer-facing copy: approved wording is present', () => {
     },
   );
 
-  it('web landing and API landing lead with invoicing, quotes and jobs', () => {
-    for (const rel of ['apps/web/src/app/page.tsx', 'apps/api/src/landing.html']) {
-      expect(read(rel)).toMatch(/Invoicing,\s+quotes\s+and\s+job\s+records/);
+  const LANDING_H1S = [
+    'apps/web/src/app/page.tsx',
+    'apps/api/src/landing.html',
+    'landing/index.html',
+    'nginx/html/index.html',
+  ];
+
+  function firstH1Text(source: string): string {
+    const match = source.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+    if (!match) {
+      throw new Error('landing has no <h1>');
     }
+    return match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  it('each landing H1 contains Invoicing', () => {
+    for (const rel of LANDING_H1S) {
+      expect(firstH1Text(read(rel))).toMatch(/Invoicing/);
+    }
+  });
+
+  it('short SWMS lines keep HSWA alignment and PCBU accountability', () => {
+    expect(read('apps/mobile/App.tsx')).toMatch(SWMS);
+    expect(read('apps/web/src/app/(dashboard)/dashboard/page.tsx')).toMatch(SWMS);
+    expect(read('apps/web/src/app/(dashboard)/swms/page.tsx')).toMatch(SWMS);
+    const shot = JSON.parse(read('apps/mobile/store-listing.json')).screenshots.titles[1] as string;
+    expect(shot).toMatch(/aligned to HSWA 2015/);
+    expect(shot).toMatch(/you stay the PCBU/);
   });
 
   it('prices match on the web landing, API landing and llms.txt', () => {

@@ -316,12 +316,12 @@ function renderTermsOfService(): string {
           </tr>
           <tr>
             <td><strong>Tradie</strong></td>
-            <td>$4.99/week (~$19.99/month)</td>
+            <td>$4.99/week</td>
             <td>Unlimited invoices, SWMS, quotes, expenses, job logs, PDF export, email invoices, photos</td>
           </tr>
           <tr>
             <td><strong>Team</strong></td>
-            <td>$9.99/week (~$39.99/month)</td>
+            <td>$9.99/week</td>
             <td>Everything in Tradie + up to 5 team members, team management, shared data</td>
           </tr>
         </tbody>
@@ -534,7 +534,7 @@ function renderSupportPage(): string {
         <details class="faq-item">
           <summary>Is my data secure?</summary>
           <p>
-            Yes. We use industry-standard encryption for data in transit (TLS/HTTPS) and at rest.
+            Yes. We use industry-standard encryption for data in transit (TLS/HTTPS).
             Passwords are securely hashed and never stored in plain text. See our
             <a href="/legal/privacy">Privacy Policy</a> for full details.
           </p>

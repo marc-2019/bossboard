@@ -270,7 +270,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">Draft a SWMS</h3>
                 <p className="text-xs text-gray-600">
-                  AI-assisted Safe Work Method Statement starting material — you stay the PCBU.
+                  AI-assisted starting material, aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off.
                 </p>
               </Link>
               <Link

@@ -17,7 +17,7 @@ Instilligent Limited ("we", "us", or "our") operates the BossBoard mobile applic
 - SWMS documents you create
 - Risk assessments
 - Certification records
-- Digital signatures
+- On-site SWMS sign-off records
 - Job descriptions, site addresses, and client names you enter into forms
 
 ### 1.3 Location
@@ -77,7 +77,7 @@ We do NOT sell your personal information. We may share information:
 
 ### 4.1 Third-party AI (limited use)
 
-When you **enable “AI-Powered Generation”** on SWMS generation (default is on; you can turn it off):
+When you **enable “AI-assisted generation”** on SWMS generation (default is on; you can turn it off):
 
 - We send **job context you entered** (trade type, job description, and site details you provided) to our API, which may call **Anthropic** to suggest hazards and control measures.
 - We do **not** send your password, payment card numbers, or full account dump for this purpose.
