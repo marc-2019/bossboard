@@ -9,6 +9,7 @@ import invoicesService from './invoices.js';
 import * as productsService from './products.js';
 import {
   RecurringInvoice,
+  RecurringLineItem,
   ProductType,
   RecurringInvoiceCreateInput,
   RecurringInvoiceUpdateInput,
@@ -34,6 +35,22 @@ function transformRecurring(row: Record<string, unknown>): RecurringInvoice {
     nextGenerationDate: row.next_generation_date as string | null,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
+  };
+}
+
+function mapLineItemRow(liRow: Record<string, unknown>): RecurringLineItem {
+  return {
+    id: liRow.id as string,
+    recurringInvoiceId: liRow.recurring_invoice_id as string,
+    productServiceId: liRow.product_service_id as string,
+    description: liRow.description as string | null,
+    unitPrice: liRow.unit_price as number,
+    quantity: liRow.quantity as number,
+    type: liRow.type as ProductType,
+    sortOrder: liRow.sort_order as number,
+    createdAt: liRow.created_at as Date,
+    updatedAt: liRow.updated_at as Date,
+    productName: liRow.product_name as string,
   };
 }
 
@@ -68,19 +85,17 @@ function transformForMobile(rec: RecurringInvoice): Record<string, unknown> {
     };
   }
 
-  if (rec.lineItems) {
-    result.line_items = rec.lineItems.map((li) => ({
-      id: li.id,
-      recurring_invoice_id: li.recurringInvoiceId,
-      product_service_id: li.productServiceId,
-      description: li.description,
-      unit_price: li.unitPrice,
-      quantity: li.quantity,
-      type: li.type,
-      sort_order: li.sortOrder,
-      product_name: li.productName,
-    }));
-  }
+  result.line_items = (rec.lineItems ?? []).map((li) => ({
+    id: li.id,
+    recurring_invoice_id: li.recurringInvoiceId,
+    product_service_id: li.productServiceId,
+    description: li.description,
+    unit_price: li.unitPrice,
+    quantity: li.quantity,
+    type: li.type,
+    sort_order: li.sortOrder,
+    product_name: li.productName,
+  }));
 
   return result;
 }
@@ -241,21 +256,54 @@ export async function getRecurringInvoiceById(
     [recurringId]
   );
 
-  rec.lineItems = liResult.rows.map((liRow) => ({
-    id: liRow.id as string,
-    recurringInvoiceId: liRow.recurring_invoice_id as string,
-    productServiceId: liRow.product_service_id as string,
-    description: liRow.description as string | null,
-    unitPrice: liRow.unit_price as number,
-    quantity: liRow.quantity as number,
-    type: liRow.type as ProductType,
-    sortOrder: liRow.sort_order as number,
-    createdAt: liRow.created_at as Date,
-    updatedAt: liRow.updated_at as Date,
-    productName: liRow.product_name as string,
-  }));
+  rec.lineItems = liResult.rows.map((liRow) => mapLineItemRow(liRow));
 
-  return transformForMobile(rec);
+  const mobile = transformForMobile(rec);
+  mobile.customer_name = (row.customer_name as string | null) ?? '';
+  return mobile;
+}
+
+/**
+ * Batch-load line items for template ids already scoped to this user.
+ * recurring_line_items has no user_id; the join on ri.user_id is the tenant filter.
+ * No query when ids is empty.
+ */
+async function loadLineItemsGrouped(
+  userId: string,
+  ids: string[]
+): Promise<Map<string, RecurringLineItem[]>> {
+  const grouped = new Map<string, RecurringLineItem[]>();
+  if (ids.length === 0) {
+    return grouped;
+  }
+
+  const liResult = await db.query<Record<string, unknown>>(
+    `SELECT rli.*, ps.name as product_name
+     FROM recurring_line_items rli
+     JOIN products_services ps ON ps.id = rli.product_service_id
+     JOIN recurring_invoices ri ON ri.id = rli.recurring_invoice_id
+     WHERE rli.recurring_invoice_id = ANY($1::uuid[])
+       AND ri.user_id = $2
+     ORDER BY rli.sort_order ASC`,
+    [ids, userId]
+  );
+
+  for (const liRow of liResult.rows) {
+    const item = mapLineItemRow(liRow);
+    const key = liRow.recurring_invoice_id as string;
+    const bucket = grouped.get(key);
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      grouped.set(key, [item]);
+    }
+  }
+
+  for (const items of grouped.values()) {
+    items.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
+  }
+
+  return grouped;
 }
 
 /**
@@ -283,8 +331,12 @@ export async function listRecurringInvoices(
     [userId, limit, offset]
   );
 
+  const ids = result.rows.map((row) => row.id as string);
+  const grouped = await loadLineItemsGrouped(userId, ids);
+
   const recurringInvoices = result.rows.map((row) => {
     const rec = transformRecurring(row);
+    rec.lineItems = grouped.get(rec.id) ?? [];
     const mobile = transformForMobile(rec);
     mobile.customer_name = row.customer_name;
     return mobile;
@@ -310,11 +362,15 @@ export async function getPendingRecurringInvoices(
     [userId]
   );
 
+  const ids = result.rows.map((row) => row.id as string);
+  const grouped = await loadLineItemsGrouped(userId, ids);
+
   const autoGenerate: Record<string, unknown>[] = [];
   const needsInput: Record<string, unknown>[] = [];
 
   for (const row of result.rows) {
     const rec = transformRecurring(row);
+    rec.lineItems = grouped.get(rec.id) ?? [];
     const mobile = transformForMobile(rec);
     mobile.customer_name = row.customer_name;
 
@@ -479,9 +535,19 @@ export async function generateInvoiceFromRecurring(
     [recurringId]
   );
 
-  // Build invoice line items
+  // Amount selection:
+  // - Fixed lines always use storedPrice * quantity. Ignore overrides even if a key matches.
+  // - Variable lines (`!== undefined`, so 0 counts as present):
+  //   1. variableAmounts[lineItemId] is the FULL line amount. Do not multiply by quantity
+  //      (existing API contract).
+  //   2. Else variableAmounts[product_service_id] is per-unit cents; amount = that value * quantity
+  //      (mobile "Amount per unit" preview is entered cents * quantity).
+  //   3. Else storedPrice * quantity.
+  //   If two variable lines share one product id, the product-id fallback applies the same
+  //   per-unit amount to both (mobile collapses to one map entry per product).
   const invoiceLineItems = liResult.rows.map((li) => {
     const liId = li.id as string;
+    const productServiceId = li.product_service_id as string;
     const quantity = li.quantity as number;
     const storedPrice = li.unit_price as number;
     const type = li.type as string;
@@ -489,6 +555,12 @@ export async function generateInvoiceFromRecurring(
     let amount: number;
     if (type === 'variable' && variableAmounts && variableAmounts[liId] !== undefined) {
       amount = variableAmounts[liId];
+    } else if (
+      type === 'variable' &&
+      variableAmounts &&
+      variableAmounts[productServiceId] !== undefined
+    ) {
+      amount = variableAmounts[productServiceId] * quantity;
     } else {
       amount = storedPrice * quantity;
     }

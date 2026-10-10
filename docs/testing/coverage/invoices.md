@@ -24,6 +24,8 @@ still exists for both, so the API coverage cell is filled for all 10.
 | F-INV-09 recurring | 5 | SKIP (mobile-only) | YES (CRUD + generate) | YES (21) | Drift app §3 — no `/recurring` page on Web |
 | F-INV-10 bank rec | 5 | SKIP (mobile-only) | YES (upload + match + summary) | YES (22) | Drift app §4 — no `/bank` page on Web |
 
+F-INV-09 journey Money → Recurring list with ≥1 template: `apps/api/tests/unit/recurring-invoices.contract.test.ts` (guards mobile 1.1 (14) missing `line_items`).
+
 ## Gaps surfaced
 
 1. **F-INV-09 + F-INV-10 are Web-blind**. Both features have full API +
