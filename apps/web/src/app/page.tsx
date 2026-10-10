@@ -26,14 +26,14 @@ import './landing.css';
  */
 
 export const metadata: Metadata = {
-  title: 'BossBoard | The All-in-One App for NZ Tradies',
+  title: 'BossBoard | Invoicing, Quotes & Jobs for NZ Tradies',
   description:
-    "Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.",
+    "Invoicing, quotes and job records for NZ tradies, with 15% GST built in. Built for NZ electricians, plumbers, builders and tradies. Free during beta; paid tiers from $4.99/week.",
   keywords: [
     'tradie app',
     'NZ tradies',
     'SWMS generator',
-    'trade compliance',
+    'GST invoices',
     'invoice app',
     'job management',
     'health and safety',
@@ -44,9 +44,9 @@ export const metadata: Metadata = {
     canonical: 'https://bossboard.instilligent.com/',
   },
   openGraph: {
-    title: 'BossBoard | The All-in-One App for NZ Tradies',
+    title: 'BossBoard | Invoicing, Quotes & Jobs for NZ Tradies',
     description:
-      'Jobs, teams, safety paperwork and revenue insights in one app. Built for Kiwi tradies. From $4.99/week.',
+      'Invoicing, quotes and job records for Kiwi tradies. Free during beta; paid tiers from $4.99/week.',
     url: 'https://bossboard.instilligent.com',
     type: 'website',
   },
@@ -95,15 +95,12 @@ export default function Home() {
       <section className="hero" id="top">
         <div className="lp-container">
           <div className="hero-badge">Built for NZ tradies · Made in Aotearoa</div>
-          <h1>
-            Your whole business.
-            <br />
-            One screen.
-          </h1>
+          <h1>Invoicing, quotes and job records for NZ tradies</h1>
+          <p className="hero-slogan">Your whole business. One screen.</p>
           <p>
-            Jobs, teams, safety paperwork and revenue insights in one app.
-            BossBoard helps electricians, plumbers, builders and tradies across
-            Aotearoa run their business from their pocket — you stay the boss.
+            With 15% GST built in. BossBoard helps electricians, plumbers,
+            builders and tradies across Aotearoa run their business from their
+            pocket.
           </p>
           <div className="hero-cta">
             <Link href="/register" className="lp-btn lp-btn-primary lp-btn-large" data-cf-event="cta_click" data-cf-cta="start_free" data-cf-location="hero">
@@ -137,23 +134,10 @@ export default function Home() {
           <div className="section-title">
             <h2>Everything a tradie needs</h2>
             <p>
-              Stop juggling spreadsheets, paper forms, and five different apps.
-              BossBoard puts it all in one place.
+              Invoices, quotes, job logs and SWMS drafts in one place.
             </p>
           </div>
           <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">{'\u{1F6E1}'}</div>
-              <h3>AI-Assisted SWMS Drafts</h3>
-              <p>
-                Draft Safe Work Method Statements in one tap, with AI-assisted
-                hazard suggestions for your trade — aligned to the NZ Health
-                and Safety at Work Act 2015. Templates and starting material,
-                not legal advice. While you stay accountable as the PCBU,
-                BossBoard turns blank-page paperwork into a reviewable draft —
-                so you can get back on the tools.
-              </p>
-            </div>
             <div className="feature-card">
               <div className="feature-icon">{'\u{1F4CB}'}</div>
               <h3>Professional Invoicing</h3>
@@ -192,8 +176,18 @@ export default function Home() {
               <div className="feature-icon">{'\u{23F0}'}</div>
               <h3>Job Logging &amp; Time Tracking</h3>
               <p>
-                Clock in and out of jobs. Track hours per site, per worker.
-                Full audit trail for billing and compliance.
+                Clock in and out of jobs. Track hours per site, per worker,
+                ready for billing.
+              </p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon">{'\u{1F6E1}'}</div>
+              <h3>AI-Assisted SWMS Drafts</h3>
+              <p>
+                Draft Safe Work Method Statements with AI-assisted hazard
+                suggestions for your trade. SWMS templates aligned to the
+                Health and Safety at Work Act 2015 — you stay the PCBU and sign
+                off. Templates and starting material, not legal advice.
               </p>
             </div>
           </div>
@@ -236,7 +230,6 @@ export default function Home() {
               <div className="price-amount">
                 $4.99<span>/week</span>
               </div>
-              <div className="price-period">~$19.99/month</div>
               <ul className="price-features">
                 <li>Unlimited invoices &amp; quotes</li>
                 <li>Unlimited SWMS</li>
@@ -266,7 +259,6 @@ export default function Home() {
               <div className="price-amount">
                 $9.99<span>/week</span>
               </div>
-              <div className="price-period">~$39.99/month</div>
               <ul className="price-features">
                 <li>Everything in Tradie</li>
                 <li>Up to 5 team members</li>
@@ -296,8 +288,8 @@ export default function Home() {
           <div className="section-title">
             <h2>Built for Aotearoa</h2>
             <p>
-              Not another US app with NZ bolted on. BossBoard is designed from
-              the ground up for how Kiwi tradies actually work.
+              GST, NZD pricing and HSWA-aligned SWMS templates, built for how
+              Kiwi tradies work.
             </p>
           </div>
           <div className="nz-grid">
@@ -359,7 +351,7 @@ export default function Home() {
               color: 'var(--lp-text-muted)',
             }}
           >
-            No credit card required. Get started in under a minute.
+            No credit card required for the Free tier.
           </p>
         </div>
       </section>

@@ -1153,7 +1153,8 @@ describe('copySWMS', () => {
 
     expect(result.disclaimer).toBe(SWMS_PCBU_DISCLAIMER);
     expect(result.disclaimer).toMatch(/PCBU/);
-    expect(result.disclaimer).toMatch(/not WorkSafe compliant/i);
+    expect(result.disclaimer).toMatch(/not legal advice/i);
+    expect(result.disclaimer).not.toMatch(/WorkSafe compliant/i);
     expect(result.disclaimer).not.toMatch(/WorkSafe approved/i);
     expect(result.disclaimer).not.toMatch(/guaranteed compliant/i);
   });

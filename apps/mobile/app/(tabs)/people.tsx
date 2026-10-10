@@ -1,7 +1,7 @@
 /**
  * People Tab
  * Track trade licenses and certifications
- * Future: Staff management, visa compliance
+ * Future: staff records are not on this screen.
  */
 
 import { useCallback, useState } from 'react';

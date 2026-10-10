@@ -146,7 +146,7 @@ function renderPrivacyPolicy(): string {
       <p>Under IPP 10 (Limits on Use), we use personal information only for the purpose for which it was collected or a directly related purpose:</p>
       <ul>
         <li>Provide, operate, and maintain the Service, including generating invoices, quotes, and compliance documents.</li>
-        <li>Generate AI-powered compliance documentation (SWMS, hazard suggestions, control measures) using the Anthropic Claude API.</li>
+        <li>Generate AI-assisted SWMS drafts (hazard suggestions, control measures) using the Anthropic Claude API.</li>
         <li>Send push notifications for certification expiry reminders, invoice updates, and team invitations.</li>
         <li>Process subscription billing and manage your account.</li>
         <li>Generate business insights, dashboard statistics, and revenue reports.</li>
@@ -155,10 +155,10 @@ function renderPrivacyPolicy(): string {
         <li>Comply with legal obligations under New Zealand law.</li>
       </ul>
 
-      <h2>3. AI-Powered Features <small>(third-party AI &mdash; limited use)</small></h2>
-      <p>${appName} uses the Anthropic Claude API to generate compliance documents such as Safe Work Method Statements. This is <strong>limited use</strong> only for the document you requested &mdash; not for advertising, not for selling data, and not for training public foundation models under our control.</p>
+      <h2>3. AI-Assisted Features <small>(third-party AI &mdash; limited use)</small></h2>
+      <p>${appName} uses the Anthropic Claude API to draft Safe Work Method Statements. This is <strong>limited use</strong> only for the document you requested &mdash; not for advertising, not for selling data, and not for training public foundation models under our control.</p>
       <ul>
-        <li>When you enable <strong>AI-Powered Generation</strong> (in-app toggle) and generate a SWMS, relevant job details you entered (trade type, job description, site details) are sent via our API to Anthropic.</li>
+        <li>When you enable <strong>AI-assisted generation</strong> (in-app toggle) and generate a SWMS, relevant job details you entered (trade type, job description, site details) are sent via our API to Anthropic.</li>
         <li>Turning the toggle <strong>off</strong> uses template hazards only and does <strong>not</strong> call the third-party AI path for that request. Using the feature with the toggle on is your consent to that limited processing.</li>
         <li>We do not send your password or payment card numbers to the AI service.</li>
         <li>AI-generated content is suggestions only and must be reviewed and customised by you before use on site.</li>
@@ -191,7 +191,7 @@ function renderPrivacyPolicy(): string {
       <p>Under IPP 12 of the Privacy Act 2020, before disclosing personal information to a foreign person or entity, we must either believe on reasonable grounds that the recipient is subject to comparable privacy protections, or obtain your express authorisation.</p>
       <p>Your personal information is hosted in <strong>Singapore</strong> by Railway (Asia-Southeast region). Some data is also processed in the <strong>United States</strong> by Anthropic (AI features), Apple (iOS App Store billing), Stripe (website payments only), and Expo (push notifications).</p>
       <p>Singapore has the Personal Data Protection Act 2012 (PDPA), which provides broadly comparable privacy protections. The United States does not have equivalent comprehensive privacy legislation at the federal level.</p>
-      <p>We mitigate risks through contractual data processing agreements with all overseas providers, minimising the personal information transferred, encrypting all data in transit (TLS 1.2+) and at rest, and selecting providers with robust security certifications (PCI DSS for Stripe).</p>
+      <p>We mitigate risks through contractual data processing agreements with all overseas providers, minimising the personal information transferred, and selecting providers with robust security certifications (PCI DSS for Stripe). Data is encrypted in transit (TLS). Selected personal data fields are also encrypted at rest (AES-256-GCM) when a field encryption key is set.</p>
       <p>By using the Service, you acknowledge and consent to the transfer of your personal information to Singapore and the United States for the purposes described in this policy. You may withdraw consent by deleting your account.</p>
 
       <h2>6. Data Storage and Security <small>(IPP 5)</small></h2>
@@ -316,12 +316,12 @@ function renderTermsOfService(): string {
           </tr>
           <tr>
             <td><strong>Tradie</strong></td>
-            <td>$4.99/week (~$19.99/month)</td>
+            <td>$4.99/week</td>
             <td>Unlimited invoices, SWMS, quotes, expenses, job logs, PDF export, email invoices, photos</td>
           </tr>
           <tr>
             <td><strong>Team</strong></td>
-            <td>$9.99/week (~$39.99/month)</td>
+            <td>$9.99/week</td>
             <td>Everything in Tradie + up to 5 team members, team management, shared data</td>
           </tr>
         </tbody>
@@ -498,9 +498,8 @@ function renderSupportPage(): string {
           <summary>What is ${appName}?</summary>
           <p>
             ${appName} is a mobile app built specifically for New Zealand tradespeople and small
-            service businesses. It brings together invoicing, quoting, expense tracking, job logging,
-            compliance documentation (SWMS), certification tracking, and team management in one
-            affordable, easy-to-use app.
+            service businesses. It brings together invoicing, quoting, job logging, expense tracking,
+            certification tracking, team management and AI-assisted SWMS drafts in one app.
           </p>
         </details>
 
@@ -525,7 +524,7 @@ function renderSupportPage(): string {
         <details class="faq-item">
           <summary>How are my SWMS documents generated?</summary>
           <p>
-            ${appName} uses AI (powered by the Anthropic Claude API) to generate Safe Work Method
+            ${appName} uses AI-assisted generation (using the Anthropic Claude API) to generate Safe Work Method
             Statements based on your trade type and job description. The generated documents are
             suggestions and should always be reviewed and customised for your specific worksite
             before use.
@@ -535,7 +534,7 @@ function renderSupportPage(): string {
         <details class="faq-item">
           <summary>Is my data secure?</summary>
           <p>
-            Yes. We use industry-standard encryption for data in transit (TLS/HTTPS) and at rest.
+            Yes. We use industry-standard encryption for data in transit (TLS/HTTPS).
             Passwords are securely hashed and never stored in plain text. See our
             <a href="/legal/privacy">Privacy Policy</a> for full details.
           </p>

@@ -22,10 +22,10 @@ appId: nz.instilligent.bossboard
           text: ".*New SWMS.*"
           optional: true
 - extendedWaitUntil:
-    visible: ".*Trade Type.*|.*Generate SWMS.*|.*AI-Powered Generation.*"
+    visible: ".*Trade Type.*|.*Generate SWMS.*|.*AI-assisted generation.*"
     timeout: 15000
 - takeScreenshot: 99-swms-generate
-- assertVisible: ".*Generate SWMS.*|.*Trade Type.*|.*AI-Powered Generation.*"
+- assertVisible: ".*Generate SWMS.*|.*Trade Type.*|.*AI-assisted generation.*"
 - assertNotVisible: ".*relation does not exist.*"
 
 - tapOn:

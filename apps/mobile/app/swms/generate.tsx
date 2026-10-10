@@ -39,7 +39,7 @@ const TRADE_OPTIONS = [
 ];
 
 const SWMS_PCBU_DISCLAIMER =
-  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
+  'You remain the PCBU and must sign off for this site. This draft is not affiliated with WorkSafe NZ and is not legal advice.';
 
 export default function GenerateSWMSScreen() {
   const router = useRouter();
@@ -246,7 +246,7 @@ export default function GenerateSWMSScreen() {
         <View style={styles.aiToggleInfo}>
           <Ionicons name="sparkles" size={20} color="#8B5CF6" />
           <View style={styles.aiToggleText}>
-            <Text style={styles.aiToggleLabel}>AI-Powered Generation</Text>
+            <Text style={styles.aiToggleLabel}>AI-assisted generation</Text>
             <Text style={styles.aiToggleHint}>
               {useAI
                 ? 'On: trade, job description, and site details you enter are sent to our AI provider (Anthropic) only to suggest hazards and controls for this SWMS. Not used for ads. Turn off to generate without third-party AI.'
@@ -259,7 +259,7 @@ export default function GenerateSWMSScreen() {
           onValueChange={setUseAI}
           trackColor={{ false: '#D1D5DB', true: '#C4B5FD' }}
           thumbColor={useAI ? '#8B5CF6' : '#F3F4F6'}
-          accessibilityLabel="AI-powered SWMS generation"
+          accessibilityLabel="AI-assisted SWMS generation"
           accessibilityHint="When on, job details are sent to Anthropic for hazard suggestions only"
         />
       </View>

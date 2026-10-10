@@ -213,7 +213,7 @@ async function checkAndNotifyExpiringCerts(): Promise<{ checked: number; notifie
       const messages: ExpoPushMessage[] = expired.rows.map((cert) => ({
         to: cert.push_token,
         title: '⚠️ Certification Expired',
-        body: `Your ${cert.cert_type || cert.name} has expired. Renew it ASAP to stay compliant.`,
+        body: `Your ${cert.cert_type || cert.name} has expired. Renew it as soon as you can.`,
         data: {
           type: 'cert_expired',
           certificationId: cert.id,

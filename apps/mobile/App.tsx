@@ -133,28 +133,28 @@ export default function App() {
         {/* Welcome Message */}
         <Text style={styles.title}>Welcome to BossBoard</Text>
         <Text style={styles.subtitle}>
-          Compliance & Cashflow for NZ Tradies
+          Invoicing, quotes and job records for NZ tradies
         </Text>
 
         {/* Feature Cards */}
         <View style={styles.featureContainer}>
           <FeatureCard
-            title="Compliance"
-            description="SWMS, Risk Assessments, WorkSafe Checklists"
-            icon="📋"
-            status="Coming Soon"
-          />
-          <FeatureCard
-            title="Cashflow"
-            description="Xero Integration, Invoice Chasing, GST Tracking"
+            title="Invoicing & Quotes"
+            description="GST invoices, quotes, payment status"
             icon="💰"
-            status="Q2 2026"
+            status="Available"
           />
           <FeatureCard
-            title="Hiring"
-            description="Visa Tracking, AEWV Compliance, Certifications"
+            title="Jobs"
+            description="Clock in/out, hours per site, photos"
             icon="👷"
-            status="Q3 2026"
+            status="Available"
+          />
+          <FeatureCard
+            title="SWMS Drafts"
+            description="SWMS templates aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off"
+            icon="📋"
+            status="Available"
           />
         </View>
 

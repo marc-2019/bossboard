@@ -43,7 +43,6 @@ interface TierInfo {
   name: string;
   slug: string;
   priceWeekly: string;
-  priceMonthly: string;
   features: string[];
   limits: Record<string, number | string>;
 }
@@ -66,7 +65,6 @@ const TIERS: TierInfo[] = [
     name: 'Free',
     slug: 'free',
     priceWeekly: '$0',
-    priceMonthly: '$0',
     features: [
       '3 invoices / month',
       '2 SWMS / month',
@@ -80,7 +78,6 @@ const TIERS: TierInfo[] = [
     name: 'Tradie',
     slug: 'tradie',
     priceWeekly: '$4.99',
-    priceMonthly: '$19.99',
     features: [
       'Unlimited invoices',
       'Unlimited SWMS',
@@ -98,7 +95,6 @@ const TIERS: TierInfo[] = [
     name: 'Team',
     slug: 'team',
     priceWeekly: '$9.99',
-    priceMonthly: '$39.99',
     features: [
       'Everything in Tradie',
       '200 AI calls / month',
@@ -431,9 +427,6 @@ export default function SubscriptionScreen() {
                     {tier.slug !== 'free' ? ' NZD/week' : ''}
                   </Text>
                 </Text>
-                {tier.slug !== 'free' && (
-                  <Text style={styles.tierMonthly}>~{tier.priceMonthly}/month</Text>
-                )}
               </View>
               {isCurrent && (
                 <View style={[styles.currentBadge, { backgroundColor: colors.bg }]}>
@@ -703,11 +696,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: '#6B7280',
-  },
-  tierMonthly: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    marginTop: 2,
   },
   currentBadge: {
     paddingHorizontal: 10,

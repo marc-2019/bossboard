@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BossBoard | The All-in-One App for NZ Tradies</title>
-    <meta name="description" content="Run your trade business like a boss. Jobs, teams, safety paperwork and revenue insights in one app. Built for NZ electricians, plumbers, builders and tradies. From $4.99/week.">
+    <title>BossBoard | Invoicing, Quotes &amp; Jobs for NZ Tradies</title>
+    <meta name="description" content="Invoicing, quotes and job records for NZ tradies, with 15% GST built in. Built for NZ electricians, plumbers, builders and tradies. Free during beta; paid tiers from $4.99/week.">
     <meta name="keywords" content="tradie app, NZ tradies, SWMS generator, trade compliance, invoice app, job management, health and safety, HSWA 2015, BossBoard">
     <link rel="canonical" href="https://bossboard.instilligent.com/">
 
     <!-- Open Graph -->
-    <meta property="og:title" content="BossBoard | The All-in-One App for NZ Tradies">
-    <meta property="og:description" content="Jobs, teams, safety paperwork and revenue insights in one app. Built for Kiwi tradies. From $4.99/week.">
+    <meta property="og:title" content="BossBoard | Invoicing, Quotes &amp; Jobs for NZ Tradies">
+    <meta property="og:description" content="Invoicing, quotes and job records for Kiwi tradies. Free during beta; paid tiers from $4.99/week.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://bossboard.instilligent.com">
 
@@ -81,14 +81,18 @@
             margin-bottom: 24px;
         }
         .hero h1 {
-            font-size: clamp(36px, 6vw, 64px); font-weight: 900;
-            line-height: 1.1; margin-bottom: 20px;
+            font-size: clamp(32px, 4.5vw, 52px); font-weight: 900;
+            line-height: 1.15; margin-bottom: 12px;
             background: linear-gradient(135deg, white, var(--primary-light));
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
         .hero p {
             font-size: clamp(16px, 2vw, 20px); color: var(--text-muted);
             max-width: 600px; margin: 0 auto 32px;
+        }
+        .hero p.hero-slogan {
+            font-size: clamp(18px, 2.4vw, 28px); font-weight: 700; color: white;
+            margin: 0 auto 16px; max-width: 640px;
         }
         .hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
         .hero-price {
@@ -209,8 +213,9 @@
     <section class="hero">
         <div class="container">
             <div class="hero-badge">Built for NZ tradies · Made in Aotearoa</div>
-            <h1>Your whole business.<br>One screen.</h1>
-            <p>Jobs, teams, safety paperwork and revenue insights in one app. BossBoard helps electricians, plumbers, builders and tradies across New Zealand run their business from their pocket.</p>
+            <h1>Invoicing, quotes and job records for NZ tradies</h1>
+            <p class="hero-slogan">Your whole business. One screen.</p>
+            <p>With 15% GST built in. BossBoard helps electricians, plumbers, builders and tradies across New Zealand run their business from their pocket.</p>
             <div class="hero-cta">
                 <a href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21" class="btn btn-primary btn-large">Start Free</a>
                 <a href="#features" class="btn btn-outline btn-large">See Features</a>
@@ -224,14 +229,9 @@
         <div class="container">
             <div class="section-title">
                 <h2>Everything a tradie needs</h2>
-                <p>Stop juggling spreadsheets, paper forms, and five different apps. BossBoard puts it all in one place.</p>
+                <p>Invoices, quotes, job logs and SWMS drafts in one place.</p>
             </div>
             <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">&#x1F6E1;</div>
-                    <h3>AI-Assisted SWMS Drafts</h3>
-                    <p>Draft Safe Work Method Statements in one tap, with AI-assisted hazard suggestions for your trade — aligned to the NZ Health and Safety at Work Act 2015. Templates and starting material, not legal advice. While you stay accountable as the PCBU, BossBoard turns blank-page paperwork into a reviewable draft — so you can get back on the tools.</p>
-                </div>
                 <div class="feature-card">
                     <div class="feature-icon">&#x1F4CB;</div>
                     <h3>Professional Invoicing</h3>
@@ -255,7 +255,12 @@
                 <div class="feature-card">
                     <div class="feature-icon">&#x23F0;</div>
                     <h3>Job Logging & Time Tracking</h3>
-                    <p>Clock in and out of jobs. Track hours per site, per worker. Full audit trail for billing and compliance.</p>
+                    <p>Clock in and out of jobs. Track hours per site, per worker, ready for billing.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#x1F6E1;</div>
+                    <h3>AI-Assisted SWMS Drafts</h3>
+                    <p>Draft Safe Work Method Statements with AI-assisted hazard suggestions for your trade. SWMS templates aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off. Templates and starting material, not legal advice.</p>
                 </div>
             </div>
         </div>
@@ -285,7 +290,6 @@
                 <div class="price-card featured">
                     <div class="price-name">Tradie</div>
                     <div class="price-amount">$4.99<span>/week</span></div>
-                    <div class="price-period">~$19.99/month</div>
                     <ul class="price-features">
                         <li>Unlimited invoices & quotes</li>
                         <li>Unlimited SWMS</li>
@@ -296,18 +300,17 @@
                         <li>Certification reminders</li>
                         <li>Job logging & time tracking</li>
                     </ul>
-                    <a href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21" class="btn btn-primary" style="width:100%; justify-content:center;">Start Free</a>
+                    <a href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21" class="btn btn-primary" style="width:100%; justify-content:center;">Join the Beta</a>
                 </div>
                 <div class="price-card">
                     <div class="price-name">Team</div>
                     <div class="price-amount">$9.99<span>/week</span></div>
-                    <div class="price-period">~$39.99/month</div>
                     <ul class="price-features">
                         <li>Everything in Tradie</li>
                         <li>Up to 5 team members</li>
                         <li>Team roles & permissions</li>
                     </ul>
-                    <a href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21" class="btn btn-outline" style="width:100%; justify-content:center;">Start Free</a>
+                    <a href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21" class="btn btn-outline" style="width:100%; justify-content:center;">Join the Beta</a>
                 </div>
             </div>
         </div>
@@ -318,7 +321,7 @@
         <div class="container">
             <div class="section-title">
                 <h2>Built for Aotearoa</h2>
-                <p>Not another US app with NZ bolted on. BossBoard is designed from the ground up for how Kiwi tradies actually work.</p>
+                <p>GST, NZD pricing and HSWA-aligned SWMS templates, built for how Kiwi tradies work.</p>
             </div>
             <div class="nz-grid">
                 <div class="nz-item">
@@ -359,7 +362,7 @@
             <h2>Ready to run your business like a boss?</h2>
             <p>Built for Kiwi tradies who want less paperwork.</p>
             <a href="mailto:support@instilligent.com?subject=BossBoard%20Early%20Access&body=Hi%20BossBoard%20team%2C%0A%0AI'd%20like%20early%20access%20to%20BossBoard.%0A%0AMy%20trade%3A%20%0AMy%20business%20name%3A%20%0AMy%20region%3A%20%0A%0AThanks%21" class="btn btn-primary btn-large">Start Free Today</a>
-            <p style="margin-top: 16px; font-size: 14px; color: var(--text-muted);">No credit card required. Get started in under a minute.</p>
+            <p style="margin-top: 16px; font-size: 14px; color: var(--text-muted);">No credit card required for the Free tier.</p>
         </div>
     </section>
 

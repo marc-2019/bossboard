@@ -1,7 +1,7 @@
 /**
  * Money Tab
  * Invoice list with status filtering
- * Future: Cashflow forecasting, Xero integration
+ * Future: accounting export is not on this screen.
  */
 
 import { useCallback, useState } from 'react';
