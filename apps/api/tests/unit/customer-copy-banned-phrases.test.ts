@@ -76,7 +76,7 @@ const BANNED: Array<[string, RegExp]> = [
   ['cashflow platform / forecasting / position', /cash\s?flow\s+(platform|forecast|position)/i],
   ['Health & safety compliance positioning', /health\s*(and|&|&amp;)\s*safety\s+compliance\s+for/i],
   ['AI receptionist', /receptionist/i],
-  ['AI-powered framing (use AI-assisted)', /AI[- ]powered/i],
+  ['AI-powered framing (use AI-assisted)', /AI[\s\p{P}]*powered(?:\s+by)?/iu],
   ['WorkSafe compliant claim', /WorkSafe[-\s]+(NZ[-\s]+)?compliant/i],
   ['WorkSafe approved claim', /WorkSafe[-\s]+(NZ[-\s]+)?approved/i],
   ['align with WorkSafe claim', /align(?:ed)?\s+with\s+WorkSafe/i],
@@ -140,6 +140,12 @@ describe('customer-facing copy: banned claims are absent', () => {
     );
     expect(bannedHits(prepare('Are the documents legally compliant?'))).toContain(
       'legally compliant claim',
+    );
+    expect(bannedHits(prepare('uses AI (powered by the Anthropic Claude API)'))).toContain(
+      'AI-powered framing (use AI-assisted)',
+    );
+    expect(bannedHits(prepare('AI-assisted generation (using the Anthropic Claude API)'))).toEqual(
+      [],
     );
   });
 

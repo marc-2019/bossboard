@@ -191,7 +191,7 @@ function renderPrivacyPolicy(): string {
       <p>Under IPP 12 of the Privacy Act 2020, before disclosing personal information to a foreign person or entity, we must either believe on reasonable grounds that the recipient is subject to comparable privacy protections, or obtain your express authorisation.</p>
       <p>Your personal information is hosted in <strong>Singapore</strong> by Railway (Asia-Southeast region). Some data is also processed in the <strong>United States</strong> by Anthropic (AI features), Apple (iOS App Store billing), Stripe (website payments only), and Expo (push notifications).</p>
       <p>Singapore has the Personal Data Protection Act 2012 (PDPA), which provides broadly comparable privacy protections. The United States does not have equivalent comprehensive privacy legislation at the federal level.</p>
-      <p>We mitigate risks through contractual data processing agreements with all overseas providers, minimising the personal information transferred, encrypting all data in transit (TLS 1.2+) and at rest, and selecting providers with robust security certifications (PCI DSS for Stripe).</p>
+      <p>We mitigate risks through contractual data processing agreements with all overseas providers, minimising the personal information transferred, and selecting providers with robust security certifications (PCI DSS for Stripe). Data is encrypted in transit (TLS). Selected personal data fields are also encrypted at rest (AES-256-GCM) when a field encryption key is set.</p>
       <p>By using the Service, you acknowledge and consent to the transfer of your personal information to Singapore and the United States for the purposes described in this policy. You may withdraw consent by deleting your account.</p>
 
       <h2>6. Data Storage and Security <small>(IPP 5)</small></h2>
@@ -524,7 +524,7 @@ function renderSupportPage(): string {
         <details class="faq-item">
           <summary>How are my SWMS documents generated?</summary>
           <p>
-            ${appName} uses AI (powered by the Anthropic Claude API) to generate Safe Work Method
+            ${appName} uses AI-assisted generation (using the Anthropic Claude API) to generate Safe Work Method
             Statements based on your trade type and job description. The generated documents are
             suggestions and should always be reviewed and customised for your specific worksite
             before use.

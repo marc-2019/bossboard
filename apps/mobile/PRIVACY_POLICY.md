@@ -55,7 +55,7 @@ We use your information to:
 
 ### 3.2 Cloud Storage
 - When online, documents sync to our secure servers in New Zealand
-- All data is encrypted in transit (TLS 1.3) and at rest (AES-256)
+- Data is encrypted in transit (TLS). Selected personal data fields are also encrypted at rest (AES-256-GCM) when a field encryption key is set.
 - We use industry-standard security practices
 
 ### 3.3 Data Retention
