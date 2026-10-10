@@ -26,6 +26,8 @@ still exists for both, so the API coverage cell is filled for all 10.
 
 F-INV-09 journey Money → Recurring list with ≥1 template: `apps/api/tests/unit/recurring-invoices.contract.test.ts` (guards mobile 1.1 (14) missing `line_items`).
 
+F-INV-09 journey Recurring template with another tenant's customer/product is rejected: `apps/api/src/__tests__/live/recurring-tenant.live.test.ts` (cross-tenant customer or product is rejected; list, detail, and generate return no other-tenant customer data).
+
 ## Gaps surfaced
 
 1. **F-INV-09 + F-INV-10 are Web-blind**. Both features have full API +

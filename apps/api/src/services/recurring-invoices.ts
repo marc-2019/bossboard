@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import db from './database.js';
 import invoicesService from './invoices.js';
 import * as productsService from './products.js';
+import { createError } from '../middleware/error.js';
+import { MAX_INVOICE_LINE_AMOUNT_CENTS } from './invoice-integer-cap.js';
 import {
   RecurringInvoice,
   RecurringLineItem,
@@ -133,13 +135,44 @@ export function computeNextGenerationDate(dayOfMonth: number, from?: Date): stri
   return `${year}-${m}-${d}`;
 }
 
+async function assertOwnedCustomer(userId: string, customerId: string): Promise<void> {
+  const result = await db.query(
+    'SELECT id FROM customers WHERE id = $1 AND user_id = $2',
+    [customerId, userId]
+  );
+  if (result.rows.length === 0) {
+    throw createError('Customer not found', 404, 'NOT_FOUND');
+  }
+}
+
+async function assertOwnedProducts(userId: string, productServiceIds: string[]): Promise<void> {
+  const uniqueIds = [...new Set(productServiceIds)];
+  if (uniqueIds.length === 0) {
+    return;
+  }
+  const result = await db.query(
+    'SELECT id FROM products_services WHERE id = ANY($1::uuid[]) AND user_id = $2',
+    [uniqueIds, userId]
+  );
+  if (result.rows.length !== uniqueIds.length) {
+    throw createError('Product not found', 404, 'NOT_FOUND');
+  }
+}
+
 /**
- * Create a recurring invoice with line items (transaction)
+ * Create a recurring invoice with line items (transaction).
+ * customerId and each productServiceId must belong to userId.
  */
 export async function createRecurringInvoice(
   userId: string,
   input: RecurringInvoiceCreateInput
 ): Promise<Record<string, unknown>> {
+  await assertOwnedCustomer(userId, input.customerId);
+  await assertOwnedProducts(
+    userId,
+    input.lineItems.map((li) => li.productServiceId)
+  );
+
   const recurringId = uuidv4();
   const dayOfMonth = input.dayOfMonth ?? 1;
   const nextGen = computeNextGenerationDate(dayOfMonth);
@@ -218,7 +251,7 @@ export async function getRecurringInvoiceById(
   const result = await db.query<Record<string, unknown>>(
     `SELECT ri.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone
      FROM recurring_invoices ri
-     JOIN customers c ON c.id = ri.customer_id
+     JOIN customers c ON c.id = ri.customer_id AND c.user_id = $2
      WHERE ri.id = $1 AND ri.user_id = $2`,
     [recurringId, userId]
   );
@@ -250,10 +283,10 @@ export async function getRecurringInvoiceById(
   const liResult = await db.query<Record<string, unknown>>(
     `SELECT rli.*, ps.name as product_name
      FROM recurring_line_items rli
-     JOIN products_services ps ON ps.id = rli.product_service_id
+     JOIN products_services ps ON ps.id = rli.product_service_id AND ps.user_id = $2
      WHERE rli.recurring_invoice_id = $1
      ORDER BY rli.sort_order ASC`,
-    [recurringId]
+    [recurringId, userId]
   );
 
   rec.lineItems = liResult.rows.map((liRow) => mapLineItemRow(liRow));
@@ -280,7 +313,7 @@ async function loadLineItemsGrouped(
   const liResult = await db.query<Record<string, unknown>>(
     `SELECT rli.*, ps.name as product_name
      FROM recurring_line_items rli
-     JOIN products_services ps ON ps.id = rli.product_service_id
+     JOIN products_services ps ON ps.id = rli.product_service_id AND ps.user_id = $2
      JOIN recurring_invoices ri ON ri.id = rli.recurring_invoice_id
      WHERE rli.recurring_invoice_id = ANY($1::uuid[])
        AND ri.user_id = $2
@@ -324,7 +357,7 @@ export async function listRecurringInvoices(
   const result = await db.query<Record<string, unknown>>(
     `SELECT ri.*, c.name as customer_name
      FROM recurring_invoices ri
-     JOIN customers c ON c.id = ri.customer_id
+     JOIN customers c ON c.id = ri.customer_id AND c.user_id = $1
      WHERE ri.user_id = $1
      ORDER BY ri.is_active DESC, ri.name ASC
      LIMIT $2 OFFSET $3`,
@@ -354,7 +387,7 @@ export async function getPendingRecurringInvoices(
   const result = await db.query<Record<string, unknown>>(
     `SELECT ri.*, c.name as customer_name
      FROM recurring_invoices ri
-     JOIN customers c ON c.id = ri.customer_id
+     JOIN customers c ON c.id = ri.customer_id AND c.user_id = $1
      WHERE ri.user_id = $1
        AND ri.is_active = true
        AND ri.next_generation_date <= CURRENT_DATE
@@ -398,6 +431,13 @@ export async function updateRecurringInvoice(
     [recurringId, userId]
   );
   if (existing.rows.length === 0) return null;
+
+  if (updates.lineItems) {
+    await assertOwnedProducts(
+      userId,
+      updates.lineItems.map((li) => li.productServiceId)
+    );
+  }
 
   const client = await db.getClient();
   try {
@@ -514,7 +554,7 @@ export async function generateInvoiceFromRecurring(
   const recResult = await db.query<Record<string, unknown>>(
     `SELECT ri.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone
      FROM recurring_invoices ri
-     JOIN customers c ON c.id = ri.customer_id
+     JOIN customers c ON c.id = ri.customer_id AND c.user_id = $2
      WHERE ri.id = $1 AND ri.user_id = $2`,
     [recurringId, userId]
   );
@@ -529,10 +569,10 @@ export async function generateInvoiceFromRecurring(
   const liResult = await db.query<Record<string, unknown>>(
     `SELECT rli.*, ps.name as product_name
      FROM recurring_line_items rli
-     JOIN products_services ps ON ps.id = rli.product_service_id
+     JOIN products_services ps ON ps.id = rli.product_service_id AND ps.user_id = $2
      WHERE rli.recurring_invoice_id = $1
      ORDER BY rli.sort_order ASC`,
-    [recurringId]
+    [recurringId, userId]
   );
 
   // Amount selection:
@@ -563,6 +603,14 @@ export async function generateInvoiceFromRecurring(
       amount = variableAmounts[productServiceId] * quantity;
     } else {
       amount = storedPrice * quantity;
+    }
+
+    if (!Number.isSafeInteger(amount) || amount > MAX_INVOICE_LINE_AMOUNT_CENTS) {
+      throw createError(
+        `Line amount exceeds ${MAX_INVOICE_LINE_AMOUNT_CENTS} cents`,
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
     const description = (li.description as string) || (li.product_name as string);
@@ -791,7 +839,10 @@ export async function createRecurringFromInvoice(
 
   const clientName =
     (inv.client_name as string) ||
-    (await db.query<{ name: string }>(`SELECT name FROM customers WHERE id = $1`, [customerId]))
+    (await db.query<{ name: string }>(
+      `SELECT name FROM customers WHERE id = $1 AND user_id = $2`,
+      [customerId, userId]
+    ))
       .rows[0]?.name ||
     'Client';
   const invNum = (inv.invoice_number as string) || '';

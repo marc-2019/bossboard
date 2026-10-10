@@ -136,6 +136,7 @@ function expectSingleBatchedAnyQuery(templateIds: string[], userId: string): voi
   expect(sql).toContain('recurring_line_items');
   expect(sql).toContain('ANY($1::uuid[])');
   expect(sql).toContain('ri.user_id = $2');
+  expect(sql).toContain('ps.user_id = $2');
   expect(sql).toContain('ORDER BY rli.sort_order ASC');
   expect(params).toEqual([templateIds, userId]);
 

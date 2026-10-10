@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import recurringInvoicesService from '../services/recurring-invoices.js';
+import { MAX_INVOICE_LINE_AMOUNT_CENTS } from '../services/invoice-integer-cap.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -44,8 +45,16 @@ const updateSchema = z.object({
   lineItems: z.array(lineItemSchema).min(1).optional(),
 });
 
+// Cap is the largest cents value whose 15% GST total still fits in
+// PostgreSQL INTEGER (invoices.subtotal / gst_amount / total). See
+// invoice-integer-cap.ts. Line-id keys are the full line amount.
+// Product-id keys are per-unit; generateInvoiceFromRecurring also rejects
+// the quantity-multiplied amount when it exceeds this cap.
 const generateSchema = z.object({
-  variableAmounts: z.record(z.string(), z.number().int().min(0)).optional(),
+  variableAmounts: z.record(
+    z.string(),
+    z.number().int().min(0).max(MAX_INVOICE_LINE_AMOUNT_CENTS)
+  ).optional(),
 });
 
 // =============================================================================
