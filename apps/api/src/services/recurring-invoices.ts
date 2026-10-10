@@ -258,7 +258,9 @@ export async function getRecurringInvoiceById(
 
   rec.lineItems = liResult.rows.map((liRow) => mapLineItemRow(liRow));
 
-  return transformForMobile(rec);
+  const mobile = transformForMobile(rec);
+  mobile.customer_name = (row.customer_name as string | null) ?? '';
+  return mobile;
 }
 
 /**
@@ -533,9 +535,19 @@ export async function generateInvoiceFromRecurring(
     [recurringId]
   );
 
-  // Build invoice line items
+  // Amount selection:
+  // - Fixed lines always use storedPrice * quantity. Ignore overrides even if a key matches.
+  // - Variable lines (`!== undefined`, so 0 counts as present):
+  //   1. variableAmounts[lineItemId] is the FULL line amount. Do not multiply by quantity
+  //      (existing API contract).
+  //   2. Else variableAmounts[product_service_id] is per-unit cents; amount = that value * quantity
+  //      (mobile "Amount per unit" preview is entered cents * quantity).
+  //   3. Else storedPrice * quantity.
+  //   If two variable lines share one product id, the product-id fallback applies the same
+  //   per-unit amount to both (mobile collapses to one map entry per product).
   const invoiceLineItems = liResult.rows.map((li) => {
     const liId = li.id as string;
+    const productServiceId = li.product_service_id as string;
     const quantity = li.quantity as number;
     const storedPrice = li.unit_price as number;
     const type = li.type as string;
@@ -543,6 +555,12 @@ export async function generateInvoiceFromRecurring(
     let amount: number;
     if (type === 'variable' && variableAmounts && variableAmounts[liId] !== undefined) {
       amount = variableAmounts[liId];
+    } else if (
+      type === 'variable' &&
+      variableAmounts &&
+      variableAmounts[productServiceId] !== undefined
+    ) {
+      amount = variableAmounts[productServiceId] * quantity;
     } else {
       amount = storedPrice * quantity;
     }

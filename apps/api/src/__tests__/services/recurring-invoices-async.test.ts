@@ -537,4 +537,153 @@ describe('generateInvoiceFromRecurring', () => {
       })
     );
   });
+
+  it('line-id full amount: quantity 4 override 350 is 350 and is not multiplied', async () => {
+    const recRow = makeRecurringRow();
+    const liRow = makeLineItemRow({
+      id: 'li-1',
+      product_service_id: 'ps-1',
+      type: 'variable',
+      unit_price: 80,
+      quantity: 4,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-line-id' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1', { 'li-1': 350 });
+
+    expect(mockCreateInvoice).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        lineItems: [{ description: 'Oil change', amount: 350 }],
+      })
+    );
+  });
+
+  it('product-id times quantity: per-unit 100 with quantity 4 is 400', async () => {
+    const recRow = makeRecurringRow();
+    const liRow = makeLineItemRow({
+      id: 'li-1',
+      product_service_id: 'ps-1',
+      type: 'variable',
+      unit_price: 80,
+      quantity: 4,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-product-id' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1', { 'ps-1': 100 });
+
+    expect(mockCreateInvoice).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        lineItems: [{ description: 'Oil change', amount: 400 }],
+      })
+    );
+  });
+
+  it('line-id wins: line-id 350 beats product-id 100 and is not multiplied by quantity 4', async () => {
+    const recRow = makeRecurringRow();
+    const liRow = makeLineItemRow({
+      id: 'li-1',
+      product_service_id: 'ps-1',
+      type: 'variable',
+      unit_price: 80,
+      quantity: 4,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-both-keys' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1', { 'li-1': 350, 'ps-1': 100 });
+
+    expect(mockCreateInvoice).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        lineItems: [{ description: 'Oil change', amount: 350 }],
+      })
+    );
+  });
+
+  it('fixed ignores overrides: unit_price 120 times quantity 2 is 240 when both line id and product id are present', async () => {
+    const recRow = makeRecurringRow();
+    const liRow = makeLineItemRow({
+      id: 'li-1',
+      product_service_id: 'ps-1',
+      type: 'fixed',
+      unit_price: 120,
+      quantity: 2,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-fixed-ignores' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1', { 'li-1': 350, 'ps-1': 100 });
+
+    expect(mockCreateInvoice).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        lineItems: [{ description: 'Oil change', amount: 240 }],
+      })
+    );
+  });
+
+  it('shared product id: product-id 50 times quantities 2 and 3 is 100 and 150', async () => {
+    const recRow = makeRecurringRow();
+    const first = makeLineItemRow({
+      id: 'li-a',
+      product_service_id: 'ps-shared',
+      description: 'Callout',
+      type: 'variable',
+      unit_price: 9,
+      quantity: 2,
+      sort_order: 0,
+    });
+    const second = makeLineItemRow({
+      id: 'li-b',
+      product_service_id: 'ps-shared',
+      description: 'Labour',
+      type: 'variable',
+      unit_price: 9,
+      quantity: 3,
+      sort_order: 1,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [first, second] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-shared' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1', { 'ps-shared': 50 });
+
+    expect(mockCreateInvoice).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        lineItems: [
+          { description: 'Callout', amount: 100 },
+          { description: 'Labour', amount: 150 },
+        ],
+      })
+    );
+  });
 });

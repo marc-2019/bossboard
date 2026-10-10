@@ -551,6 +551,7 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 - API: `apps/api/src/__tests__/routes/recurring-invoices.test.ts`, `apps/api/src/__tests__/services/recurring-invoices.test.ts`, `apps/api/src/__tests__/services/recurring-invoices-async.test.ts`
 - Web: none
 - Mobile: none
+- Journey: Money → Recurring list with ≥1 template. Guards the BossBoard mobile 1.1 (14) crash (`TypeError: Cannot read property 'reduce' of undefined` when list/pending omitted `line_items`). Pinned by `apps/api/tests/unit/recurring-invoices.contract.test.ts` and `apps/api/tests/unit/recurring-invoices.test.ts`.
 
 **Demo script outline:**
 - A: create monthly recurring → POST generate → assert new invoice exists with status=draft and correct due-date.
