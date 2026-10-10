@@ -6,6 +6,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import recurringInvoicesService from '../services/recurring-invoices.js';
+import {
+  MAX_INVOICE_LINE_AMOUNT_CENTS,
+  lineProductExceedsInvoiceCap,
+  sumExceedsInvoiceCap,
+} from '../services/invoice-integer-cap.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -19,10 +24,34 @@ const productTypes = ['fixed', 'variable'] as const;
 const lineItemSchema = z.object({
   productServiceId: z.string().uuid(),
   description: z.string().optional(),
-  unitPrice: z.number().int().min(0),
-  quantity: z.number().int().min(1).optional(),
+  unitPrice: z.number().int().min(0).max(MAX_INVOICE_LINE_AMOUNT_CENTS),
+  quantity: z.number().int().min(1).max(2_147_483_647).optional(),
   type: z.enum(productTypes),
+}).superRefine((item, ctx) => {
+  const quantity = item.quantity ?? 1;
+  if (lineProductExceedsInvoiceCap(item.unitPrice, quantity)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Line total exceeds the maximum',
+      path: ['unitPrice'],
+    });
+  }
 });
+
+function rejectOversizedRecurringTotal(
+  lineItems: { unitPrice: number; quantity?: number }[] | undefined,
+  ctx: z.RefinementCtx
+): void {
+  if (!lineItems) return;
+  const amounts = lineItems.map((item) => item.unitPrice * (item.quantity ?? 1));
+  if (sumExceedsInvoiceCap(amounts)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Total exceeds the maximum',
+      path: ['lineItems'],
+    });
+  }
+}
 
 const createSchema = z.object({
   customerId: z.string().uuid('Valid customer ID is required'),
@@ -32,6 +61,8 @@ const createSchema = z.object({
   paymentTerms: z.number().int().min(1).max(365).optional(),
   notes: z.string().optional(),
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
+}).superRefine((data, ctx) => {
+  rejectOversizedRecurringTotal(data.lineItems, ctx);
 });
 
 const updateSchema = z.object({
@@ -42,10 +73,20 @@ const updateSchema = z.object({
   notes: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
+}).superRefine((data, ctx) => {
+  rejectOversizedRecurringTotal(data.lineItems, ctx);
 });
 
+// Cap is the largest cents value whose 15% GST total still fits in
+// PostgreSQL INTEGER (invoices.subtotal / gst_amount / total). See
+// invoice-integer-cap.ts. Line-id keys are the full line amount.
+// Product-id keys are per-unit; generateInvoiceFromRecurring also rejects
+// the quantity-multiplied amount when it exceeds this cap.
 const generateSchema = z.object({
-  variableAmounts: z.record(z.string(), z.number().int().min(0)).optional(),
+  variableAmounts: z.record(
+    z.string(),
+    z.number().int().min(0).max(MAX_INVOICE_LINE_AMOUNT_CENTS)
+  ).optional(),
 });
 
 // =============================================================================

@@ -390,6 +390,7 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 - API: `apps/api/src/__tests__/routes/invoices.test.ts`, `apps/api/src/__tests__/services/invoices.test.ts`, `apps/api/src/__tests__/middleware/subscription.test.ts`
 - Web: `apps/web/e2e/multi-tenant-isolation.spec.ts` (invoice isolation), `apps/web/e2e/multi-tenant-isolation-entities.spec.ts`
 - Mobile: none
+- Journey: Invoice create rejects a customer id the caller does not own, with the same 404 as a missing customer. Pinned by `apps/api/src/__tests__/live/customer-ownership.live.test.ts`.
 
 **Demo script outline:**
 - W: open `/invoices/new`, add customer (existing or quick-create), add 2 line items, set due-date +14d, save, assert appears in `/invoices` list with status "Draft" and correct total.
@@ -441,6 +442,7 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 - Mobile: `apps/mobile/app/invoices/[id].tsx`
 
 **Existing test coverage:** `apps/api/src/__tests__/routes/invoices.test.ts`
+- Journey: Invoice update rejects a customer id the caller does not own and leaves the stored customer unchanged. Pinned by `apps/api/src/__tests__/live/customer-ownership.live.test.ts`.
 
 **Demo script outline:**
 - A: PUT draft → succeeds; mark sent → PUT → 4xx.
@@ -552,6 +554,7 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 - Web: none
 - Mobile: none
 - Journey: Money → Recurring list with ≥1 template. Guards the BossBoard mobile 1.1 (14) crash (`TypeError: Cannot read property 'reduce' of undefined` when list/pending omitted `line_items`). Pinned by `apps/api/tests/unit/recurring-invoices.contract.test.ts` and `apps/api/tests/unit/recurring-invoices.test.ts`.
+- Journey: Recurring template with another tenant's customer/product is rejected. A caller who supplies another tenant's customer id or product id is rejected and cannot read that customer's name, email, or phone through recurring create, update, list, detail, or generate. Generate returns 404 when the template is not visible to the caller. Pinned by `apps/api/src/__tests__/live/recurring-tenant.live.test.ts`.
 
 **Demo script outline:**
 - A: create monthly recurring → POST generate → assert new invoice exists with status=draft and correct due-date.
@@ -608,6 +611,7 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 - API: `apps/api/src/__tests__/routes/quotes.test.ts`, `apps/api/src/__tests__/services/quotes.test.ts`
 - Web: none specific
 - Mobile: none
+- Journey: Quote create and update reject a customer id the caller does not own, with the same 404 as a missing customer. Pinned by `apps/api/src/__tests__/live/customer-ownership.live.test.ts`.
 
 **Demo script outline:**
 - A: full CRUD + state transitions; verify `requireFeature` returns 403 for free tier.
@@ -926,6 +930,7 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 - Mobile: `apps/mobile/app/(tabs)/index.tsx`
 
 **Existing test coverage:** `apps/api/src/__tests__/routes/stats.test.ts`, `apps/api/src/__tests__/services/insights.test.ts`
+- Journey: Insights top customers omit a customer name that belongs to another account and fall back to the invoice client name. Pinned by `apps/api/src/__tests__/live/customer-ownership.live.test.ts`.
 **Demo script outline:**
 - A: seed account → assert response shape.
 - W: open dashboard, assert chart renders, top-customers list non-empty.

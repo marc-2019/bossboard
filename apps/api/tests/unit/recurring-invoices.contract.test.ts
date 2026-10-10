@@ -68,6 +68,7 @@ import request from 'supertest';
 import express, { Express } from 'express';
 import recurringInvoiceRoutes from '../../src/routes/recurring-invoices.js';
 import invoicesService from '../../src/services/invoices.js';
+import { MAX_INVOICE_LINE_AMOUNT_CENTS } from '../../src/services/invoice-integer-cap.js';
 import { errorHandler } from '../../src/middleware/error.js';
 
 const mockCreateInvoice = invoicesService.createInvoice as unknown as jest.Mock;
@@ -265,6 +266,8 @@ describe('recurring invoices API contract (mobile + web consumers)', () => {
 
     it('POST returns recurring and recurringInvoice as the same object with line_items', async () => {
       mockDbQuery
+        .mockResolvedValueOnce({ rows: [{ id: validBody.customerId }] })
+        .mockResolvedValueOnce({ rows: [{ id: validBody.lineItems[0].productServiceId }] })
         .mockResolvedValueOnce({ rows: [withLines] })
         .mockResolvedValueOnce({ rows: [line] });
 
@@ -415,6 +418,17 @@ describe('recurring invoices API contract (mobile + web consumers)', () => {
           lineItems: [{ description: 'Oil change', amount: 350 }],
         }),
       );
+    });
+
+    it('rejects a variable amount above the PostgreSQL INTEGER GST cap', async () => {
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices/ri-1/generate')
+        .send({ variableAmounts: { 'li-1': MAX_INVOICE_LINE_AMOUNT_CENTS + 1 } });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(mockCreateInvoice).not.toHaveBeenCalled();
     });
   });
 });
