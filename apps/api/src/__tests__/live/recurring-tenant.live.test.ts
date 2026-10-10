@@ -375,6 +375,8 @@ describe('live recurring tenant isolation', () => {
     const poisonGenerate = await request(app)
       .post(`/api/v1/recurring-invoices/${poisonId}/generate`)
       .send({});
+    expect(poisonGenerate.status).toBe(404);
+    expect(poisonGenerate.body.error).toBe('NOT_FOUND');
     expect(String(JSON.stringify(poisonGenerate.body))).not.toContain(TENANT_B_EMAIL);
     expect(String(JSON.stringify(poisonGenerate.body))).not.toContain(TENANT_B_PHONE);
     expect(String(JSON.stringify(poisonGenerate.body))).not.toContain(TENANT_B_NAME);

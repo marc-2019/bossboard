@@ -482,12 +482,16 @@ describe('deleteRecurringInvoice', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateInvoiceFromRecurring', () => {
-  it('throws when the recurring invoice is not found', async () => {
+  it('returns 404 when the recurring invoice is not found', async () => {
     mockDbQuery.mockResolvedValueOnce({ rows: [] }); // not found
 
     await expect(
       generateInvoiceFromRecurring('ri-missing', 'user-1')
-    ).rejects.toThrow('Recurring invoice not found');
+    ).rejects.toMatchObject({
+      message: 'Recurring invoice not found',
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
   });
 
   it('calls createInvoice with correct data from fixed line items', async () => {

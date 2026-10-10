@@ -560,7 +560,7 @@ export async function generateInvoiceFromRecurring(
   );
 
   if (recResult.rows.length === 0) {
-    throw new Error('Recurring invoice not found');
+    throw createError('Recurring invoice not found', 404, 'NOT_FOUND');
   }
 
   const recRow = recResult.rows[0];
