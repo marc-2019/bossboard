@@ -167,7 +167,8 @@ describe('listRecurringInvoices', () => {
   it('returns paginated results with total count', async () => {
     mockDbQuery
       .mockResolvedValueOnce({ rows: [{ count: '3' }] })                    // COUNT
-      .mockResolvedValueOnce({ rows: [makeRecurringRow(), makeRecurringRow({ id: 'ri-2', name: 'Weekly Clean' })] }); // SELECT
+      .mockResolvedValueOnce({ rows: [makeRecurringRow(), makeRecurringRow({ id: 'ri-2', name: 'Weekly Clean' })] }) // SELECT
+      .mockResolvedValueOnce({ rows: [] });                                 // batched line items
 
     const { recurringInvoices, total } = await listRecurringInvoices('user-1');
 
@@ -207,7 +208,9 @@ describe('getPendingRecurringInvoices', () => {
     const autoRow = makeRecurringRow({ is_auto_generate: true });
     const manualRow = makeRecurringRow({ id: 'ri-2', is_auto_generate: false });
 
-    mockDbQuery.mockResolvedValueOnce({ rows: [autoRow, manualRow] });
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [autoRow, manualRow] })
+      .mockResolvedValueOnce({ rows: [] }); // batched line items
 
     const { autoGenerate, needsInput } = await getPendingRecurringInvoices('user-1');
 
