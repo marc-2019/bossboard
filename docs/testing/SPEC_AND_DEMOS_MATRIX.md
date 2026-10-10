@@ -1040,6 +1040,7 @@ Same as F-STRIPE-01 but with `tier: 'team'`; assert session uses the team-tier p
 **Surfaces:** W ✓ A ✓ M –
 **Implementing code:** every authenticated route enforces `req.user.userId` ownership in WHERE clauses.
 **Existing test coverage:** `apps/web/e2e/multi-tenant-isolation.spec.ts`, `apps/web/e2e/multi-tenant-isolation-entities.spec.ts`
+- Journey: Two customers on separate tenants. Tradie A cannot list, read, update, or delete Tradie B's customers, products, invoices, quotes, expenses, job logs, or team (including members and invites). A cannot attach B's customer or SWMS to A's invoice, quote, or job, including via sync batch. Pinned by `apps/api/src/__tests__/live/two-tenant.live.test.ts` against Postgres. Recurring-template isolation stays on the SEC-F1 live test and is not repeated here.
 **Demo script outline:** create 2 users → user B tries to GET user A's invoice ID → assert 404 or 403.
 
 ---

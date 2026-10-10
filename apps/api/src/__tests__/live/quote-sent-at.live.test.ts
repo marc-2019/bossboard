@@ -171,7 +171,16 @@ beforeAll(async () => {
       `Live quote sent_at proofs require a reachable Postgres (DATABASE_URL). ${String(err)}`
     );
   }
-  await applyPendingMigrations();
+  // Same lock as two-tenant.live.test.ts so parallel Jest workers do not
+  // apply numbered migrations at the same time.
+  const lockClient = await pool.connect();
+  try {
+    await lockClient.query('SELECT pg_advisory_lock(1010101012)');
+    await applyPendingMigrations();
+  } finally {
+    await lockClient.query('SELECT pg_advisory_unlock(1010101012)');
+    lockClient.release();
+  }
   quotesApp = express();
   quotesApp.use(express.json());
   quotesApp.use('/api/v1/quotes', quoteRoutes);

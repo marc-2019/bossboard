@@ -66,7 +66,9 @@ beforeEach(() => {
 
 describe('createJobLog', () => {
   it('inserts with explicit fields and maps the row', async () => {
-    mockDbQuery.mockResolvedValueOnce({ rows: [makeRow()] });
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'cust-1' }] }) // customer owned by caller
+      .mockResolvedValueOnce({ rows: [makeRow()] });
 
     const result = await createJobLog('user-1', {
       description: 'Bathroom reno',
@@ -79,7 +81,9 @@ describe('createJobLog', () => {
     expect(result.id).toBe('job-1');
     expect(result.userId).toBe('user-1');
     expect(result.status).toBe('active');
-    const params = mockDbQuery.mock.calls[0][1] as unknown[];
+    const ownSql = mockDbQuery.mock.calls[0][0] as string;
+    expect(ownSql).toContain('user_id');
+    const params = mockDbQuery.mock.calls[1][1] as unknown[];
     expect(params[0]).toBe('user-1');
     expect(params[1]).toBe('Bathroom reno');
     expect(params[2]).toBe('12 Queen St');

@@ -20,6 +20,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import db from '../services/database.js';
+import { assertCustomerOwnedByUser } from '../services/customers.js';
 
 const router = Router();
 
@@ -323,6 +324,25 @@ function persistedIdOrNull(result: { rows: Array<{ id?: string }> }): string | n
   return result.rows[0].id || null;
 }
 
+/** Refuse to persist another tenant's customer id. Error text stays generic. */
+async function rejectForeignCustomer(
+  userId: string,
+  entityId: string,
+  customerId: string | null | undefined
+): Promise<SyncResult | null> {
+  if (!customerId) return null;
+  try {
+    await assertCustomerOwnedByUser(userId, customerId);
+    return null;
+  } catch {
+    return {
+      id: entityId as unknown as number,
+      success: false,
+      error: 'Customer not found',
+    };
+  }
+}
+
 /**
  * Process invoice operations
  */
@@ -354,6 +374,9 @@ async function processInvoiceOperation(
     };
   }
   const data = validation.data;
+
+  const foreignCustomer = await rejectForeignCustomer(userId, entityId, data.customer_id);
+  if (foreignCustomer) return foreignCustomer;
 
   const query = `
     INSERT INTO invoices (
@@ -445,6 +468,9 @@ async function processQuoteOperation(
     };
   }
   const data = validation.data;
+
+  const foreignCustomer = await rejectForeignCustomer(userId, entityId, data.customer_id);
+  if (foreignCustomer) return foreignCustomer;
 
   const query = `
     INSERT INTO quotes (
@@ -617,6 +643,9 @@ async function processJobLogOperation(
     };
   }
   const data = validation.data;
+
+  const foreignCustomer = await rejectForeignCustomer(userId, entityId, data.customer_id);
+  if (foreignCustomer) return foreignCustomer;
 
   const query = `
     INSERT INTO job_logs (

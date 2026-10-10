@@ -11,6 +11,7 @@ import {
   JobLogUpdateInput,
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
+import { assertCustomerOwnedByUser } from './customers.js';
 
 /**
  * Create a new job log (clock in)
@@ -23,6 +24,10 @@ export async function createJobLog(userId: string, input: JobLogCreateInput): Pr
     startTime,
     notes,
   } = input;
+
+  if (customerId) {
+    await assertCustomerOwnedByUser(userId, customerId);
+  }
 
   const result = await db.query<{
     id: string;
@@ -157,6 +162,10 @@ export async function updateJobLog(
 ): Promise<JobLog> {
   // Verify ownership
   await getJobLog(userId, jobLogId);
+
+  if (typeof input.customerId === 'string' && input.customerId) {
+    await assertCustomerOwnedByUser(userId, input.customerId);
+  }
 
   const updates: string[] = [];
   const values: (string | number | boolean | null)[] = [];

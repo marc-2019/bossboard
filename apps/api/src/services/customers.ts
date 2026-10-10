@@ -114,6 +114,20 @@ export async function createCustomer(
 }
 
 /**
+ * Reject a customer id that is missing or owned by another tenant.
+ * Callers must not echo the other tenant's name, email, or phone.
+ */
+export async function assertCustomerOwnedByUser(userId: string, customerId: string): Promise<void> {
+  const owned = await db.query(
+    `SELECT id FROM customers WHERE id = $1 AND user_id = $2`,
+    [customerId, userId]
+  );
+  if (owned.rows.length === 0) {
+    throw createError('Customer not found', 404, 'NOT_FOUND');
+  }
+}
+
+/**
  * Get customer by ID
  */
 export async function getCustomerById(

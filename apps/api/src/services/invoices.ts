@@ -17,6 +17,7 @@ import {
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
+import { assertCustomerOwnedByUser } from './customers.js';
 import {
   decryptForDisplay,
   decryptField,
@@ -167,6 +168,17 @@ export function calculateTotals(input: InvoiceTotalsInput): InvoiceTotals {
   };
 }
 
+/** Another tenant's SWMS id must not be stored on this invoice. */
+async function assertSwmsOwnedByUser(userId: string, swmsId: string): Promise<void> {
+  const owned = await db.query(
+    `SELECT id FROM swms_documents WHERE id = $1 AND user_id = $2`,
+    [swmsId, userId]
+  );
+  if (owned.rows.length === 0) {
+    throw createError('SWMS not found', 404, 'NOT_FOUND');
+  }
+}
+
 /**
  * Create a new invoice
  * Auto-populates bank details and company info from business profile if not provided
@@ -175,6 +187,13 @@ export async function createInvoice(
   userId: string,
   input: InvoiceCreateInput
 ): Promise<Invoice> {
+  if (input.customerId) {
+    await assertCustomerOwnedByUser(userId, input.customerId);
+  }
+  if (input.swmsId) {
+    await assertSwmsOwnedByUser(userId, input.swmsId);
+  }
+
   const invoiceNumber = await getNextInvoiceNumber(userId);
   const invoiceId = uuidv4();
 
@@ -652,6 +671,13 @@ export async function updateInvoice(
 
   if (existing.rows[0].status !== 'draft') {
     throw createError('Can only edit draft invoices', 400, 'INVOICE_NOT_EDITABLE');
+  }
+
+  if (typeof updates.customerId === 'string' && updates.customerId) {
+    await assertCustomerOwnedByUser(userId, updates.customerId);
+  }
+  if (typeof updates.swmsId === 'string' && updates.swmsId) {
+    await assertSwmsOwnedByUser(userId, updates.swmsId);
   }
 
   const current = transformInvoice(existing.rows[0]);

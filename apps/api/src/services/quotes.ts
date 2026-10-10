@@ -15,6 +15,7 @@ import {
 import { createError } from '../middleware/error.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
 import { createInvoice } from './invoices.js';
+import { assertCustomerOwnedByUser } from './customers.js';
 import { decryptField } from '../utils/field-crypto.js';
 
 const GST_RATE = 0.15; // NZ GST rate
@@ -80,6 +81,10 @@ export async function createQuote(
   userId: string,
   input: QuoteCreateInput
 ): Promise<Quote> {
+  if (input.customerId) {
+    await assertCustomerOwnedByUser(userId, input.customerId);
+  }
+
   const quoteNumber = await getNextQuoteNumber(userId);
   const quoteId = uuidv4();
 
@@ -370,6 +375,10 @@ export async function updateQuote(
 
   if (existing.rows[0].status !== 'draft') {
     throw createError('Can only edit draft quotes', 400, 'QUOTE_NOT_EDITABLE');
+  }
+
+  if (typeof updates.customerId === 'string' && updates.customerId) {
+    await assertCustomerOwnedByUser(userId, updates.customerId);
   }
 
   const fields: string[] = [];

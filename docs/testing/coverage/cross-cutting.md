@@ -38,6 +38,7 @@ The following existing tests are the LOAD-BEARING coverage for cross-cutting con
 | `apps/mobile/.maestro/46-offline-create.yaml` | offline invoice create with airplane mode ON | Mobile (Android-only) |
 | `apps/mobile/.maestro/47-online-sync.yaml` | sync drain after airplane mode OFF | Mobile (Android-only) |
 | `docs/testing/coverage/cross-cutting.md` | this document | — |
+| `apps/api/src/__tests__/live/two-tenant.live.test.ts` | F-X-01 two-tenant live Postgres: customers, products, invoices, quotes, expenses, job logs, teams, sync batch. A cannot read or write B's rows or store B's customer/SWMS id. | API (Jest + Postgres) |
 
 ### Specific assertions added (gap-fill against existing baseline)
 
