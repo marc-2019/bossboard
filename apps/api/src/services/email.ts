@@ -5,7 +5,7 @@
 
 import { Resend } from 'resend';
 import { config } from '../config/index.js';
-import { Invoice, Quote } from '../types/index.js';
+import { Invoice, Quote, formatNzDate } from '../types/index.js';
 
 let resendClient: Resend | null = null;
 
@@ -294,7 +294,7 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
     .join('');
 
   const dueDateHtml = invoice.dueDate
-    ? `<p style="margin: 0 0 8px; color: #374151;"><strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</p>`
+    ? `<p style="margin: 0 0 8px; color: #374151;"><strong>Due Date:</strong> ${formatNzDate(invoice.dueDate)}</p>`
     : '';
 
   const bankHtml = (invoice.bankAccountName || invoice.bankAccountNumber)
@@ -357,7 +357,7 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
     ...(customMessage?.trim() ? [customMessage.trim(), ''] : []),
     `Bill To: ${invoice.clientName}`,
     invoice.jobDescription ? `Job: ${invoice.jobDescription}` : '',
-    invoice.dueDate ? `Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-NZ')}` : '',
+    invoice.dueDate ? `Due Date: ${formatNzDate(invoice.dueDate)}` : '',
     '',
     '--- Line Items ---',
     ...invoice.lineItems.map(item => `  ${item.description}: ${formatCurrency(item.amount)}`),

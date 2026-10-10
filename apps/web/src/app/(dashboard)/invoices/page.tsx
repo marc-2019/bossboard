@@ -10,8 +10,9 @@ import { FileText, ChevronRight, Plus } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
+  timeZone: 'Pacific/Auckland',
   day: '2-digit',
-  month: 'short',
+  month: '2-digit',
   year: 'numeric',
 });
 

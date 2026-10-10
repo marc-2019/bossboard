@@ -3,6 +3,8 @@
  * Used by API (PDF generation), mobile, and web.
  */
 
+import { NZ_TIME_ZONE, formatNzDate } from './nz-date.js';
+
 /**
  * Format cents to NZD currency string.
  * Example: 15000 → "$150.00"
@@ -12,31 +14,25 @@ export function formatCurrency(cents: number): string {
 }
 
 /**
- * Format an ISO date string or Date to a human-readable NZ date.
- * Example: "2026-03-21" → "21 Mar 2026"
+ * Format an ISO date string or Date as dd/mm/yyyy in Pacific/Auckland.
+ * Example: "2026-03-21" → "21/03/2026"
  */
 export function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return '';
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-NZ', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatNzDate(date);
 }
 
 /**
- * Format an ISO datetime to a human-readable NZ datetime.
- * Example: "2026-03-21T14:30:00Z" → "21 Mar 2026, 2:30 PM"
+ * Format an ISO datetime in Pacific/Auckland.
+ * Example: "2026-03-21T14:30:00Z" → "22/03/2026, 3:30 am" during NZDT (UTC+13).
  */
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-NZ', {
-    day: 'numeric',
-    month: 'short',
+    timeZone: NZ_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',

@@ -29,12 +29,15 @@ jest.mock('../../services/database.js', () => ({
 }));
 
 const mockCreateInvoice = jest.fn();
+const mockGetInvoiceByIdRaw = jest.fn();
 
 jest.mock('../../services/invoices.js', () => ({
   __esModule: true,
   default: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createInvoice: (...args: any[]) => mockCreateInvoice(...args),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getInvoiceByIdRaw: (...args: any[]) => mockGetInvoiceByIdRaw(...args),
   },
 }));
 
@@ -120,7 +123,14 @@ function makeClient(queryResponses: unknown[] = []) {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  mockDbQuery.mockReset();
+  mockGetClient.mockReset();
+  mockCreateInvoice.mockReset();
+  mockGetInvoiceByIdRaw.mockReset();
+  mockGetClient.mockResolvedValue({
+    query: jest.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+    release: jest.fn(),
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -512,6 +522,52 @@ describe('generateInvoiceFromRecurring', () => {
     );
     expect(updateCall).toBeDefined();
     expect(updateCall![1][1]).toBe('ri-1'); // WHERE id = recurringId
+  });
+
+  it('bills the Auckland civil date, not the UTC day shifted by toISOString', async () => {
+    // 2026-04-04T11:30:00Z is 2026-04-05 00:30 NZDT, before DST ends at 03:00.
+    // payment terms 20 → due 2026-04-25. Period is the Auckland month 2026-04.
+    // A UTC clock or toISOString() of that early-morning instant yields 2026-04-24.
+    const recRow = makeRecurringRow({ payment_terms: 20, day_of_month: 5 });
+    const liRow = makeLineItemRow({ unit_price: 100, quantity: 1, type: 'fixed' });
+    const now = new Date('2026-04-04T11:30:00.000Z');
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-nz' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1', undefined, now);
+
+    expect(mockCreateInvoice).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        dueDate: '2026-04-25',
+        recurringPeriod: '2026-04',
+        recurringInvoiceId: 'ri-1',
+      })
+    );
+  });
+
+  it('returns the existing invoice for the same template and period', async () => {
+    const recRow = makeRecurringRow({ payment_terms: 20, day_of_month: 1 });
+    const liRow = makeLineItemRow();
+    const now = new Date('2026-03-31T12:00:00.000Z'); // 2026-04-01 01:00 NZDT
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] })
+      .mockResolvedValueOnce({ rows: [{ id: 'inv-existing' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    mockGetInvoiceByIdRaw.mockResolvedValue({ id: 'inv-existing', dueDate: '2026-04-21' });
+
+    const result = await generateInvoiceFromRecurring('ri-1', 'user-1', { 'li-1': 999 }, now) as Record<string, unknown>;
+
+    expect(mockCreateInvoice).not.toHaveBeenCalled();
+    expect(mockGetInvoiceByIdRaw).toHaveBeenCalledWith('inv-existing', 'user-1');
+    expect(result.id).toBe('inv-existing');
   });
 
   it('uses product_name as description fallback when line item description is null', async () => {

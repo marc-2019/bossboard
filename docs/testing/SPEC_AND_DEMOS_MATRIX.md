@@ -540,6 +540,8 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 3. `POST /api/v1/recurring-invoices/:id/generate` (or scheduled job) creates the next invoice.
 4. `GET /api/v1/recurring-invoices/pending` shows the next-up.
 5. CRUD operations work; PUT updates the schedule.
+6. Generate is idempotent per template and Auckland calendar month (`YYYY-MM`). A second generate for that period, including two overlapping calls, returns the existing invoice and does not insert another row (`invoices.recurring_period`, unique index `idx_invoices_recurring_period_unique`).
+7. The billing period, next-generation date, and due date use `Pacific/Auckland` (DST end 2026-04-05, start 2026-09-27). They do not use the process timezone or a fixed UTC+12/UTC+13 offset. Customer-facing dates display as dd/mm/yyyy.
 
 **Surfaces:** W partial (no recurring page found on Web yet) A ✓ M ✓
 **Implementing code:**
@@ -548,12 +550,14 @@ Surface applicability per feature is given as `Surfaces: W ? A ? M ?` where `?` 
 - Mobile: `apps/mobile/app/recurring/index.tsx`, `apps/mobile/app/recurring/create.tsx`, `apps/mobile/app/recurring/generate.tsx`
 
 **Existing test coverage:**
-- API: `apps/api/src/__tests__/routes/recurring-invoices.test.ts`, `apps/api/src/__tests__/services/recurring-invoices.test.ts`, `apps/api/src/__tests__/services/recurring-invoices-async.test.ts`
+- API: `apps/api/src/__tests__/routes/recurring-invoices.test.ts`, `apps/api/src/__tests__/services/recurring-invoices.test.ts`, `apps/api/src/__tests__/services/recurring-invoices-async.test.ts`, `apps/api/src/__tests__/utils/nz-date.test.ts`, `apps/api/src/__tests__/live/recurring-generate.live.test.ts` (Postgres: one invoice per template+period, overlapping generates, Auckland due date across the DST boundary)
 - Web: none
 - Mobile: none
 
+**User journey:** A tradie opens a monthly recurring template and generates this month's draft. They tap generate again, or the app fires the call twice, and still see one invoice for that Auckland month, with the due date dd/mm/yyyy counted in Pacific/Auckland. Next month's generate creates the next invoice only.
+
 **Demo script outline:**
-- A: create monthly recurring → POST generate → assert new invoice exists with status=draft and correct due-date.
+- A: create monthly recurring → POST generate → assert one draft invoice, Auckland due date, and `recurring_period` → POST generate again (and once concurrently) → still one row → generate in the next Auckland month → second row.
 - M: Maestro flow `09-inv-recurring.yaml` — Recurring screen → create → list shows.
 
 ---

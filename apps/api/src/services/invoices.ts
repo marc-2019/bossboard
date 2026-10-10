@@ -280,11 +280,12 @@ export async function createInvoice(
       intl_bank_account_name, intl_iban, intl_swift_bic,
       intl_bank_name, intl_bank_address,
       company_name, company_address, ird_number, gst_number,
-      discount_type, discount_value, discount_amount, discount_label
+      discount_type, discount_value, discount_amount, discount_label,
+      recurring_period
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft',
             $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
-            $25, $26, $27, $28, $29, $30, $31, $32, $33)
+            $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
     RETURNING *`,
     [
       invoiceId,
@@ -320,6 +321,7 @@ export async function createInvoice(
       totals.discountValue,
       totals.discountAmount,
       discountLabel,
+      input.recurringPeriod || null,
     ]
   );
 

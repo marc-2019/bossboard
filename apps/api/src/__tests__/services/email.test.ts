@@ -247,6 +247,14 @@ describe('sendInvoiceEmail', () => {
     expect(call.subject).toContain('Bob Builder');
   });
 
+  it('shows the due date as dd/mm/yyyy in Pacific/Auckland', async () => {
+    const invoice = makeInvoice({ dueDate: '2026-05-01' });
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'c@c.com', 'Sender');
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.html).toContain('01/05/2026');
+    expect(call.text).toContain('01/05/2026');
+  });
+
   it('includes formatted dollar amounts in HTML', async () => {
     const invoice = makeInvoice({ subtotal: 20000, gstAmount: 3000, total: 23000 });
     await sendInvoiceEmail(invoice, Buffer.from(''), 'c@c.com', 'Sender');

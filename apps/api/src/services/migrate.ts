@@ -4,7 +4,7 @@
  * Uses a _migrations tracking table to avoid re-running.
  */
 
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { config } from '../config/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -48,11 +48,16 @@ export function resolveMigrationsDir(cwd: string = process.cwd()): string {
 export async function runMigrations(): Promise<void> {
   const pool = new Pool({
     connectionString: config.databaseUrl,
-    max: 2,
+    max: 3,
     connectionTimeoutMillis: 10000,
   });
 
+  let lockClient: PoolClient | null = null;
   try {
+    // Serialise concurrent starters (API boot + parallel live Jest files).
+    lockClient = await pool.connect();
+    await lockClient.query('SELECT pg_advisory_lock($1)', [214201010]);
+
     console.log('[migrate] Starting database migration check...');
 
     const migrationsRoot = resolveMigrationsDir();
@@ -135,6 +140,14 @@ export async function runMigrations(): Promise<void> {
       console.log(`[migrate] Successfully applied ${ranCount} migration(s).`);
     }
   } finally {
+    if (lockClient) {
+      try {
+        await lockClient.query('SELECT pg_advisory_unlock($1)', [214201010]);
+      } catch {
+        // The pool may already be unusable; ending it still drops the session lock.
+      }
+      lockClient.release();
+    }
     await pool.end();
   }
 }

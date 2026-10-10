@@ -361,6 +361,16 @@ describe('generateInvoicePDF — date formatting', () => {
     expect(mockTextCalls).toContain('20/05/2026');
   });
 
+  it('formats an instant using the Auckland civil date, not the UTC date', async () => {
+    // 2026-03-31T12:00:00Z is 01/04/2026 01:00 NZDT. UTC and a fixed +12 offset say 31/03.
+    await generateInvoicePDF(makeInvoice({
+      createdAt: new Date('2026-03-31T12:00:00.000Z'),
+      dueDate: null,
+    }));
+    expect(mockTextCalls).toContain('01/04/2026');
+    expect(mockTextCalls).not.toContain('31/03/2026');
+  });
+
   it('omits the Due Date label when dueDate is null', async () => {
     await generateInvoicePDF(makeInvoice({ dueDate: null }));
     expect(mockTextCalls).not.toContain('Due Date:');

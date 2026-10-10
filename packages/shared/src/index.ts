@@ -13,6 +13,17 @@ export type { ColorKey } from './theme/colors.js';
 // Utils
 export { formatCurrency, formatDate, formatDateTime, formatElapsedTime } from './utils/format.js';
 export {
+  NZ_TIME_ZONE,
+  addCalendarDays,
+  aucklandDateParts,
+  aucklandDueDate,
+  aucklandPeriodKey,
+  daysInMonth,
+  formatIsoDate,
+  formatNzDate,
+} from './utils/nz-date.js';
+export type { CivilDate } from './utils/nz-date.js';
+export {
   sellAmountFromCostMargin,
   marginAmountCents,
   marginPercentFromCostSell,

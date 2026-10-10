@@ -97,6 +97,30 @@ describe('computeNextGenerationDate', () => {
     });
   });
 
+  describe('Pacific/Auckland DST edges (not a fixed offset, not process-local UTC)', () => {
+    it('rolls day 5 on 2026-04-05 00:30 NZDT, which is still 4 April in UTC and at UTC+12', () => {
+      // DST ends 2026-04-05 03:00 NZDT → 02:00 NZST. This instant is before the fallback.
+      const from = new Date('2026-04-04T11:30:00.000Z');
+      expect(computeNextGenerationDate(5, from)).toBe('2026-05-05');
+    });
+
+    it('keeps 2026-04-05 23:30 NZST on 5 April (a fixed UTC+13 offset would say 6 April)', () => {
+      const from = new Date('2026-04-05T11:30:00.000Z');
+      expect(computeNextGenerationDate(5, from)).toBe('2026-05-05');
+    });
+
+    it('rolls day 27 on 2026-09-27 01:30 NZST, before clocks spring forward', () => {
+      // DST starts 2026-09-27 02:00 NZST → 03:00 NZDT.
+      const from = new Date('2026-09-26T13:30:00.000Z');
+      expect(computeNextGenerationDate(27, from)).toBe('2026-10-27');
+    });
+
+    it('rolls day 28 on 2026-09-28 00:30 NZDT (a fixed UTC+12 offset would still say 27 September)', () => {
+      const from = new Date('2026-09-27T11:30:00.000Z');
+      expect(computeNextGenerationDate(28, from)).toBe('2026-10-28');
+    });
+  });
+
   describe('edge cases', () => {
     it('handles day 1 in any month', () => {
       const result = computeNextGenerationDate(1, d(2026, 6, 2));

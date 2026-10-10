@@ -11,6 +11,7 @@ import documentsService, { DOCUMENT_DISCLAIMER } from '../services/documents.js'
 import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
 import { isPathInside } from '../utils/path-safe.js';
 import { customerFacingInvoiceStatus } from '../utils/invoiceCustomerFacing.js';
+import { formatNzDate } from '../types/index.js';
 
 const router = Router();
 
@@ -156,15 +157,10 @@ function formatCurrency(cents: unknown): string {
 
 function formatDate(date: unknown): string {
   if (!date) return '';
-  try {
-    return new Date(String(date)).toLocaleDateString('en-NZ', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return String(date);
+  if (typeof date === 'string' || date instanceof Date) {
+    return formatNzDate(date);
   }
+  return formatNzDate(String(date));
 }
 
 function renderErrorPage(title: string, message: string): string {

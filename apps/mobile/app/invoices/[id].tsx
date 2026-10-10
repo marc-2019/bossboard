@@ -113,11 +113,13 @@ export default function InvoiceDetailScreen() {
 
   function formatDate(dateString: string | null): string {
     if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-NZ', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    const civil = /^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.0+)?Z$)/.exec(dateString);
+    if (civil) return `${civil[3]}/${civil[2]}/${civil[1]}`;
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return 'Not set';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}/${d.getFullYear()}`;
   }
 
   function getStatusColor(status: string): string {

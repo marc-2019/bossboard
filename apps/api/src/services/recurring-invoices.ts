@@ -12,7 +12,14 @@ import {
   ProductType,
   RecurringInvoiceCreateInput,
   RecurringInvoiceUpdateInput,
+  aucklandDateParts,
+  aucklandDueDate,
+  aucklandPeriodKey,
+  daysInMonth,
+  formatIsoDate,
 } from '../types/index.js';
+
+const RECURRING_PERIOD_INDEX = 'idx_invoices_recurring_period_unique';
 
 /**
  * Transform DB row to RecurringInvoice type
@@ -88,34 +95,93 @@ function transformForMobile(rec: RecurringInvoice): Record<string, unknown> {
 /**
  * Compute next generation date from day_of_month.
  *
+ * The calendar is Pacific/Auckland (IANA, including DST). Do not use the
+ * process timezone or a fixed UTC+12 / UTC+13 offset.
+ *
  * When dayOfMonth exceeds the number of days in the target month (e.g. day 31
  * in April, or day 29–31 in February), clamp to the last day of that month so
  * the invoice still fires on the closest valid date rather than producing an
  * invalid date string that PostgreSQL would reject.
  */
 export function computeNextGenerationDate(dayOfMonth: number, from?: Date): string {
-  const now = from ?? new Date();
-  let year = now.getFullYear();
-  let month = now.getMonth(); // 0-indexed
+  const parts = aucklandDateParts(from ?? new Date());
+  let year = parts.year;
+  let month = parts.month;
 
   // If we've passed the day this month, schedule for next month
-  if (now.getDate() >= dayOfMonth) {
-    month++;
-    if (month > 11) {
-      month = 0;
-      year++;
+  if (parts.day >= dayOfMonth) {
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
     }
   }
 
-  // Clamp to the actual last day of the target month so we never produce an
-  // invalid date (e.g. "2026-04-31" or "2026-02-30").
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const day = Math.min(dayOfMonth, daysInMonth);
+  const day = Math.min(dayOfMonth, daysInMonth(year, month));
+  return formatIsoDate({ year, month, day });
+}
 
-  // Format as YYYY-MM-DD
-  const m = String(month + 1).padStart(2, '0');
-  const d = String(day).padStart(2, '0');
-  return `${year}-${m}-${d}`;
+function isRecurringPeriodConflict(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const pg = err as { code?: string; constraint?: string };
+  return pg.code === '23505' && pg.constraint === RECURRING_PERIOD_INDEX;
+}
+
+async function findPeriodInvoiceId(
+  userId: string,
+  recurringId: string,
+  period: string,
+): Promise<string | null> {
+  const existing = await db.query<{ id: string }>(
+    `SELECT id FROM invoices
+     WHERE user_id = $1 AND recurring_invoice_id = $2 AND recurring_period = $3
+     ORDER BY created_at ASC, id ASC
+     LIMIT 1`,
+    [userId, recurringId, period],
+  );
+  return existing.rows[0]?.id ?? null;
+}
+
+async function stampNextGeneration(
+  recurringId: string,
+  dayOfMonth: number,
+  now: Date,
+): Promise<void> {
+  const nextGen = computeNextGenerationDate(dayOfMonth, now);
+  await db.query(
+    `UPDATE recurring_invoices
+     SET last_generated_at = NOW(), next_generation_date = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [nextGen, recurringId],
+  );
+}
+
+/**
+ * One in-flight generate per template+period. The unique index is the backstop
+ * if two callers pass the lock (different pool connections still serialise here).
+ */
+async function withPeriodLock<T>(
+  recurringId: string,
+  period: string,
+  body: () => Promise<T>,
+): Promise<T> {
+  const client = await db.getClient();
+  const key = `${recurringId}:${period}`;
+  let locked = false;
+  try {
+    await client.query('SELECT pg_advisory_lock(hashtext($1::text))', [key]);
+    locked = true;
+    return await body();
+  } finally {
+    if (locked) {
+      try {
+        await client.query('SELECT pg_advisory_unlock(hashtext($1::text))', [key]);
+      } catch {
+        console.error('[recurring] failed to release period lock');
+      }
+    }
+    client.release();
+  }
 }
 
 /**
@@ -452,7 +518,8 @@ export async function deleteRecurringInvoice(
 export async function generateInvoiceFromRecurring(
   recurringId: string,
   userId: string,
-  variableAmounts?: Record<string, number>
+  variableAmounts?: Record<string, number>,
+  now: Date = new Date(),
 ): Promise<Record<string, unknown>> {
   // Fetch recurring config with customer + line items
   const recResult = await db.query<Record<string, unknown>>(
@@ -497,37 +564,49 @@ export async function generateInvoiceFromRecurring(
     return { description, amount };
   });
 
-  // Calculate due date from payment terms
-  const paymentTerms = recRow.payment_terms as number;
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + paymentTerms);
-  const dueDateStr = dueDate.toISOString().split('T')[0];
-
-  // Create the invoice via existing service
-  const invoice = await invoicesService.createInvoice(userId, {
-    clientName: recRow.customer_name as string,
-    clientEmail: (recRow.customer_email as string) || undefined,
-    clientPhone: (recRow.customer_phone as string) || undefined,
-    lineItems: invoiceLineItems,
-    includeGst: recRow.include_gst as boolean,
-    dueDate: dueDateStr,
-    notes: (recRow.notes as string) || undefined,
-    customerId: recRow.customer_id as string,
-    recurringInvoiceId: recurringId,
-  });
-
-  // Update last_generated_at and next_generation_date
+  // Due date and period use the Auckland civil calendar of `now`, not UTC and
+  // not toISOString() (that shifts early-morning NZ instants back a day).
+  const paymentTerms = Number(recRow.payment_terms);
+  const dueDateStr = aucklandDueDate(now, paymentTerms);
+  const period = aucklandPeriodKey(now);
   const dayOfMonth = recRow.day_of_month as number;
-  const nextGen = computeNextGenerationDate(dayOfMonth);
 
-  await db.query(
-    `UPDATE recurring_invoices
-     SET last_generated_at = NOW(), next_generation_date = $1, updated_at = NOW()
-     WHERE id = $2`,
-    [nextGen, recurringId]
-  );
+  return withPeriodLock(recurringId, period, async () => {
+    const alreadyId = await findPeriodInvoiceId(userId, recurringId, period);
+    if (alreadyId) {
+      await stampNextGeneration(recurringId, dayOfMonth, now);
+      const existing = await invoicesService.getInvoiceByIdRaw(alreadyId, userId);
+      if (!existing) {
+        throw new Error('Recurring invoice for this period could not be loaded');
+      }
+      return existing as unknown as Record<string, unknown>;
+    }
 
-  return invoice as unknown as Record<string, unknown>;
+    try {
+      const invoice = await invoicesService.createInvoice(userId, {
+        clientName: recRow.customer_name as string,
+        clientEmail: (recRow.customer_email as string) || undefined,
+        clientPhone: (recRow.customer_phone as string) || undefined,
+        lineItems: invoiceLineItems,
+        includeGst: recRow.include_gst as boolean,
+        dueDate: dueDateStr,
+        notes: (recRow.notes as string) || undefined,
+        customerId: recRow.customer_id as string,
+        recurringInvoiceId: recurringId,
+        recurringPeriod: period,
+      });
+      await stampNextGeneration(recurringId, dayOfMonth, now);
+      return invoice as unknown as Record<string, unknown>;
+    } catch (err) {
+      if (!isRecurringPeriodConflict(err)) throw err;
+      const winnerId = await findPeriodInvoiceId(userId, recurringId, period);
+      if (!winnerId) throw err;
+      await stampNextGeneration(recurringId, dayOfMonth, now);
+      const winner = await invoicesService.getInvoiceByIdRaw(winnerId, userId);
+      if (!winner) throw err;
+      return winner as unknown as Record<string, unknown>;
+    }
+  });
 }
 
 /**

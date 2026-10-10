@@ -370,6 +370,8 @@ export interface InvoiceCreateInput {
   internalMemo?: string;
   customerId?: string;
   recurringInvoiceId?: string;
+  /** Auckland calendar month YYYY-MM. Set only by recurring generate. */
+  recurringPeriod?: string | null;
   intlBankAccountName?: string;
   intlIban?: string;
   intlSwiftBic?: string;

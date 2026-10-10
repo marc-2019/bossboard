@@ -5,7 +5,7 @@
 
 import PDFDocument from 'pdfkit';
 import { config } from '../config/index.js';
-import { Invoice, InvoiceLineItem, Quote } from '../types/index.js';
+import { Invoice, InvoiceLineItem, Quote, formatNzDate } from '../types/index.js';
 import { customerFacingInvoiceStatus } from '../utils/invoiceCustomerFacing.js';
 
 /** Convert cents to formatted NZD string */
@@ -14,15 +14,10 @@ function formatCurrency(cents: number): string {
   return `$${dollars.toFixed(2)}`;
 }
 
-/** Format date string to DD/MM/YYYY (NZ format) */
+/** Format a civil date or instant as dd/mm/yyyy in Pacific/Auckland. */
 function formatDate(dateStr: string | Date | null): string {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return String(dateStr);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  return formatNzDate(dateStr);
 }
 
 /**
