@@ -54,7 +54,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bossboard_dev_2026}
       POSTGRES_DB: bossboard
     ports:
-      - "29432:5432"
+      - "127.0.0.1:29432:5432"
     volumes:
       - bossboard_postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
