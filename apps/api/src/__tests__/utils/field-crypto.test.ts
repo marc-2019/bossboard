@@ -41,7 +41,7 @@ describe('field-crypto', () => {
   });
 
   it('blind index is stable and case-insensitive for email', () => {
-    expect(blindIndex('Joan@Example.com')).toBe(blindIndex('joan@example.com'));
+    expect(blindIndex('Alex@Example.com')).toBe(blindIndex('alex@example.com'));
     expect(blindIndex('a@b.com')).not.toBe(blindIndex('c@d.com'));
   });
 
