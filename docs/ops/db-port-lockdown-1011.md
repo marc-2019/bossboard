@@ -1,43 +1,49 @@
-# DB port lockdown 2026-10-11 — BossBoard Postgres
+# DB port lockdown 2026-10-11 — BossBoard
 
-Bind the published dev database port to localhost. Do not run this against the live stack until Marc is with Ace. Apply moss-dev first, then this repo, then GARA. Modular Compliance is a separate, blocked step.
+Bind every host-published dev port to localhost. Do not run this against the live stack until Marc is with Ace. Apply moss-dev first, then this repo, then GARA. Modular Compliance is a separate, blocked step.
+
+Recreating the API, redis, and web containers is part of the same Marc window as postgres. `docker restart` does not change a published bind. A recreate does.
 
 ## Change
 
-`docker-compose.yml` service `bossboard-postgres` `ports` only:
+`docker-compose.yml` host publishes:
 
 ```yaml
-- "127.0.0.1:29432:5432"
+- "127.0.0.1:29000:29000"  # bossboard-api
+- "127.0.0.1:29432:5432"   # bossboard-postgres
+- "127.0.0.1:29379:6379"   # bossboard-redis
+- "127.0.0.1:29080:80"     # bossboard-web
 ```
 
-`docker-compose.production.yml` uses `expose: ["5432"]`. It does not publish a host port. It is not part of this diff.
+`POSTGRES_PASSWORD`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` have no default. Compose stops if any of them is unset. Set them in the environment or the env file on the Spark host. Do not put a fallback in the compose file.
+
+`docker-compose.production.yml` uses `expose` for the API, postgres, and redis. Its nginx service still publishes host ports 80 and 443. That file is not part of this diff.
 
 ## What is running
 
 | | |
 |---|---|
-| Container | `bossboard-postgres` |
+| Database container | `bossboard-postgres` |
 | Compose project | `bossboard` |
-| Service | `bossboard-postgres` |
 | Live file | `<repo-root>/docker-compose.yml` on the Spark host |
 | Volume | `bossboard_postgres_data` (keep it; do not pass `-v`) |
-| Runtime bind before this change | `0.0.0.0:29432` and `[::]:29432` |
-| Same-network peers | `bossboard-api` (healthy), `bossboard-redis` |
+| Same-network peers | `bossboard-api`, `bossboard-redis` |
 
-`bossboard-api` uses hostname `bossboard-postgres` port `5432`. That path does not use the host publish. The offsite backup timer runs `docker exec` `pg_dump`. That path does not use the host publish.
+`bossboard-api` reaches postgres by the service hostname, not the host publish. The offsite backup uses `docker exec`. Host `DATABASE_URL` uses `localhost` port `29432`. That keeps working when the host name `localhost` resolves to `127.0.0.1`.
 
-Host `DATABASE_URL` in the live `.env` and `apps/api/.env` uses host `localhost` port `29432` (key names and host class only). `/etc/hosts` maps `localhost` to `127.0.0.1` and has no `::1` line, so those host clients keep working.
-
-The live checkout may track another upstream. On 2026-10-11 this compose file's bytes matched `origin/master`. Patch the one port line. Do not checkout, reset, or pull the live tree.
+The live checkout may track another upstream. Patch the compose file in place. Do not checkout, reset, or pull the live tree.
 
 ## Who connects
 
-Established TCP to port 29432 was empty during 2026-10-11 samples. No config pointed at 29432 via the LAN address, the Tailscale address, `172.17.0.1`, or the host name.
+Established TCP to port 29432 was empty during 2026-10-11 samples. No config pointed at 29432 via a LAN address, a Tailscale address, or `172.17.0.1`.
 
-Marc's Mac had no connection that evening. Off-box access:
+Off-box access after the bind:
 
 ```bash
 ssh -L 29432:127.0.0.1:29432 <spark-host>
+ssh -L 29000:127.0.0.1:29000 <spark-host>
+ssh -L 29379:127.0.0.1:29379 <spark-host>
+ssh -L 29080:127.0.0.1:29080 <spark-host>
 ```
 
 ## Apply
@@ -45,34 +51,30 @@ ssh -L 29432:127.0.0.1:29432 <spark-host>
 Pre-check. Stop if any peer is not `127.0.0.1` or `::1`:
 
 ```bash
-ss -tn state established '( sport = :29432 )'
+ss -tn state established '( sport = :29432 or sport = :29000 or sport = :29379 or sport = :29080 )'
 ```
 
-Edit only the `bossboard-postgres` ports line in `<repo-root>/docker-compose.yml` on the Spark host. From that directory:
+Confirm `POSTGRES_PASSWORD`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` are set. From `<repo-root>` on the Spark host, recreate only services that are already running. On 2026-10-11 that was postgres, redis, and the API. Web was not running; do not start it just to apply the bind. The next start uses `127.0.0.1`.
 
 ```bash
-docker compose -f docker-compose.yml up -d --no-deps bossboard-postgres
+docker compose -f docker-compose.yml up -d --no-deps --no-build bossboard-postgres bossboard-redis bossboard-api
 ```
 
-Short outage while Postgres restarts. Named volume stays. Do not `down -v`. Do not recreate redis or the whole stack.
-
-After postgres is healthy, reconnect the API without a rebuild (the running API publish is already `29000:29000`):
-
-```bash
-docker restart bossboard-api
-```
+Short outage. Named volumes stay. Do not `down -v`. Do not `up` the whole file.
 
 ## Verify
 
 ```bash
 ss -tln sport = :29432
+ss -tln sport = :29379
+ss -tln sport = :29000
 docker exec bossboard-postgres pg_isready -U bossboard -d bossboard
-docker inspect -f '{{.State.Health.Status}}' bossboard-postgres bossboard-api
+docker inspect -f '{{.State.Health.Status}}' bossboard-postgres bossboard-api bossboard-redis
 curl -fsS http://127.0.0.1:29000/health
 ```
 
-`ss` must show `127.0.0.1:29432` only. From a Tailscale peer, port 29432 on the Spark host's Tailscale address must be closed.
+Each `ss` line must show `127.0.0.1` only. From a Tailscale peer, those ports on the Spark host must be closed.
 
 ## Rollback
 
-Put the line back to `"29432:5432"` and run the same `up -d --no-deps bossboard-postgres`. Restart `bossboard-api` again.
+Restore the previous port lines and the previous env fallbacks from git, then run the same `up -d --no-deps --no-build` for the services that were recreated.
