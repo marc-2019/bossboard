@@ -17,7 +17,7 @@ Recreating the API, redis, and web containers is part of the same Marc window as
 
 `POSTGRES_PASSWORD`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` have no default. Compose stops if any of them is unset. Set them in the environment or the env file on the Spark host. Do not put a fallback in the compose file.
 
-`POSTGRES_PASSWORD` is applied by the postgres image only when the data volume is created empty. An existing volume keeps the password already stored in it. Changing the env value does not rotate that password. When an existing volume needs a new password, Marc runs `ALTER USER ... PASSWORD ...` himself. Do not put the password in this file.
+`POSTGRES_PASSWORD` is applied by the postgres image only when the data volume is created empty. An existing volume keeps the password already stored in it. Changing the env value does not rotate that password. When an existing volume needs a new password, Marc sets it with interactive psql `\password <role>` so it never reaches shell history, psql history, or logs. Do not put the password in this file.
 
 `docker-compose.production.yml` uses `expose` for the API, postgres, and redis. Its nginx service still publishes host ports 80 and 443. That file is not part of this diff.
 
