@@ -109,6 +109,35 @@ describe('Recurring Invoice Routes', () => {
       expect(mockCreateRecurringInvoice).not.toHaveBeenCalled();
     });
 
+    it('rejects an internal memo longer than 2000 characters', async () => {
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices')
+        .send({
+          ...validRecurringInvoice,
+          internalMemo: 'x'.repeat(2001),
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toBe('Internal memo must be at most 2000 characters');
+      expect(mockCreateRecurringInvoice).not.toHaveBeenCalled();
+    });
+
+    it('accepts an internal memo of exactly 2000 characters', async () => {
+      mockCreateRecurringInvoice.mockResolvedValue({ id: 'ri-1' });
+      const internalMemo = 'y'.repeat(2000);
+
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices')
+        .send({ ...validRecurringInvoice, internalMemo });
+
+      expect(response.status).toBe(201);
+      expect(mockCreateRecurringInvoice).toHaveBeenCalledWith(
+        'test-user-id',
+        expect.objectContaining({ internalMemo })
+      );
+    });
+
     it('accepts a staff memo without putting it through the customer-notes check', async () => {
       mockCreateRecurringInvoice.mockResolvedValue({ id: 'ri-1' });
 
@@ -475,6 +504,32 @@ describe('Recurring Invoice Routes', () => {
       expect(response.body.error).toBe('VALIDATION_ERROR');
     });
 
+    it('rejects an internal memo longer than 2000 characters', async () => {
+      const response = await request(app)
+        .put('/api/v1/recurring-invoices/ri-1')
+        .send({ internalMemo: 'x'.repeat(2001) });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toBe('Internal memo must be at most 2000 characters');
+      expect(mockUpdateRecurringInvoice).not.toHaveBeenCalled();
+    });
+
+    it('allows clearing the internal memo with null', async () => {
+      mockUpdateRecurringInvoice.mockResolvedValue({ id: 'ri-1', internalMemo: null });
+
+      const response = await request(app)
+        .put('/api/v1/recurring-invoices/ri-1')
+        .send({ internalMemo: null });
+
+      expect(response.status).toBe(200);
+      expect(mockUpdateRecurringInvoice).toHaveBeenCalledWith(
+        'ri-1',
+        'test-user-id',
+        expect.objectContaining({ internalMemo: null })
+      );
+    });
+
     it('should allow setting notes to null', async () => {
       const updated = { id: 'ri-1', notes: null };
       mockUpdateRecurringInvoice.mockResolvedValue(updated);
@@ -645,6 +700,18 @@ describe('Recurring Invoice Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data.lastAmounts).toEqual({});
+    });
+  });
+
+  describe('POST /api/v1/recurring-invoices/from-invoice/:invoiceId', () => {
+    it('rejects an internal memo longer than 2000 characters', async () => {
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices/from-invoice/11111111-1111-4111-8111-111111111111')
+        .send({ internalMemo: 'x'.repeat(2001) });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toBe('Internal memo must be at most 2000 characters');
     });
   });
 });

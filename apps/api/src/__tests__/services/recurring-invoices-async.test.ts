@@ -325,6 +325,21 @@ describe('createRecurringInvoice', () => {
 
     expect(mockGetClient).not.toHaveBeenCalled();
   });
+
+  it('rejects an internal memo longer than 2000 characters before opening a transaction', async () => {
+    await expect(
+      createRecurringInvoice('user-1', {
+        customerId: 'cust-1',
+        name: 'Example template',
+        internalMemo: 'x'.repeat(2001),
+        lineItems: [
+          { productServiceId: 'ps-1', unitPrice: 100, quantity: 1, type: 'fixed' as const },
+        ],
+      })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'INTERNAL_MEMO_TOO_LONG' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -338,6 +353,18 @@ describe('updateRecurringInvoice', () => {
         notes: 'system test — do not send',
       })
     ).rejects.toMatchObject({ code: 'NOTES_NOT_CUSTOMER_READY' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects an internal memo longer than 2000 characters before writing', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [{ id: 'ri-1' }] });
+
+    await expect(
+      updateRecurringInvoice('ri-1', 'user-1', {
+        internalMemo: 'x'.repeat(2001),
+      })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'INTERNAL_MEMO_TOO_LONG' });
 
     expect(mockGetClient).not.toHaveBeenCalled();
   });

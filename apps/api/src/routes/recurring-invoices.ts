@@ -8,6 +8,8 @@ import { z } from 'zod';
 import recurringInvoicesService from '../services/recurring-invoices.js';
 import { authenticate } from '../middleware/auth.js';
 import {
+  INTERNAL_MEMO_MAX_LENGTH,
+  INTERNAL_MEMO_TOO_LONG_MESSAGE,
   INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
   looksLikeInternalInvoiceNotes,
 } from '../types/index.js';
@@ -34,6 +36,10 @@ function rejectInternalNotes(
 
 const productTypes = ['fixed', 'variable'] as const;
 
+const internalMemoSchema = z
+  .string()
+  .max(INTERNAL_MEMO_MAX_LENGTH, INTERNAL_MEMO_TOO_LONG_MESSAGE);
+
 const lineItemSchema = z.object({
   productServiceId: z.string().uuid(),
   description: z.string().optional(),
@@ -50,7 +56,7 @@ const createSchema = z.object({
   paymentTerms: z.number().int().min(1).max(365).optional(),
   notes: z.string().optional(),
   /** Staff-only — copied to invoices.internal_memo on generate, never customer notes */
-  internalMemo: z.string().optional(),
+  internalMemo: internalMemoSchema.optional(),
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
 });
 
@@ -60,7 +66,7 @@ const updateSchema = z.object({
   includeGst: z.boolean().optional(),
   paymentTerms: z.number().int().min(1).max(365).optional(),
   notes: z.string().optional().nullable(),
-  internalMemo: z.string().optional().nullable(),
+  internalMemo: internalMemoSchema.nullable().optional(),
   isActive: z.boolean().optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
 });
@@ -79,7 +85,7 @@ const fromInvoiceSchema = z.object({
   includeGst: z.boolean().optional(),
   paymentTerms: z.number().int().min(1).max(365).optional(),
   notes: z.string().optional(),
-  internalMemo: z.string().optional(),
+  internalMemo: internalMemoSchema.optional(),
 });
 
 /**

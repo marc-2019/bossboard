@@ -15,7 +15,10 @@ import {
   RecurringInvoiceUpdateInput,
   partitionCustomerAndInternalNotes,
 } from '../types/index.js';
-import { assertCustomerFacingInvoiceNotes } from './customer-notes-guard.js';
+import {
+  assertCustomerFacingInvoiceNotes,
+  assertInternalMemoLength,
+} from './customer-notes-guard.js';
 
 /**
  * Transform DB row to RecurringInvoice type
@@ -145,6 +148,7 @@ export async function createRecurringInvoice(
   input: RecurringInvoiceCreateInput
 ): Promise<Record<string, unknown>> {
   assertCustomerFacingInvoiceNotes(input.notes);
+  assertInternalMemoLength(input.internalMemo);
 
   const recurringId = uuidv4();
   const dayOfMonth = input.dayOfMonth ?? 1;
@@ -408,6 +412,9 @@ export async function updateRecurringInvoice(
 
   if (updates.notes !== undefined) {
     assertCustomerFacingInvoiceNotes(updates.notes);
+  }
+  if (updates.internalMemo !== undefined) {
+    assertInternalMemoLength(updates.internalMemo);
   }
 
   const client = await db.getClient();
