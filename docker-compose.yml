@@ -9,18 +9,18 @@ services:
       target: development
     container_name: bossboard-api
     ports:
-      - "29000:29000"
+      - "127.0.0.1:29000:29000"
     environment:
       - NODE_ENV=development
       - PORT=29000
-      - DATABASE_URL=postgresql://bossboard:${POSTGRES_PASSWORD:-bossboard_dev_2026}@bossboard-postgres:5432/bossboard
+      - DATABASE_URL=postgresql://bossboard:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@bossboard-postgres:5432/bossboard
       - REDIS_URL=redis://bossboard-redis:6379
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - USE_LOCAL_LLM=${USE_LOCAL_LLM:-true}
       - LM_STUDIO_URL=${LM_STUDIO_URL:-http://host.docker.internal:1234}
       - LM_STUDIO_MODEL=${LM_STUDIO_MODEL:-qwen/qwen3-vl-4b}
-      - JWT_SECRET=${JWT_SECRET:-bossboard_jwt_dev_secret_2026}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-bossboard_jwt_refresh_dev_2026}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
       # Sentry: optional. When unset, services/sentry.ts no-ops so local
       # dev + CI stay frictionless. Set in Railway prod env to enable.
       - SENTRY_DSN=${SENTRY_DSN:-}
@@ -51,10 +51,10 @@ services:
     container_name: bossboard-postgres
     environment:
       POSTGRES_USER: bossboard
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bossboard_dev_2026}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: bossboard
     ports:
-      - "29432:5432"
+      - "127.0.0.1:29432:5432"
     volumes:
       - bossboard_postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -72,7 +72,7 @@ services:
     image: redis:7-alpine
     container_name: bossboard-redis
     ports:
-      - "29379:6379"
+      - "127.0.0.1:29379:6379"
     volumes:
       - bossboard_redis_data:/data
     healthcheck:
@@ -91,7 +91,7 @@ services:
       dockerfile: Dockerfile.web
     container_name: bossboard-web
     ports:
-      - "29080:80"
+      - "127.0.0.1:29080:80"
     depends_on:
       bossboard-api:
         condition: service_healthy
