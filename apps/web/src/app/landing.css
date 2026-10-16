@@ -150,14 +150,22 @@
 }
 
 .landing-page .hero h1 {
-  font-size: clamp(36px, 6vw, 64px);
+  font-size: clamp(32px, 4.5vw, 52px);
   font-weight: 900;
-  line-height: 1.1;
-  margin-bottom: 20px;
+  line-height: 1.15;
+  margin-bottom: 12px;
   background: linear-gradient(135deg, white, var(--lp-primary-light));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.landing-page .hero .hero-slogan {
+  font-size: clamp(18px, 2.4vw, 28px);
+  font-weight: 700;
+  color: #fff;
+  margin: 0 auto 16px;
+  max-width: 640px;
 }
 
 .landing-page .hero p {

@@ -2,7 +2,7 @@
   "name": "bossboard",
   "version": "0.5.0",
   "private": true,
-  "description": "Mobile-first compliance and cashflow platform for NZ tradies",
+  "description": "Invoicing, quotes and job records for NZ tradies",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -36,7 +36,7 @@
     "tradies",
     "compliance",
     "swms",
-    "cashflow"
+    "invoicing"
   ],
   "author": "Instilligent Limited",
   "license": "UNLICENSED",
