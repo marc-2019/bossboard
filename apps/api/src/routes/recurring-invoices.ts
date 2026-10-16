@@ -156,7 +156,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
 
     res.status(201).json({
       success: true,
-      data: { recurring },
+      data: { recurring, recurringInvoice: recurring },
       message: 'Recurring invoice created successfully',
     });
   } catch (error) {
@@ -231,7 +231,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
 
     res.json({
       success: true,
-      data: { recurring },
+      data: { recurring, recurringInvoice: recurring },
     });
   } catch (error) {
     next(error);
@@ -274,7 +274,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
 
     res.json({
       success: true,
-      data: { recurring },
+      data: { recurring, recurringInvoice: recurring },
       message: 'Recurring invoice updated successfully',
     });
   } catch (error) {
