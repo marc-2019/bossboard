@@ -65,6 +65,8 @@ backups/
 # ...but migrations are source, not dumps — never ignore them. Without this,
 # the blanket *.sql above silently swallows every new migration file.
 !database/migrations/*.sql
+# Reviewed data-fix scripts are source. They are not applied by the migration runner.
+!database/fixes/*.sql
 
 # Certificates
 *.pem

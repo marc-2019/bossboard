@@ -13,7 +13,12 @@ import {
   ProductType,
   RecurringInvoiceCreateInput,
   RecurringInvoiceUpdateInput,
+  partitionCustomerAndInternalNotes,
 } from '../types/index.js';
+import {
+  assertCustomerFacingInvoiceNotes,
+  assertInternalMemoLength,
+} from './customer-notes-guard.js';
 
 /**
  * Transform DB row to RecurringInvoice type
@@ -30,6 +35,7 @@ function transformRecurring(row: Record<string, unknown>): RecurringInvoice {
     includeGst: row.include_gst as boolean,
     paymentTerms: row.payment_terms as number,
     notes: row.notes as string | null,
+    internalMemo: (row.internal_memo as string | null) ?? null,
     isActive: row.is_active as boolean,
     lastGeneratedAt: row.last_generated_at as Date | null,
     nextGenerationDate: row.next_generation_date as string | null,
@@ -69,6 +75,7 @@ function transformForMobile(rec: RecurringInvoice): Record<string, unknown> {
     include_gst: rec.includeGst,
     payment_terms: rec.paymentTerms,
     notes: rec.notes,
+    internal_memo: rec.internalMemo,
     is_active: rec.isActive,
     last_generated_at: rec.lastGeneratedAt,
     next_generation_date: rec.nextGenerationDate,
@@ -140,6 +147,9 @@ export async function createRecurringInvoice(
   userId: string,
   input: RecurringInvoiceCreateInput
 ): Promise<Record<string, unknown>> {
+  assertCustomerFacingInvoiceNotes(input.notes);
+  assertInternalMemoLength(input.internalMemo);
+
   const recurringId = uuidv4();
   const dayOfMonth = input.dayOfMonth ?? 1;
   const nextGen = computeNextGenerationDate(dayOfMonth);
@@ -155,10 +165,10 @@ export async function createRecurringInvoice(
     await client.query<Record<string, unknown>>(
       `INSERT INTO recurring_invoices (
         id, user_id, customer_id, name, recurrence, day_of_month,
-        is_auto_generate, include_gst, payment_terms, notes,
+        is_auto_generate, include_gst, payment_terms, notes, internal_memo,
         next_generation_date
       )
-      VALUES ($1, $2, $3, $4, 'monthly', $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, 'monthly', $5, $6, $7, $8, $9, $10, $11)
       RETURNING *`,
       [
         recurringId,
@@ -170,6 +180,7 @@ export async function createRecurringInvoice(
         input.includeGst ?? true,
         input.paymentTerms ?? 20,
         input.notes || null,
+        input.internalMemo || null,
         nextGen,
       ]
     );
@@ -399,6 +410,13 @@ export async function updateRecurringInvoice(
   );
   if (existing.rows.length === 0) return null;
 
+  if (updates.notes !== undefined) {
+    assertCustomerFacingInvoiceNotes(updates.notes);
+  }
+  if (updates.internalMemo !== undefined) {
+    assertInternalMemoLength(updates.internalMemo);
+  }
+
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -414,6 +432,7 @@ export async function updateRecurringInvoice(
       includeGst: 'include_gst',
       paymentTerms: 'payment_terms',
       notes: 'notes',
+      internalMemo: 'internal_memo',
       isActive: 'is_active',
     };
 
@@ -575,7 +594,14 @@ export async function generateInvoiceFromRecurring(
   dueDate.setDate(dueDate.getDate() + paymentTerms);
   const dueDateStr = dueDate.toISOString().split('T')[0];
 
-  // Create the invoice via existing service
+  // Internal template text goes to the staff memo. Customer notes stay customer-facing.
+  // createInvoice repeats this guard so a later edit cannot put the text back on notes.
+  const partitioned = partitionCustomerAndInternalNotes(
+    (recRow.notes as string | null) ?? null,
+    (recRow.internal_memo as string | null) ?? null,
+  );
+  assertCustomerFacingInvoiceNotes(partitioned.notes);
+
   const invoice = await invoicesService.createInvoice(userId, {
     clientName: recRow.customer_name as string,
     clientEmail: (recRow.customer_email as string) || undefined,
@@ -583,7 +609,10 @@ export async function generateInvoiceFromRecurring(
     lineItems: invoiceLineItems,
     includeGst: recRow.include_gst as boolean,
     dueDate: dueDateStr,
-    notes: (recRow.notes as string) || undefined,
+    ...(partitioned.notes !== undefined ? { notes: partitioned.notes } : {}),
+    ...(partitioned.internalMemo !== undefined
+      ? { internalMemo: partitioned.internalMemo }
+      : {}),
     customerId: recRow.customer_id as string,
     recurringInvoiceId: recurringId,
   });
@@ -637,6 +666,7 @@ export interface FromInvoiceOptions {
   paymentTerms?: number;
   includeGst?: boolean;
   notes?: string;
+  internalMemo?: string;
 }
 
 interface InvoiceLineRaw {
@@ -803,6 +833,14 @@ export async function createRecurringFromInvoice(
     options.dayOfMonth ??
     Math.min(28, Math.max(1, new Date(inv.created_at as string | Date).getDate() || 1));
 
+  const sourceNotes =
+    options.notes !== undefined ? options.notes : ((inv.notes as string) || undefined);
+  const sourceMemo =
+    options.internalMemo !== undefined
+      ? options.internalMemo
+      : ((inv.internal_memo as string) || undefined);
+  const partitioned = partitionCustomerAndInternalNotes(sourceNotes, sourceMemo);
+
   return createRecurringInvoice(userId, {
     customerId,
     name,
@@ -812,10 +850,8 @@ export async function createRecurringFromInvoice(
         ? options.includeGst
         : ((inv.include_gst as boolean) ?? true),
     paymentTerms: options.paymentTerms ?? 20,
-    notes:
-      options.notes !== undefined
-        ? options.notes
-        : ((inv.notes as string) || undefined),
+    notes: partitioned.notes,
+    internalMemo: partitioned.internalMemo,
     lineItems,
   });
 }

@@ -581,6 +581,8 @@ export interface RecurringInvoice {
   includeGst: boolean;
   paymentTerms: number;
   notes: string | null;
+  /** Staff-only. Copied to invoices.internalMemo on generate. Never customer-facing. */
+  internalMemo: string | null;
   isActive: boolean;
   lastGeneratedAt: Date | null;
   nextGenerationDate: string | null;
@@ -611,6 +613,8 @@ export interface RecurringInvoiceCreateInput {
   includeGst?: boolean;
   paymentTerms?: number;
   notes?: string;
+  /** Staff-only. Never copied onto customer-facing invoice notes. */
+  internalMemo?: string;
   lineItems: {
     productServiceId: string;
     description?: string;
@@ -626,6 +630,7 @@ export interface RecurringInvoiceUpdateInput {
   includeGst?: boolean;
   paymentTerms?: number;
   notes?: string | null;
+  internalMemo?: string | null;
   isActive?: boolean;
   lineItems?: {
     productServiceId: string;
