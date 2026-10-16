@@ -40,6 +40,34 @@ export function looksLikeInternalInvoiceNotes(
   return INTERNAL_NOTE_PATTERNS.some((re) => re.test(t));
 }
 
+/**
+ * Split template/invoice text into customer notes vs staff-only memo.
+ * Internal scaffolding is moved onto the memo and dropped from notes.
+ * Customer-facing copy is left on notes. An existing memo is kept.
+ */
+export function partitionCustomerAndInternalNotes(
+  notes: string | null | undefined,
+  internalMemo?: string | null,
+): { notes?: string; internalMemo?: string } {
+  const memoParts: string[] = [];
+  const existing = (internalMemo ?? '').trim();
+  if (existing) memoParts.push(existing);
+
+  const raw = (notes ?? '').trim();
+  if (!raw) {
+    return memoParts.length ? { internalMemo: memoParts.join('\n\n') } : {};
+  }
+
+  if (looksLikeInternalInvoiceNotes(raw)) {
+    if (!memoParts.some((part) => part === raw)) memoParts.push(raw);
+    return { internalMemo: memoParts.join('\n\n') };
+  }
+
+  return memoParts.length
+    ? { notes: raw, internalMemo: memoParts.join('\n\n') }
+    : { notes: raw };
+}
+
 /** Soft guidance for product UI / docs. */
 export const INVOICE_NOTES_RULES = [
   'Notes are customer-facing (PDF, email, share link).',

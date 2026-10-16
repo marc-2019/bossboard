@@ -96,6 +96,40 @@ describe('Recurring Invoice Routes', () => {
       );
     });
 
+    it('must not create when customer notes contain internal text', async () => {
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices')
+        .send({
+          ...validRecurringInvoice,
+          notes: 'Deskera 0000092 — review before send',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('NOTES_NOT_CUSTOMER_READY');
+      expect(mockCreateRecurringInvoice).not.toHaveBeenCalled();
+    });
+
+    it('accepts a staff memo without putting it through the customer-notes check', async () => {
+      mockCreateRecurringInvoice.mockResolvedValue({ id: 'ri-1' });
+
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices')
+        .send({
+          ...validRecurringInvoice,
+          notes: 'Thanks — payment within 7 days.',
+          internalMemo: 'Deskera 0000092 — review before send',
+        });
+
+      expect(response.status).toBe(201);
+      expect(mockCreateRecurringInvoice).toHaveBeenCalledWith(
+        'test-user-id',
+        expect.objectContaining({
+          notes: 'Thanks — payment within 7 days.',
+          internalMemo: 'Deskera 0000092 — review before send',
+        })
+      );
+    });
+
     it('should reject missing customerId', async () => {
       const { customerId: _omit, ...noCustomer } = validRecurringInvoice;
 

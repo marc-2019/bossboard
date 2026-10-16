@@ -231,6 +231,15 @@ describe('createInvoice', () => {
     expect(invoice.invoiceNumber).toBe('INV-0001');
   });
 
+  it('must not insert internal text into customer notes', async () => {
+    await expect(
+      createInvoice('user-1', makeCreateInput({ notes: 'system test — review before send' }))
+    ).rejects.toMatchObject({ code: 'NOTES_NOT_CUSTOMER_READY' });
+
+    expect(mockDbQuery).not.toHaveBeenCalled();
+    expect(mockDbTransaction).not.toHaveBeenCalled();
+  });
+
   it('creates invoice WITHOUT GST when includeGst is false', async () => {
     const mockClientQuery = jest.fn()
       .mockResolvedValueOnce({ rows: [] }) // no business profile
@@ -500,6 +509,17 @@ describe('listInvoices', () => {
 // ===========================================================================
 
 describe('updateInvoice', () => {
+  it('must not save internal text into customer notes', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeInvoiceRow({ status: 'draft' })] });
+
+    await expect(
+      updateInvoice('inv-uuid-1', 'user-1', { notes: 'FIXME Deskera seed note' })
+    ).rejects.toMatchObject({ code: 'NOTES_NOT_CUSTOMER_READY' });
+
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
+    expect(String(mockDbQuery.mock.calls[0][0])).not.toMatch(/UPDATE invoices/i);
+  });
+
   it('updates a draft invoice and returns refreshed data', async () => {
     mockDbQuery
       .mockResolvedValueOnce({ rows: [makeInvoiceRow()] })      // full row for baseline

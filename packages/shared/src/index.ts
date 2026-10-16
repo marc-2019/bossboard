@@ -24,6 +24,7 @@ export {
 export type { PricedLineLike, InvoiceProfitSummary } from './utils/pricing.js';
 export {
   looksLikeInternalInvoiceNotes,
+  partitionCustomerAndInternalNotes,
   INVOICE_NOTES_CUSTOMER_FACING_HINT,
   INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
   INVOICE_NOTES_RULES,
