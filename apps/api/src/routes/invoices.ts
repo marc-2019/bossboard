@@ -12,6 +12,7 @@ import { getBusinessProfile } from '../services/business-profile.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, checkLimit, requireFeature } from '../middleware/subscription.js';
 import { config } from '../config/index.js';
+import { MAX_INVOICE_LINE_AMOUNT_CENTS, sumExceedsInvoiceCap } from '../services/invoice-integer-cap.js';
 import { getOrCreateInvoicePaymentLink } from '../services/stripe.js';
 import {
   looksLikeInternalInvoiceNotes,
@@ -47,7 +48,7 @@ const router = Router();
 const lineItemSchema = z.object({
   description: z.string().min(1, 'Description is required'),
   /** Customer-facing sell amount (cents). Recalculated from cost+margin% when both set. */
-  amount: z.number().int().min(0, 'Amount must be positive (in cents)'),
+  amount: z.number().int().min(0, 'Amount must be positive (in cents)').max(MAX_INVOICE_LINE_AMOUNT_CENTS),
   /** Direct cost cents — internal only, never on PDF/email */
   cost: z.number().int().min(0).nullable().optional(),
   /** Markup percent on cost (e.g. 30 = 30%) — internal only */
@@ -80,6 +81,14 @@ const createSchema = z.object({
   /** Linked customer record (picker) — optional */
   customerId: z.string().uuid().optional().nullable(),
   ...discountFields,
+}).superRefine((data, ctx) => {
+  if (sumExceedsInvoiceCap(data.lineItems.map((item) => item.amount))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Total exceeds the maximum',
+      path: ['lineItems'],
+    });
+  }
 });
 
 const updateSchema = z.object({
@@ -97,6 +106,14 @@ const updateSchema = z.object({
   internalMemo: z.string().optional(),
   customerId: z.string().uuid().optional().nullable(),
   ...discountFields,
+}).superRefine((data, ctx) => {
+  if (data.lineItems && sumExceedsInvoiceCap(data.lineItems.map((item) => item.amount))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Total exceeds the maximum',
+      path: ['lineItems'],
+    });
+  }
 });
 
 // =============================================================================

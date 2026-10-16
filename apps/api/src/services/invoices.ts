@@ -167,6 +167,16 @@ export function calculateTotals(input: InvoiceTotalsInput): InvoiceTotals {
   };
 }
 
+async function assertOwnedCustomer(userId: string, customerId: string): Promise<void> {
+  const result = await db.query(
+    'SELECT id FROM customers WHERE id = $1 AND user_id = $2',
+    [customerId, userId]
+  );
+  if (result.rows.length === 0) {
+    throw createError('Customer not found', 404, 'NOT_FOUND');
+  }
+}
+
 /**
  * Create a new invoice
  * Auto-populates bank details and company info from business profile if not provided
@@ -175,6 +185,10 @@ export async function createInvoice(
   userId: string,
   input: InvoiceCreateInput
 ): Promise<Invoice> {
+  if (input.customerId) {
+    await assertOwnedCustomer(userId, input.customerId);
+  }
+
   const invoiceNumber = await getNextInvoiceNumber(userId);
   const invoiceId = uuidv4();
 
@@ -652,6 +666,10 @@ export async function updateInvoice(
 
   if (existing.rows[0].status !== 'draft') {
     throw createError('Can only edit draft invoices', 400, 'INVOICE_NOT_EDITABLE');
+  }
+
+  if (typeof updates.customerId === 'string') {
+    await assertOwnedCustomer(userId, updates.customerId);
   }
 
   const current = transformInvoice(existing.rows[0]);

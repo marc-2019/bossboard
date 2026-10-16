@@ -18,6 +18,8 @@
 | 1 | `GET /api/v1/stats/dashboard` returns SWMS / invoices / certs counts + revenue compare | F-STAT-01.a (count cards) | F-STAT-01.api.b (canonical shape) | Overview + Revenue card assertVisible |
 | 2 | `GET /api/v1/stats/insights` returns aging buckets, top 5 customers, 6-month chart | F-STAT-01.d (drift assert: NOT rendered on web) | F-STAT-01.api.f, .g (order), .h (bucket sum), .i (length=6) | "6-Month Revenue", "Outstanding Invoices", "Top Customers" cards |
 | 3 | Multi-tenant isolated | not covered (mocked) | F-STAT-01.api.d, .k (skipped pending dual-user fixture) | n/a — single-tenant per device |
+
+F-STAT-01 journey Insights top customers omit a customer name that belongs to another account: `apps/api/src/__tests__/live/customer-ownership.live.test.ts`.
 | 4 | Empty account → zeros, not nulls | F-STAT-01.b (empty cards = "0") | F-STAT-01.api.c (numbers, all zero), .i (monthlyRevenue length=6 zeros) | n/a — covered by Phase 4 follow-up flow |
 
 ## SQL-only (no AI) confirmation
