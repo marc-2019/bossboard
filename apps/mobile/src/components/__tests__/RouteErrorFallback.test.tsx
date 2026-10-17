@@ -73,6 +73,7 @@ describe('RouteErrorFallback', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCanGoBack.mockReset();
     mockCanGoBack.mockReturnValue(true);
   });
 
@@ -103,6 +104,18 @@ describe('RouteErrorFallback', () => {
     act(() => findByA11yLabel(tree.root, 'Go back').props.onPress());
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/people');
     expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('Go back still exits when canGoBack throws (degraded navigator)', () => {
+    mockCanGoBack.mockImplementation(() => {
+      throw new Error('navigator unready');
+    });
+    const tree = render(<RouteErrorFallback error={error} retry={jest.fn(async () => {})} label="teams" fallbackHref="/(tabs)/people" />);
+    expect(() => {
+      act(() => findByA11yLabel(tree.root, 'Go back').props.onPress());
+    }).not.toThrow();
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/people');
   });
 });
 
