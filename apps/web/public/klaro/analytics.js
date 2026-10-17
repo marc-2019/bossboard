@@ -1,6 +1,39 @@
 // Pure URL sanitizer, shared by the browser integration and unit tests.
 function sanitizeAnalyticsPath(value) {
-  return value.replace(/(\/invite\/)[^/?#]+\/?(?:[?#].*)?$/, '$1:code');
+  function decode(candidate) {
+    for (var i = 0; i < 3; i++) {
+      try {
+        var decoded = decodeURIComponent(candidate);
+        if (decoded === candidate) break;
+        candidate = decoded;
+      } catch (_) { break; }
+    }
+    return candidate;
+  }
+  function hasInvite(candidate) {
+    return /\/invite\/[^/?#&\s]+/i.test(decode(candidate));
+  }
+  // Preserve benign URLs byte-for-byte. Inspect values independently of their
+  // parameter names, including absolute URLs and nested encoded return URLs.
+  var parts = String(value || "").split(/([?#])/);
+  var path = decode(parts[0]);
+  if (hasInvite(parts[0])) {
+    return path.replace(/(\/invite\/)[^/?#]+.*$/i, '$1:code');
+  }
+  for (var i = 1; i < parts.length; i += 2) {
+    if (parts[i] === "#" && hasInvite(parts[i + 1])) {
+      parts[i + 1] = "/invite/:code";
+    } else {
+      parts[i + 1] = parts[i + 1].split('&').map(function (param) {
+        var equals = param.indexOf('=');
+        if (equals !== -1 && hasInvite(param.slice(equals + 1))) {
+          return param.slice(0, equals + 1) + encodeURIComponent('/invite/:code');
+        }
+        return param;
+      }).join('&');
+    }
+  }
+  return parts.join('');
 }
 if (typeof module !== 'undefined') module.exports = { sanitizeAnalyticsPath };
 
@@ -21,11 +54,14 @@ if (typeof module !== 'undefined') module.exports = { sanitizeAnalyticsPath };
       var invitePage = /^\/invite\/[^/]+\/?$/.test(window.location.pathname);
       if (command === "event" && name === "page_view" && invitePage) return;
       params = Object.assign({}, params, {
-        page_path: sanitizeAnalyticsPath(window.location.pathname + window.location.search),
+        page_path: sanitizeAnalyticsPath(window.location.pathname + window.location.search + (window.location.hash || "")),
         page_location: sanitizeAnalyticsPath(window.location.href),
         page_referrer: sanitizeAnalyticsPath(document.referrer || ""),
         page_title: invitePage ? "Team invitation | BossBoard" : document.title
       });
+      if (Object.prototype.hasOwnProperty.call(params, "referrer")) {
+        params.referrer = sanitizeAnalyticsPath(params.referrer);
+      }
       window.dataLayer.push((function () { return arguments; })(command, name, params));
       return;
     }

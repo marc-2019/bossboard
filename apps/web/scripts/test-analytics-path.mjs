@@ -11,6 +11,46 @@ for (const value of ['/invite/private-code', '/invite/private-code?secret=value#
 }
 assert.equal(sanitizeAnalyticsPath('https://app.test/invite/private-code?q=1'), 'https://app.test/invite/:code');
 assert.equal(sanitizeAnalyticsPath('/teams?q=1'), '/teams?q=1');
+const sensitiveUrls = [
+  '/login?redirect=%2Finvite%2Fabc123',
+  '/register?redirect=%2Finvite%2Fabc123',
+  '/login?returnTo=%252Finvite%252Fabc123',
+  '/login?next=%25252Finvite%25252Fabc123',
+  '/login?callbackUrl=https%3A%2F%2Fapp.test%2Finvite%2Fabc123',
+  '/login?custom=/invite/abc123&keep=yes',
+  '/login#redirect=%252Finvite%252Fabc123',
+  '/login#/invite/abc123',
+  '/%2569nvite%252Fabc123',
+];
+for (const value of sensitiveUrls) {
+  const sanitized = sanitizeAnalyticsPath(value);
+  assert.ok(!sanitized.includes('abc123'), value);
+  assert.ok(sanitized.includes(':code') || sanitized.includes('%3Acode'), value);
+}
+assert.equal(sanitizeAnalyticsPath('/login?redirect=%2Fteams%3Ftab%3Dmembers#help'),
+  '/login?redirect=%2Fteams%3Ftab%3Dmembers#help');
+assert.equal(sanitizeAnalyticsPath('/login?redirect=%2Finvite%2Fabc123&keep=yes'),
+  '/login?redirect=%2Finvite%2F%3Acode&keep=yes');
+for (const value of sensitiveUrls) {
+  const url = new URL(value, 'https://app.test');
+  const window = { location: { pathname: url.pathname, search: url.search, hash: url.hash, href: url.href } };
+  const document = {
+    title: 'BossBoard', referrer: `https://app.test${value}`,
+    getElementsByTagName: () => [{ parentNode: { insertBefore: () => {} } }],
+    createElement: () => ({}), addEventListener: () => {},
+  };
+  vm.runInNewContext(source, { window, document });
+  window.gtag('event', 'page_view', { referrer: `https://app.test${value}` });
+  const config = window.dataLayer.find(row => row[0] === 'config');
+  assert.equal(config[2].send_page_view, false);
+  for (const row of window.dataLayer.filter(row => ['event', 'config'].includes(row[0]))) {
+    for (const field of ['page_path', 'page_location', 'page_referrer']) {
+      assert.equal(typeof row[2][field], 'string');
+      assert.ok(!row[2][field].includes('abc123'), `${value}: ${field}`);
+    }
+    assert.ok(!JSON.stringify(row).includes('abc123'), value);
+  }
+}
 for (const pathname of ['/invite/private-code', '/teams']) {
   let loads = 0;
   const window = { location: { pathname, search: '?x=1', href: `https://app.test${pathname}?x=1` } };
