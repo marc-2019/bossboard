@@ -111,8 +111,8 @@ export default function TeamsPage() {
     setError(null);
     setStatusOk(null);
     try {
-      await teamsClient.invite(team.id, { email: inviteEmail, role: inviteRole });
-      setStatusOk(`Invite sent to ${inviteEmail}`);
+      const result = await teamsClient.invite(team.id, { email: inviteEmail, role: inviteRole });
+      setStatusOk(result.invite.emailSent ? `Invite sent to ${inviteEmail}` : 'Invite created, but email delivery failed. Copy the invite link below to share it.');
       setInviteEmail('');
       // Refresh the invites list.
       const inv = await teamsClient.listInvites(team.id);
@@ -453,6 +453,12 @@ export default function TeamsPage() {
                     {formatDate(inv.expiresAt)}
                   </p>
                 </div>
+                <button type="button" className="text-sm text-accent" onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(`${window.location.origin}/invite/${inv.inviteCode}`);
+                    setStatusOk('Invite link copied');
+                  } catch { setError('Could not copy the invite link. Please try again.'); }
+                }}>Copy invite link</button>
                 <button
                   type="button"
                   onClick={() => onCancelInvite(inv.id)}

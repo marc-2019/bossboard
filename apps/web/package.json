@@ -11,7 +11,7 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:smoke": "playwright test --config=playwright.smoke.config.ts",
-    "test:unit": "node scripts/test-gst-invoice.mjs"
+    "test:unit": "node scripts/test-gst-invoice.mjs && node scripts/test-safe-redirect.mjs && node scripts/test-invite-flow.mjs && node scripts/test-analytics-path.mjs"
   },
   "dependencies": {
     "@bossboard/shared": "*",

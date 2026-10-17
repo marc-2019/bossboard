@@ -993,6 +993,10 @@ export interface TeamMember {
   userEmail?: string;
 }
 
+export interface TeamInviteResult extends TeamInvite {
+  emailSent: boolean;
+}
+
 export interface TeamInvite {
   id: string;
   teamId: string;
