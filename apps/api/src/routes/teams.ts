@@ -8,8 +8,8 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { requireVerifiedEmail } from '../middleware/require-verified-email.js';
 import { authenticate } from '../middleware/auth.js';
+import { requireVerifiedEmail } from '../middleware/requireVerifiedEmail.js';
 import { attachSubscription, checkLimit } from '../middleware/subscription.js';
 import teamsService from '../services/teams.js';
 
@@ -95,14 +95,18 @@ router.get('/my-team', authenticate, async (req: Request, res: Response) => {
  * GET /api/v1/teams/invites/pending
  * Get pending invites for the current user
  */
-router.get('/invites/pending', authenticate, async (req: Request, res: Response) => {
-  const userId = req.user!.userId;
-  const invites = await teamsService.getMyPendingInvites(userId);
+router.get('/invites/pending', authenticate, requireVerifiedEmail, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const invites = await teamsService.getMyPendingInvites(userId);
 
-  res.json({
-    success: true,
-    data: { invites },
-  });
+    res.json({
+      success: true,
+      data: { invites },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
@@ -116,7 +120,7 @@ router.get('/invites/:inviteCode', authenticate, requireVerifiedEmail, async (re
   } catch (error) { next(error); }
 });
 
-router.post('/invites/:inviteCode/accept', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/invites/:inviteCode/accept', authenticate, requireVerifiedEmail, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await teamsService.acceptInvite(userId, req.params.inviteCode as string);
@@ -132,14 +136,18 @@ router.post('/invites/:inviteCode/accept', authenticate, async (req: Request, re
  * POST /api/v1/teams/invites/:inviteCode/decline
  * Decline a team invite
  */
-router.post('/invites/:inviteCode/decline', authenticate, async (req: Request, res: Response) => {
-  const userId = req.user!.userId;
-  await teamsService.declineInvite(userId, req.params.inviteCode as string);
+router.post('/invites/:inviteCode/decline', authenticate, requireVerifiedEmail, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    await teamsService.declineInvite(userId, req.params.inviteCode as string);
 
-  res.json({
-    success: true,
-    message: 'Invite declined',
-  });
+    res.json({
+      success: true,
+      message: 'Invite declined',
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // =============================================================================

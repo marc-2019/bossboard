@@ -516,30 +516,34 @@ describe('inviteMember', () => {
 
 describe('acceptInvite', () => {
   it('re-checks acceptance after acquiring the lock', async () => {
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
     mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]);
     mockQuery([makeInviteRow({ accepted_at: NOW })]);
     await expect(teamsService.acceptInvite('user-new', 'code'))
       .rejects.toMatchObject({ code: 'INVITE_ALREADY_ACCEPTED', statusCode: 400 });
-    expect(mockClientQuery.mock.calls[1][0]).toContain('pg_advisory_xact_lock');
-    expect(mockClientQuery.mock.calls[2][0]).toContain('FOR UPDATE');
-    expect(mockClientQuery.mock.calls).toHaveLength(3);
+    expect(mockClientQuery.mock.calls[2][0]).toContain('pg_advisory_xact_lock');
+    expect(mockClientQuery.mock.calls[3][0]).toContain('FOR UPDATE');
+    expect(mockClientQuery.mock.calls).toHaveLength(4);
   });
 
   it('rejects an invite replaced while waiting for the lock without writing', async () => {
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
     mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]);
     mockQuery([]);
     await expect(teamsService.acceptInvite('user-new', 'old-code'))
       .rejects.toMatchObject({ code: 'INVITE_NOT_FOUND', statusCode: 404 });
-    expect(mockClientQuery.mock.calls).toHaveLength(3);
+    expect(mockClientQuery.mock.calls).toHaveLength(4);
   });
 
   it('throws INVITE_NOT_FOUND for unknown invite code', async () => {
+    mockQuery([{ email: 'a@b.com', is_verified: true }]);
     mockQuery([]); // SELECT team_invites
     await expect(teamsService.acceptInvite('user-1', 'bad-code'))
       .rejects.toMatchObject({ code: 'INVITE_NOT_FOUND', statusCode: 404 });
   });
 
   it('throws INVITE_ALREADY_ACCEPTED when invite already used', async () => {
+    mockQuery([{ email: 'a@b.com', is_verified: true }]);
     mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'a@b.com', role: 'worker',
                   expires_at: FUTURE, accepted_at: NOW }]);
@@ -549,6 +553,7 @@ describe('acceptInvite', () => {
 
   it('throws INVITE_EXPIRED when invite has passed expiry', async () => {
     const pastDate = new Date('2025-01-01T00:00:00Z');
+    mockQuery([{ email: 'a@b.com', is_verified: true }]);
     mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'a@b.com', role: 'worker',
                   expires_at: pastDate, accepted_at: null }]);
@@ -557,19 +562,17 @@ describe('acceptInvite', () => {
   });
 
   it('throws USER_NOT_FOUND when user record missing', async () => {
-    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
-    mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'a@b.com', role: 'worker',
-                  expires_at: FUTURE, accepted_at: null }]);
-    mockQuery([]); // SELECT users WHERE id
+    mockQuery([]); // SELECT users WHERE id — before any invite lookup
     await expect(teamsService.acceptInvite('user-1', 'code'))
       .rejects.toMatchObject({ code: 'USER_NOT_FOUND', statusCode: 404 });
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
   });
 
   it('throws EMAIL_MISMATCH when user email does not match invite', async () => {
+    mockQuery([{ email: 'different@example.com', is_verified: true }]);
     mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'invited@example.com', role: 'worker',
                   expires_at: FUTURE, accepted_at: null }]);
-    mockQuery([{ email: 'different@example.com' }]); // user's actual email
 
     await expect(teamsService.acceptInvite('user-1', 'code'))
       .rejects.toMatchObject({ code: 'EMAIL_MISMATCH', statusCode: 403 });
@@ -577,20 +580,20 @@ describe('acceptInvite', () => {
 
   it('accepts invite and creates team membership', async () => {
     const memberRow = makeMemberRow({ role: 'worker', user_id: 'user-new' });
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
     mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'newmember@example.com', role: 'worker',
                   expires_at: FUTURE, accepted_at: null }]);
-    mockQuery([{ email: 'newmember@example.com' }]); // user email matches
     mockQuery([]);                                    // UPDATE team_invites SET accepted_at
     mockQuery([memberRow]);                           // UPSERT team_members
     mockQuery([]);                                    // UPDATE users SET team_id WHERE team_id IS NULL
 
     const member = await teamsService.acceptInvite('user-new', 'valid-code');
-    expect(mockClientQuery.mock.calls[1]).toEqual([
+    expect(mockClientQuery.mock.calls[2]).toEqual([
       "SELECT pg_advisory_xact_lock(0, hashtext($1::text || ':' || lower($2::text)))",
       ['team-1', 'newmember@example.com'],
     ]);
-    expect(mockClientQuery.mock.calls[2][0]).toContain('WHERE invite_code = $1 FOR UPDATE');
+    expect(mockClientQuery.mock.calls[3][0]).toContain('WHERE invite_code = $1 FOR UPDATE');
     expect(member).toMatchObject({
       teamId: 'team-1',
       userId: 'user-new',
@@ -601,10 +604,10 @@ describe('acceptInvite', () => {
 
   it('email comparison is case-insensitive', async () => {
     const memberRow = makeMemberRow({ role: 'worker', user_id: 'user-new' });
+    mockQuery([{ email: 'user@example.com', is_verified: true }]);
     mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'User@Example.COM', role: 'worker',
                   expires_at: FUTURE, accepted_at: null }]);
-    mockQuery([{ email: 'user@example.com' }]); // lowercase matches upper in invite
     mockQuery([]);
     mockQuery([memberRow]);
     mockQuery([]);
@@ -620,22 +623,23 @@ describe('acceptInvite', () => {
 
 describe('declineInvite', () => {
   it('throws INVITE_NOT_FOUND for invalid or already-used code', async () => {
+    mockQuery([{ email: 'a@b.com', is_verified: true }]);
     mockQuery([]); // SELECT team_invites WHERE accepted_at IS NULL
     await expect(teamsService.declineInvite('user-1', 'bad-code'))
       .rejects.toMatchObject({ code: 'INVITE_NOT_FOUND', statusCode: 404 });
   });
 
   it('throws EMAIL_MISMATCH when user email does not match', async () => {
+    mockQuery([{ email: 'different@example.com', is_verified: true }]);
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'invited@example.com' }]);
-    mockQuery([{ email: 'different@example.com' }]); // SELECT users
 
     await expect(teamsService.declineInvite('user-1', 'code'))
       .rejects.toMatchObject({ code: 'EMAIL_MISMATCH', statusCode: 403 });
   });
 
   it('declines invite and removes invite record', async () => {
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'newmember@example.com' }]);
-    mockQuery([{ email: 'newmember@example.com' }]); // user email
     mockQuery([]);                                    // UPDATE team_members
     mockQuery([]);                                    // DELETE team_invites
 
@@ -695,7 +699,7 @@ describe('getMyPendingInvites', () => {
 
   it('returns pending invites for user email', async () => {
     const inviteRow = makeInviteRow({ email: 'me@example.com' });
-    mockQuery([{ email: 'me@example.com' }]); // SELECT users
+    mockQuery([{ email: 'me@example.com', is_verified: true }]); // SELECT users
     mockQuery([inviteRow]);                    // SELECT team_invites WHERE email
 
     const invites = await teamsService.getMyPendingInvites('user-1');
@@ -704,7 +708,7 @@ describe('getMyPendingInvites', () => {
   });
 
   it('returns empty array when no pending invites for user', async () => {
-    mockQuery([{ email: 'me@example.com' }]);
+    mockQuery([{ email: 'me@example.com', is_verified: true }]);
     mockQuery([]);
 
     const invites = await teamsService.getMyPendingInvites('user-1');
@@ -992,5 +996,125 @@ describe('getUserTeamInfo', () => {
     mockQuery([{ team_id: 'team-oldest', role: 'worker' }]);
     const info = await teamsService.getUserTeamInfo('user-1');
     expect(info!.teamId).toBe('team-oldest');
+  });
+});
+
+// ===========================================================================
+// Invitee actions require a verified email
+// An unverified account that registered the invitee's address must not
+// read invite rows or become a team member.
+// ===========================================================================
+
+function sqlText(): string {
+  return mockDbQuery.mock.calls.map((call) => String(call[0])).join('\n');
+}
+
+describe('invitee email verification', () => {
+  it('getMyPendingInvites rejects an unverified invitee and does not load invite rows', async () => {
+    mockQuery([{ email: 'invitee@example.com', is_verified: false }]);
+    mockQuery([makeInviteRow({
+      email: 'invitee@example.com',
+      role: 'admin',
+      invite_code: 'redacted',
+    })]);
+
+    await expect(teamsService.getMyPendingInvites('user-unverified'))
+      .rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED', statusCode: 403 });
+
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
+    expect(sqlText()).not.toMatch(/team_invites/i);
+  });
+
+  it('acceptInvite rejects an unverified invitee and does not create a membership', async () => {
+    mockQuery([{ email: 'invitee@example.com', is_verified: false }]);
+    mockQuery([{
+      id: 'inv-1',
+      team_id: 'team-1',
+      email: 'invitee@example.com',
+      role: 'admin',
+      expires_at: FUTURE,
+      accepted_at: null,
+    }]);
+    mockQuery([makeMemberRow({
+      role: 'admin',
+      user_id: 'user-unverified',
+      invite_status: 'accepted',
+    })]);
+
+    await expect(teamsService.acceptInvite('user-unverified', 'redacted'))
+      .rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED', statusCode: 403 });
+
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
+    const sql = sqlText();
+    expect(sql).not.toMatch(/team_invites/i);
+    expect(sql).not.toMatch(/INSERT INTO team_members/i);
+    expect(sql).not.toMatch(/UPDATE users SET team_id/i);
+  });
+
+  it('declineInvite rejects an unverified invitee and does not change the invite', async () => {
+    mockQuery([{ email: 'invitee@example.com', is_verified: false }]);
+    mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'invitee@example.com' }]);
+    mockQuery([]);
+    mockQuery([]);
+
+    await expect(teamsService.declineInvite('user-unverified', 'redacted'))
+      .rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED', statusCode: 403 });
+
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
+    const sql = sqlText();
+    expect(sql).not.toMatch(/team_invites/i);
+    expect(sql).not.toMatch(/UPDATE team_members/i);
+  });
+
+  it('getMyPendingInvites returns invites for a verified account', async () => {
+    mockQuery([{ email: 'invitee@example.com', is_verified: true }]);
+    mockQuery([makeInviteRow({
+      email: 'invitee@example.com',
+      role: 'worker',
+      invite_code: 'redacted',
+    })]);
+
+    const invites = await teamsService.getMyPendingInvites('user-verified');
+
+    expect(invites).toHaveLength(1);
+    expect(invites[0].email).toBe('invitee@example.com');
+    expect(invites[0].role).toBe('worker');
+  });
+
+  it('acceptInvite creates membership for a verified account', async () => {
+    mockQuery([{ email: 'invitee@example.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'invitee@example.com' }]);
+    mockQuery([{
+      id: 'inv-1',
+      team_id: 'team-1',
+      email: 'invitee@example.com',
+      role: 'admin',
+      expires_at: FUTURE,
+      accepted_at: null,
+    }]);
+    mockQuery([]);
+    mockQuery([makeMemberRow({
+      role: 'admin',
+      user_id: 'user-verified',
+      invite_status: 'accepted',
+    })]);
+    mockQuery([]);
+
+    const member = await teamsService.acceptInvite('user-verified', 'redacted');
+
+    expect(member.userId).toBe('user-verified');
+    expect(member.role).toBe('admin');
+    expect(member.inviteStatus).toBe('accepted');
+    expect(sqlText()).toMatch(/INSERT INTO team_members/i);
+  });
+
+  it('declineInvite removes the invite for a verified account', async () => {
+    mockQuery([{ email: 'invitee@example.com', is_verified: true }]);
+    mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'invitee@example.com' }]);
+    mockQuery([]);
+    mockQuery([]);
+
+    await expect(teamsService.declineInvite('user-verified', 'redacted')).resolves.toBeUndefined();
+    expect(sqlText()).toMatch(/DELETE FROM team_invites/i);
   });
 });

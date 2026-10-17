@@ -22,7 +22,7 @@ it.each([false, true])('accept uses one transaction client (write failure: %s)',
   };
   mockQuery.mockImplementation(async (sql: string) => {
     if (sql.includes('FROM team_invites')) return { rows: [invite] };
-    if (sql.includes('SELECT email FROM users')) return { rows: [{ email: invite.email }] };
+    if (sql.includes('FROM users')) return { rows: [{ email: invite.email, is_verified: true }] };
     if (sql.includes('INSERT INTO team_members')) {
       if (fail) throw new Error('write failed');
       return { rows: [{ id: 'member-1', team_id: 'team-1', user_id: 'user-1', role: 'worker',
@@ -37,10 +37,10 @@ it.each([false, true])('accept uses one transaction client (write failure: %s)',
   expect(mockPoolQuery).not.toHaveBeenCalled();
   expect(mockConnect).toHaveBeenCalledTimes(1);
   expect(sql[0]).toBe('BEGIN');
-  expect(sql[1]).toContain('SELECT team_id, email FROM team_invites');
-  expect(sql[2]).toContain('pg_advisory_xact_lock');
-  expect(sql[3]).toContain('FOR UPDATE');
-  expect(sql[4]).toContain('SELECT email FROM users');
+  expect(sql[1]).toContain('SELECT email, is_verified FROM users');
+  expect(sql[2]).toContain('SELECT team_id, email FROM team_invites');
+  expect(sql[3]).toContain('pg_advisory_xact_lock');
+  expect(sql[4]).toContain('FOR UPDATE');
   expect(sql[5]).toContain('UPDATE team_invites SET accepted_at');
   expect(sql[6]).toContain('INSERT INTO team_members');
   if (!fail) expect(sql[7]).toContain('UPDATE users SET team_id');

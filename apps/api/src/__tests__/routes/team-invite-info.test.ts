@@ -36,9 +36,9 @@ describe('invite info privacy and authentication', () => {
   it('rejects unverified users before reading any invite details', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ is_verified: false }] });
     const result = await getInfo();
-    expect(result).toEqual({ status: 403, body: { success: false, error: 'EMAIL_NOT_VERIFIED', message: 'Verify your email first.' } });
+    expect(result).toEqual({ status: 403, body: { success: false, error: 'EMAIL_NOT_VERIFIED', message: 'Verify your email before viewing or accepting team invites' } });
     expect(mockQuery).toHaveBeenCalledTimes(1);
-    expect(mockQuery).toHaveBeenCalledWith('SELECT is_verified FROM users WHERE id = $1', ['user-1']);
+    expect(mockQuery).toHaveBeenCalledWith('SELECT is_verified FROM users WHERE id = $1 AND is_active = true', ['user-1']);
   });
   it('requires authentication before reading an invite', async () => {
     expect((await getInfo(false)).status).toBe(401);
