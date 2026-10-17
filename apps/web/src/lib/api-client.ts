@@ -735,6 +735,8 @@ export const photosClient = {
 
 /** Teams API — create, view, invite, remove/role/leave. */
 export const teamsClient = {
+  inviteInfo: (code: string) => clientFetch<{ teamName: string; email: string; status: string }>(`/api/teams/invites/${encodeURIComponent(code)}`),
+  acceptInvite: (code: string) => clientFetch(`/api/teams/invites/${encodeURIComponent(code)}/accept`, { method: 'POST' }),
   create: (data: { name: string }) =>
     clientFetch<{
       team: import('@bossboard/shared').Team;
@@ -754,7 +756,7 @@ export const teamsClient = {
     ),
 
   invite: (teamId: string, data: { email: string; role?: import('@bossboard/shared').TeamRole }) =>
-    clientFetch<{ invite: import('@bossboard/shared').TeamInvite }>(
+    clientFetch<{ invite: import('@bossboard/shared').TeamInviteResult }>(
       `/api/teams/${teamId}/invites`,
       { method: 'POST', body: data },
     ),

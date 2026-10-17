@@ -12,6 +12,7 @@ const REF_STORAGE_KEY = 'bb_referral_code';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
+  const [returnTo, setReturnTo] = useState('/dashboard');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
@@ -23,6 +24,8 @@ export default function RegisterPage() {
   useEffect(() => {
     try {
       const qs = new URLSearchParams(window.location.search);
+      const redirect = qs.get('redirect');
+      if (redirect?.startsWith('/') && !redirect.startsWith('//')) setReturnTo(redirect);
       const fromQuery = qs.get('ref') || qs.get('referral');
       if (fromQuery) {
         setReferralCode(fromQuery.toUpperCase());
@@ -53,7 +56,8 @@ export default function RegisterPage() {
       } catch {
         /* ignore */
       }
-      router.push('/dashboard');
+      const requested = new URLSearchParams(window.location.search).get('redirect');
+      router.push(requested?.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -114,7 +118,7 @@ export default function RegisterPage() {
 
       <p className="mt-4 text-sm text-center text-gray-500">
         Already have an account?{' '}
-        <Link href="/login" className="text-accent font-medium hover:underline">
+        <Link href={`/login?redirect=${encodeURIComponent(returnTo)}`} className="text-accent font-medium hover:underline">
           Sign in
         </Link>
       </p>

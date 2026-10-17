@@ -38,7 +38,8 @@ function LoginForm() {
 
     try {
       await login(trimmedEmail, password);
-      const redirect = searchParams.get('redirect') || '/dashboard';
+      const requested = searchParams.get('redirect');
+      const redirect = requested?.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard';
       // Full navigation so middleware always sees fresh auth cookies.
       window.location.assign(redirect);
     } catch (err: unknown) {
@@ -97,7 +98,7 @@ function LoginForm() {
 
       <p className="mt-4 text-sm text-center text-gray-500">
         {"Don't have an account? "}
-        <Link href="/register" className="text-accent font-medium hover:underline">
+        <Link href={`/register?redirect=${encodeURIComponent(searchParams.get('redirect') || '/dashboard')}`} className="text-accent font-medium hover:underline">
           Sign up
         </Link>
       </p>
