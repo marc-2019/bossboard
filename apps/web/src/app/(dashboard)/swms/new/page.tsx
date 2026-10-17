@@ -35,7 +35,7 @@ const TRADE_OPTIONS: { id: TradeType; label: string; Icon: typeof Zap }[] = [
 const MIN_JOB_DESCRIPTION = 10;
 
 const SWMS_PCBU_DISCLAIMER =
-  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
+  'You remain the PCBU and must sign off for this site. This draft is not affiliated with WorkSafe NZ and is not legal advice.';
 
 export default function NewSwmsPage() {
   const router = useRouter();
@@ -126,7 +126,7 @@ export default function NewSwmsPage() {
             </h2>
             <p className="text-sm text-gray-600 max-w-md">
               {submitMode === 'copy'
-                ? 'Cloning hazards and controls into a new draft. You remain the PCBU and must sign off. This draft is not WorkSafe compliant.'
+                ? 'Cloning hazards and controls into a new draft. You remain the PCBU and must sign off. This draft is not legal advice.'
                 : useAI
                 ? 'Our AI is identifying site-specific hazards and control measures for your job. This can take 15–30 seconds — please don’t close this page.'
                 : 'Building your SWMS from the trade template. This will only take a moment.'}
@@ -243,7 +243,7 @@ export default function NewSwmsPage() {
             <span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-gray-900">
                 <Sparkles size={15} className="text-accent" />
-                AI-powered generation
+                AI-assisted generation
               </span>
               <span className="block text-xs text-gray-500 mt-0.5">
                 Get smart, site-specific hazard suggestions and control measures. Turn off

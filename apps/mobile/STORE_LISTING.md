@@ -4,74 +4,71 @@
 **BossBoard** (iOS & Android)
 
 ## Short Description (80 chars)
-Run your trade business like a boss. Jobs, teams, compliance & cashflow in one app.
+Invoicing, quotes & job records for NZ tradies. GST built in.
+
+## Subtitle (iOS, 30 chars)
+Invoicing, Quotes & Jobs
 
 ## Full Description (4000 chars max)
 
+Source of truth: `apps/mobile/store-listing.json` (`descriptions.full`). Keep the two identical.
+
 ### English (NZ)
 
-**BossBoard - The All-in-One App for Kiwi Tradies**
+BossBoard is invoicing, quotes and job records for New Zealand tradespeople: sparkies, plumbers, builders, landscapers and other trades.
 
-Run your trade business from your pocket. BossBoard helps electricians, plumbers, builders, landscapers and tradies across New Zealand manage jobs, teams, compliance and cashflow - all in one app.
+Start on the Free tier, then upgrade in the app to Tradie or Team when you need more invoices, SWMS and team seats. iOS subscriptions are billed through the App Store.
 
-**JOB MANAGEMENT**
-- Create and schedule jobs with full details
-- Assign work to your team or subcontractors
-- Track job progress from quote to completion
-- Photo documentation before, during and after
-- GPS location tagging for every job
+INVOICING & QUOTES
+- Create GST-inclusive or GST-exclusive invoices with 15% GST built in
+- Professional PDF invoices with your business details
+- Email invoices to customers with one tap
+- Share an invoice with your customer by link
+- Build quotes and convert them to invoices with one tap
+- Track draft, sent and paid statuses
 
-**TEAM & CREW SCHEDULING**
-- Manage your team roster and availability
-- Dispatch jobs to the right person instantly
-- See who is where with live crew tracking
-- Perfect for multi-operator businesses and franchises
+JOB LOGGING
+- One-tap clock in and clock out
+- Hours per site and per worker
+- Site address, notes and photos for every job
 
-**COMPLIANCE MADE EASY**
-- Generate Safe Work Method Statements with one tap
-- AI-powered hazard identification for your trade
-- Digital signatures for workers and supervisors
-- Certification and licence expiry tracking
-- Compliant with Health and Safety at Work Act 2015
+EXPENSES
+- Seven expense categories for trades, including subcontractors
+- Receipt photo capture from camera or gallery
 
-**INVOICING & CASHFLOW**
-- Create professional invoices on the spot
-- Track payments and see revenue at a glance
-- GST calculations built in for NZ businesses
-- Know your cashflow position at a glance
+TEAM
+- Invite team members by email (Team plan, up to 5)
+- Roles: Owner, Admin, Worker
 
-**BUILT FOR NZ TRADIES**
-- WorkSafe NZ compliant templates
-- Trade-specific workflows for every industry
-- Works offline on remote job sites
-- Syncs automatically when back online
+CERTIFICATIONS
+- Track trade licences and certifications
+- Push reminders 30, 14, 7 and 1 day before expiry
 
-**FEATURES AT A GLANCE**
-- One-tap SWMS generation
-- Job scheduling and dispatch
-- Team management and rostering
-- Photo documentation with GPS
-- Digital signature capture
-- Professional invoicing
-- Certification expiry reminders
-- Offline-first with cloud sync
-- PDF export for site submission
+SWMS DRAFTS
+- AI-assisted SWMS drafts with hazard and control suggestions for your trade
+- SWMS templates aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off.
+- PDF export
+Templates and starting material, not legal advice.
 
-**COMING SOON**
-- Xero and MYOB integration
-- Customer portal with job tracking
-- Route optimisation for mobile crews
-- Automated follow-up reminders
-- Quote to invoice pipeline
+DASHBOARD
+- Revenue this month vs last month
+- Outstanding invoice aging (0-30, 31-60, 61-90, 90+ days)
+- Top customers by revenue
 
-Built by Kiwis, for Kiwis. BossBoard understands New Zealand trade businesses inside and out.
+BUILT FOR NEW ZEALAND
+- 15% GST
+- NZD pricing
+- NZ trade licence types
+- Works offline and syncs when back online
 
-Download now and run your business like a boss.
+Questions or feedback? support@instilligent.com
+
+BossBoard is a product of Instilligent Limited, New Zealand.
 
 ---
 
 ## Keywords (100 chars)
-tradies, jobs, scheduling, SWMS, compliance, invoicing, NZ, team, dispatch, safety, cashflow, crew
+tradies, invoicing, quotes, GST, NZ, SWMS, job log, HSWA, business, tradesperson
 
 ## Categories
 
@@ -97,7 +94,7 @@ https://api.instilligent.com/legal/privacy
 https://api.instilligent.com/legal/support
 
 ## Marketing URL
-https://bossboard.co.nz
+https://bossboard.instilligent.com
 
 ## Android package
 `nz.instilligent.bossboard`  
@@ -126,7 +123,7 @@ https://bossboard.co.nz
 | Item | Declaration |
 |------|-------------|
 | Provider | Anthropic (commercial API), via BossBoard backend |
-| When | User enables **AI-Powered Generation** on SWMS generate and runs generation |
+| When | User enables **AI-assisted generation** on SWMS generate and runs generation |
 | Data sent | Trade type, job description, site details the user entered (not passwords / cards) |
 | Purpose | Hazard and control suggestions for SWMS only |
 | Not used for | Ads, resale, tracking |
@@ -152,34 +149,32 @@ https://bossboard.co.nz
 ## Screenshots Required
 
 ### iPhone (6.7" - iPhone 15 Pro Max)
-1. Home Dashboard - "Your business command centre"
-2. Job List - "All your jobs at a glance"
-3. Create Job - "Schedule work in seconds"
-4. Team View - "Know where your crew is"
-5. SWMS Generator - "Compliance in one tap"
-6. Invoice - "Get paid faster"
+Titles mirror `store-listing.json` `screenshots.titles`:
+1. Dashboard - "Your business at a glance - revenue & quick actions"
+2. SWMS Generator - "Draft SWMS aligned to HSWA 2015 — you stay the PCBU and sign off"
+3. Invoice Creation - "Professional invoices with GST - create, send & track"
+4. Expense Tracking - "Track expenses & snap receipt photos on the go"
+5. Team Management - "Manage your team with role-based access & invites"
 
 ### iPad (12.9")
-Same 6 screens, optimised for tablet
+Same 5 screens, optimised for tablet
 
 ### Android Phone
-Same 6 screens
+Same 5 screens
 
 ### Android Tablet (7")
-Same 6 screens, optimised for tablet
+Same 5 screens, optimised for tablet
 
 ---
 
 ## App Preview Video (Optional)
-30-second demo showing:
-1. Opening app - dashboard overview (3s)
-2. Creating a new job (4s)
-3. Assigning to team member (3s)
-4. Taking job photos on site (4s)
-5. Generating SWMS (4s)
-6. Creating invoice (4s)
-7. Checking cashflow (3s)
-8. "Run your business like a boss" tagline (5s)
+Short demo showing:
+1. Opening the app - dashboard overview
+2. Creating a quote and converting it to an invoice
+3. Clocking in to a job and adding site photos
+4. Logging an expense with a receipt photo
+5. Drafting a SWMS (you stay the PCBU and sign off)
+6. "Run your business like a boss" tagline
 
 ---
 
@@ -187,13 +182,13 @@ Same 6 screens, optimised for tablet
 
 ### 0.5.0 (Current)
 - Complete rebrand to BossBoard
-- Job management and scheduling
-- Team roster and dispatch
-- SWMS generation with AI hazards
-- Digital signature capture
-- Invoicing and payment tracking
-- Offline support with cloud sync
-- Certification tracking
+- Invoicing, quotes and payment status
+- Job logging with clock in/out
+- Expense tracking with receipt photos
+- Team management with roles
+- Certification expiry reminders
+- AI-assisted SWMS drafts
+- Offline support with sync
 - PDF export
 
 ---

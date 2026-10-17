@@ -188,7 +188,7 @@ export default function NewCustomerPage() {
             />
             <p className="mt-1.5 text-xs text-gray-500">
               <strong>Company template</strong> is shared (Settings → Company notes).{' '}
-              <strong>This client&apos;s notes</strong> are saved only for them (like Joan). Do not put
+              <strong>This client&apos;s notes</strong> are saved only for them (like Alex Smith). Do not put
               bank numbers only here if they should appear on every invoice — use Settings bank
               details + company template. Contact fields are encrypted at rest.
             </p>

@@ -18,12 +18,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { teamsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { InContentBack } from '../../src/components/InContentBack';
+import { memberName, memberEmail } from '../../src/utils/teamMember';
 
 interface TeamMember {
   id: string;
   userId: string;
-  name: string;
-  email: string;
+  userName?: string | null;
+  userEmail?: string;
+  name?: string | null;
+  email?: string;
   role: 'owner' | 'admin' | 'worker';
   joined_at?: string;
   trade_type?: string;
@@ -40,6 +43,8 @@ export default function TeamMemberDetailScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [member, setMember] = useState<TeamMember | null>(null);
+  // Name for alerts: name, then email, never an empty string.
+  const displayName = member?.name || member?.email || 'this member';
   const [team, setTeam] = useState<Team | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string>('worker');
@@ -56,7 +61,7 @@ export default function TeamMemberDetailScreen() {
           const members = membersResponse.data.data.members || membersResponse.data.data || [];
           const foundMember = members.find((m: TeamMember) => m.id === memberId);
           if (foundMember) {
-            setMember(foundMember);
+            setMember({ ...foundMember, name: memberName(foundMember), email: memberEmail(foundMember) });
           }
 
           // Find current user's role
@@ -88,7 +93,7 @@ export default function TeamMemberDetailScreen() {
 
     Alert.alert(
       'Change Role',
-      `Change ${member.name}'s role to ${newRole}?`,
+      `Change ${displayName}'s role to ${newRole}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -97,7 +102,7 @@ export default function TeamMemberDetailScreen() {
             try {
               await teamsApi.updateMemberRole(team.id, member.id, newRole);
               setMember((prev) => prev ? { ...prev, role: newRole } : null);
-              Alert.alert('Success', `${member.name} is now a${newRole === 'admin' ? 'n admin' : ' worker'}`);
+              Alert.alert('Success', `${displayName} is now a${newRole === 'admin' ? 'n admin' : ' worker'}`);
             } catch (error) {
               Alert.alert('Error', 'Failed to update role');
             }
@@ -112,7 +117,7 @@ export default function TeamMemberDetailScreen() {
 
     Alert.alert(
       'Remove Team Member',
-      `Are you sure you want to remove ${member.name} from the team?`,
+      `Are you sure you want to remove ${displayName} from the team?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -167,7 +172,8 @@ export default function TeamMemberDetailScreen() {
     });
   }
 
-  function getInitials(name: string): string {
+  function getInitials(name?: string | null): string {
+    if (!name) return '?';
     return name
       .split(' ')
       .map((n) => n[0])
@@ -208,7 +214,7 @@ export default function TeamMemberDetailScreen() {
               {getInitials(member.name)}
             </Text>
           </View>
-          <Text style={styles.memberName}>{member.name}</Text>
+          <Text style={styles.memberName}>{member.name || 'Unnamed'}</Text>
           <Text style={styles.memberEmail}>{member.email}</Text>
 
           <View style={[styles.roleBadge, { backgroundColor: roleColor + '15' }]}>

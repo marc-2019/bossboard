@@ -75,7 +75,7 @@ export default function SWMSDetailScreen() {
   async function handleSign(role: 'worker' | 'supervisor') {
     Alert.alert(
       'Sign as PCBU / crew',
-      `Sign as ${role}? You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant. This action cannot be undone.`,
+      `Sign as ${role}? You remain the PCBU and must sign off for this site. This draft is not affiliated with WorkSafe NZ and is not legal advice. This action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -173,8 +173,8 @@ export default function SWMSDetailScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>{document.title}</Text>
         <Text style={styles.pcbuDisclaimer}>
-          You remain the PCBU and must sign off for this site. This draft is not WorkSafe
-          compliant, not affiliated with WorkSafe NZ, and not legal advice.
+          You remain the PCBU and must sign off for this site. This draft is not affiliated
+          with WorkSafe NZ and is not legal advice.
         </Text>
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>

@@ -567,12 +567,12 @@ export async function signSWMS(
 }
 
 
-/** User-facing copy. PCBU signs off; never claim WorkSafe compliant. */
+/** User-facing copy. PCBU signs off; do not imply a regulator endorsement. */
 export const SWMS_PCBU_DISCLAIMER =
-  'You remain the PCBU and must sign off for this site. This draft is not WorkSafe compliant, not affiliated with WorkSafe NZ, and not legal advice.';
+  'You remain the PCBU and must sign off for this site. This draft is not affiliated with WorkSafe NZ and is not legal advice.';
 
 export const SWMS_COPY_SUCCESS_MESSAGE =
-  'SWMS draft copied. You remain the PCBU and must sign off. This draft is not WorkSafe compliant.';
+  'SWMS draft copied. You remain the PCBU and must sign off. This draft is not legal advice.';
 
 /**
  * Input for cloning an existing SWMS into a new draft.
