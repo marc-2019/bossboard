@@ -375,15 +375,19 @@ async function inviteMember(
   };
 }
 
-async function getInviteInfo(inviteCode: string) {
+async function getInviteInfo(inviteCode: string, userId: string) {
   const result = await db.query<{ team_name: string; email: string; accepted_at: Date | null; expires_at: Date }>(
     `SELECT t.name AS team_name, ti.email, ti.accepted_at, ti.expires_at
      FROM team_invites ti JOIN teams t ON t.id = ti.team_id WHERE ti.invite_code = $1`, [inviteCode]
   );
   const invite = result.rows[0];
   if (!invite) throw createError('Invalid invite code', 404, 'INVITE_NOT_FOUND');
-  return { teamName: invite.team_name, email: invite.email,
-    status: invite.accepted_at ? 'accepted' : new Date(invite.expires_at) <= new Date() ? 'expired' : 'pending' };
+  if (invite.accepted_at || new Date(invite.expires_at) <= new Date()) {
+    throw createError('Invitation is no longer available', 410, 'INVITE_UNAVAILABLE');
+  }
+  const user = await db.query<{ email: string }>('SELECT email FROM users WHERE id = $1', [userId]);
+  return { teamName: invite.team_name,
+    matchesEmail: user.rows[0]?.email.toLowerCase() === invite.email.toLowerCase() };
 }
 
 /**

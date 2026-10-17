@@ -735,7 +735,7 @@ export const photosClient = {
 
 /** Teams API — create, view, invite, remove/role/leave. */
 export const teamsClient = {
-  inviteInfo: (code: string) => clientFetch<{ teamName: string; email: string; status: string }>(`/api/teams/invites/${encodeURIComponent(code)}`),
+  inviteInfo: (code: string) => clientFetch<{ teamName: string; matchesEmail: boolean }>(`/api/teams/invites/${encodeURIComponent(code)}`),
   acceptInvite: (code: string) => clientFetch(`/api/teams/invites/${encodeURIComponent(code)}/accept`, { method: 'POST' }),
   create: (data: { name: string }) =>
     clientFetch<{

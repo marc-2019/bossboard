@@ -111,7 +111,7 @@ router.get('/invites/pending', authenticate, async (req: Request, res: Response)
 router.get('/invites/:inviteCode', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ success: true, data: await teamsService.getInviteInfo(req.params.inviteCode as string) });
+    res.json({ success: true, data: await teamsService.getInviteInfo(req.params.inviteCode as string, req.user!.userId) });
   } catch (error) { next(error); }
 });
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { safeRedirect } from '@/lib/safe-redirect';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ export default function RegisterPage() {
     try {
       const qs = new URLSearchParams(window.location.search);
       const redirect = qs.get('redirect');
-      if (redirect?.startsWith('/') && !redirect.startsWith('//')) setReturnTo(redirect);
+      setReturnTo(safeRedirect(redirect, window.location.origin));
       const fromQuery = qs.get('ref') || qs.get('referral');
       if (fromQuery) {
         setReferralCode(fromQuery.toUpperCase());
@@ -57,7 +58,7 @@ export default function RegisterPage() {
         /* ignore */
       }
       const requested = new URLSearchParams(window.location.search).get('redirect');
-      router.push(requested?.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard');
+      router.push(safeRedirect(requested, window.location.origin));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
