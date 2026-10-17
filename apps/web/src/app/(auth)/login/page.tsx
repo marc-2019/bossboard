@@ -3,6 +3,7 @@
 import { Suspense, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { decideAuthNavigation } from '@/lib/invite-flow';
 import { safeRedirect } from '@/lib/safe-redirect';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,7 @@ function LoginForm() {
     try {
       await login(trimmedEmail, password);
       const requested = searchParams.get('redirect');
-      const redirect = safeRedirect(requested, window.location.origin);
+      const { url: redirect } = decideAuthNavigation('login', requested, window.location.origin);
       // Full navigation so middleware always sees fresh auth cookies.
       window.location.assign(redirect);
     } catch (err: unknown) {
@@ -99,9 +100,9 @@ function LoginForm() {
 
       <p className="mt-4 text-sm text-center text-gray-500">
         {"Don't have an account? "}
-        <Link href={`/register?redirect=${encodeURIComponent(safeRedirect(searchParams.get('redirect')))}`} className="text-accent font-medium hover:underline">
+        <a href={`/register?redirect=${encodeURIComponent(safeRedirect(searchParams.get('redirect')))}`} className="text-accent font-medium hover:underline">
           Sign up
-        </Link>
+        </a>
       </p>
     </Card>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { decideAuthNavigation } from '@/lib/invite-flow';
 import { safeRedirect } from '@/lib/safe-redirect';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,9 @@ export default function RegisterPage() {
         /* ignore */
       }
       const requested = new URLSearchParams(window.location.search).get('redirect');
-      router.push(safeRedirect(requested, window.location.origin));
+      const destination = decideAuthNavigation('register', requested, window.location.origin);
+      if (destination.fullPage) window.location.assign(destination.url);
+      else router.push(destination.url);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -119,9 +121,9 @@ export default function RegisterPage() {
 
       <p className="mt-4 text-sm text-center text-gray-500">
         Already have an account?{' '}
-        <Link href={`/login?redirect=${encodeURIComponent(returnTo)}`} className="text-accent font-medium hover:underline">
+        <a href={`/login?redirect=${encodeURIComponent(returnTo)}`} className="text-accent font-medium hover:underline">
           Sign in
-        </Link>
+        </a>
       </p>
     </Card>
   );

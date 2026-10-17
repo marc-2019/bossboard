@@ -18,7 +18,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'node ../../node_modules/next/dist/bin/next dev --port 3000',
+    command: 'npm run dev',
     port: 3000,
     reuseExistingServer: true,
     timeout: 30000,

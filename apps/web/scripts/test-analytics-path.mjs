@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../public/klaro/analytics.js', import.meta.url), 'utf8');
 const helper = { module: { exports: {} } };
 vm.runInNewContext(source, helper);
-const { sanitizeAnalyticsPath } = helper.module.exports;
+const { sanitizeAnalyticsPath, isSensitiveAnalyticsUrl } = helper.module.exports;
 for (const value of ['/invite/private-code', '/invite/private-code?secret=value#fragment', '/invite/private-code/?x=1']) {
   assert.equal(sanitizeAnalyticsPath(value), '/invite/:code');
 }
@@ -32,17 +32,20 @@ assert.equal(sanitizeAnalyticsPath('/login?redirect=%2Fteams%3Ftab%3Dmembers#hel
 assert.equal(sanitizeAnalyticsPath('/login?redirect=%2Finvite%2Fabc123&keep=yes'),
   '/login?redirect=%2Finvite%2F%3Acode&keep=yes');
 for (const value of sensitiveUrls) {
+  let loads = 0;
   const url = new URL(value, 'https://app.test');
   const window = { location: { pathname: url.pathname, search: url.search, hash: url.hash, href: url.href } };
   const document = {
     title: 'BossBoard', referrer: `https://app.test${value}`,
-    getElementsByTagName: () => [{ parentNode: { insertBefore: () => {} } }],
+    getElementsByTagName: () => [{ parentNode: { insertBefore: () => loads++ } }],
     createElement: () => ({}), addEventListener: () => {},
   };
   vm.runInNewContext(source, { window, document });
   window.gtag('event', 'page_view', { referrer: `https://app.test${value}` });
   const config = window.dataLayer.find(row => row[0] === 'config');
-  assert.equal(config[2].send_page_view, false);
+  assert.equal(loads, isSensitiveAnalyticsUrl(url) ? 0 : 1);
+  assert.equal(Boolean(config), !isSensitiveAnalyticsUrl(url));
+  if (config) assert.equal(config[2].send_page_view, false);
   for (const row of window.dataLayer.filter(row => ['event', 'config'].includes(row[0]))) {
     for (const field of ['page_path', 'page_location', 'page_referrer']) {
       assert.equal(typeof row[2][field], 'string');
@@ -71,4 +74,33 @@ for (const pathname of ['/invite/private-code', '/teams']) {
   window.gtag('event', 'page_view');
   assert.equal(window.dataLayer.filter(row => row[0] === 'event').length, views.length);
 }
+
+for (const path of ['/invite/', '/invite/code/nested', ...sensitiveUrls.slice(0, -1),
+  '/forgot-password?anything=%2Finvite%2F', '/reset-password#/invite/code',
+  '/auth/callback?url=%25252Finvite%25252Fcode']) {
+  assert.equal(isSensitiveAnalyticsUrl(new URL(path, 'https://app.test')), true, path);
+}
+for (const path of ['/login', '/register?redirect=/teams', '/teams?next=/invite/code',
+  '/login?invite=/teams', '/login?next=%broken', '/login?/invite/code=benign']) {
+  assert.equal(isSensitiveAnalyticsUrl(new URL(path, 'https://app.test')), false, path);
+}
+// An already-loaded integration must suppress every event and config on entry.
+{
+  const window = { location: new URL('/teams', 'https://app.test') };
+  const document = { title: 'Teams', referrer: '', addEventListener() {},
+    createElement: () => ({}), getElementsByTagName: () => [{ parentNode: { insertBefore() {} } }] };
+  vm.runInNewContext(source, { window, document });
+  for (const path of ['/invite/code/nested', '/login?next=%252Finvite%252Fcode', '/register#/invite/code']) {
+    window.location = new URL(path, 'https://app.test');
+    const before = window.dataLayer.length;
+    window.gtag('event', 'custom_click', { secret: 'code' });
+    window.gtag('config', 'test');
+    assert.equal(window.dataLayer.length, before);
+    assert.equal(window['ga-disable-G-83NPHN0QP5'], true);
+  }
+  window.location = new URL('/login', 'https://app.test');
+  window.gtag('event', 'custom_click');
+  assert.equal(window['ga-disable-G-83NPHN0QP5'], false);
+}
+
 console.log('analytics-path: all passed');

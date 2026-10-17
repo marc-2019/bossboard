@@ -25,3 +25,23 @@ export function decideInviteFlow(code: string, currentEmail: string | null, info
   };
   return { action: 'accept' };
 }
+
+/** Shared safe destination after authentication or email verification. */
+export function decideAuthNavigation(stage: 'register' | 'login' | 'verified', requested: string | null, base?: string) {
+  const returnTo = safeRedirect(requested, base);
+  const url = stage === 'register' && returnTo.includes('/invite/')
+    ? verificationUrl(returnTo) : returnTo;
+  return { url, fullPage: url.includes('/invite/') || url.includes('%2Finvite%2F') };
+}
+
+export function verificationUrl(returnTo: string): string {
+  return `/verify-email?redirect=${encodeURIComponent(safeRedirect(returnTo))}`;
+}
+
+export function decideInviteError(code: string, errorCode: string) {
+  if (errorCode !== 'EMAIL_NOT_VERIFIED') return null;
+  return {
+    message: 'Verify your email first to view and accept this invitation.',
+    verificationUrl: verificationUrl(`/invite/${encodeURIComponent(code)}`),
+  };
+}

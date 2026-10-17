@@ -29,7 +29,17 @@ function getInfo(authenticated = true) {
 }
 
 describe('invite info privacy and authentication', () => {
-  beforeEach(() => { jest.clearAllMocks(); });
+  beforeEach(() => { jest.resetAllMocks(); });
+  function verifiedUser() {
+    mockQuery.mockResolvedValueOnce({ rows: [{ is_verified: true }] });
+  }
+  it('rejects unverified users before reading any invite details', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ is_verified: false }] });
+    const result = await getInfo();
+    expect(result).toEqual({ status: 403, body: { success: false, error: 'EMAIL_NOT_VERIFIED', message: 'Verify your email first.' } });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledWith('SELECT is_verified FROM users WHERE id = $1', ['user-1']);
+  });
   it('requires authentication before reading an invite', async () => {
     expect((await getInfo(false)).status).toBe(401);
     expect(mockQuery).not.toHaveBeenCalled();
@@ -38,6 +48,7 @@ describe('invite info privacy and authentication', () => {
     { expires_at: new Date(0), accepted_at: null },
     { expires_at: new Date(Date.now() + 86400000), accepted_at: new Date() },
   ])('returns 410 without exposing unavailable invite details', async (dates) => {
+    verifiedUser();
     mockQuery.mockResolvedValueOnce({ rows: [{ ...dates, email: 'private@example.com', team_name: 'Private team' }] });
     const result = await getInfo();
     expect(result.status).toBe(410);
@@ -46,10 +57,12 @@ describe('invite info privacy and authentication', () => {
     expect(result.body.data).toBeUndefined();
   });
   it('returns 404 for an unknown invite', async () => {
+    verifiedUser();
     mockQuery.mockResolvedValueOnce({ rows: [] });
     expect((await getInfo()).status).toBe(404);
   });
   it.each([true, false])('returns minimal active details (email match: %s)', async (matchesEmail) => {
+    verifiedUser();
     mockQuery.mockResolvedValueOnce({ rows: [{ expires_at: new Date(Date.now() + 86400000), accepted_at: null,
       email: 'private@example.com', team_name: 'Builders' }] })
       .mockResolvedValueOnce({ rows: [{ email: matchesEmail ? 'PRIVATE@example.com' : 'other@example.com' }] });

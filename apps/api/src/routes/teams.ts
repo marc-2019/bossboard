@@ -8,6 +8,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { requireVerifiedEmail } from '../middleware/require-verified-email.js';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, checkLimit } from '../middleware/subscription.js';
 import teamsService from '../services/teams.js';
@@ -108,7 +109,7 @@ router.get('/invites/pending', authenticate, async (req: Request, res: Response)
  * GET /api/v1/teams/invites/:inviteCode
  * Minimal invite details for an authenticated holder of the code
  */
-router.get('/invites/:inviteCode', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/invites/:inviteCode', authenticate, requireVerifiedEmail, async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ success: true, data: await teamsService.getInviteInfo(req.params.inviteCode as string, req.user!.userId) });

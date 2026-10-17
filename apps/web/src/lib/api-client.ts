@@ -120,6 +120,12 @@ export const authClient = {
   resetPassword: (data: { email: string; code: string; newPassword: string }) =>
     clientFetch('/api/auth/reset-password', { method: 'POST', body: data }),
 
+  verifyEmail: (code: string) =>
+    clientFetch('/api/auth/verify-email', { method: 'POST', body: { code } }),
+
+  resendVerification: () =>
+    clientFetch('/api/auth/resend-verification', { method: 'POST' }),
+
   me: () =>
     clientFetch<{ user: import('@bossboard/shared').User }>('/api/auth/me'),
 

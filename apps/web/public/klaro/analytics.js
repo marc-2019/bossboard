@@ -35,7 +35,29 @@ function sanitizeAnalyticsPath(value) {
   }
   return parts.join('');
 }
-if (typeof module !== 'undefined') module.exports = { sanitizeAnalyticsPath };
+// Keep this list aligned with src/app/(auth). Query names are deliberately
+// irrelevant: invitations may arrive through any return/callback parameter.
+function isSensitiveAnalyticsUrl(location) {
+  function containsInvite(value) {
+    value = String(value || "");
+    for (var i = 0; i <= 3; i++) {
+      if (/\/invite\//i.test(value)) return true;
+      if (i === 3) break;
+      try { value = decodeURIComponent(value.replace(/\+/g, " ")); }
+      catch (_) { break; }
+    }
+    return false;
+  }
+  var pathname = location.pathname || "";
+  if (pathname.indexOf("/invite/") === 0) return true;
+  if (!/^\/(?:login|register|forgot-password|reset-password|auth)(?:\/|$)/i.test(pathname)) return false;
+  if (containsInvite(location.hash)) return true;
+  return String(location.search || "").replace(/^\?/, "").split("&").some(function (param) {
+    var equals = param.indexOf("=");
+    return equals !== -1 && containsInvite(param.slice(equals + 1));
+  });
+}
+if (typeof module !== 'undefined') module.exports = { sanitizeAnalyticsPath, isSensitiveAnalyticsUrl };
 
 /* GA4 (gtag.js direct) + Klaro consent + Consent Mode v2 (BossBoard web).
  * Rewritten 2026-05-20 from GTM-PLACEHOLDER to direct gtag.js per Marc-decision
@@ -47,12 +69,30 @@ if (typeof module !== 'undefined') module.exports = { sanitizeAnalyticsPath };
   var GA4_ID = "G-83NPHN0QP5";
   var SITE_LABEL = "BossBoard";
 
+  // The disable flag also blocks GA's own automatic events after SPA navigation.
+  function updatePrivacyGate() {
+    window["ga-disable-" + GA4_ID] = isSensitiveAnalyticsUrl(window.location);
+  }
+  updatePrivacyGate();
+  if (window.history) {
+    ["pushState", "replaceState"].forEach(function (method) {
+      var original = window.history[method];
+      window.history[method] = function () {
+        var result = original.apply(this, arguments);
+        updatePrivacyGate();
+        return result;
+      };
+    });
+    window.addEventListener("popstate", updatePrivacyGate);
+    window.addEventListener("hashchange", updatePrivacyGate);
+  }
   window.dataLayer = window.dataLayer || [];
   function gtag(command, name, params) {
     if (command === "config" || command === "event") {
       // Also guard calls after client-side navigation and any automatic defaults.
-      var invitePage = /^\/invite\/[^/]+\/?$/.test(window.location.pathname);
-      if (command === "event" && name === "page_view" && invitePage) return;
+      updatePrivacyGate();
+      if (isSensitiveAnalyticsUrl(window.location)) return;
+      var invitePage = window.location.pathname.indexOf("/invite/") === 0;
       params = Object.assign({}, params, {
         page_path: sanitizeAnalyticsPath(window.location.pathname + window.location.search + (window.location.hash || "")),
         page_location: sanitizeAnalyticsPath(window.location.href),
@@ -84,7 +124,7 @@ if (typeof module !== 'undefined') module.exports = { sanitizeAnalyticsPath };
   // analytics_storage; on Klaro onAccept we fire an explicit page_view event.
   (function (w, d, s, i) {
     // Do not load GA on sensitive invitation pages, even with stored consent.
-    if (/^\/invite\/[^/]+\/?$/.test(w.location.pathname)) return;
+    if (isSensitiveAnalyticsUrl(w.location)) return;
     var f = d.getElementsByTagName(s)[0];
     var j = d.createElement(s);
     j.async = true;
