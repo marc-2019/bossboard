@@ -55,6 +55,6 @@ describe('invite info privacy and authentication', () => {
       .mockResolvedValueOnce({ rows: [{ email: matchesEmail ? 'PRIVATE@example.com' : 'other@example.com' }] });
     const result = await getInfo();
     expect(result.status).toBe(200);
-    expect(result.body.data).toEqual({ teamName: 'Builders', matchesEmail });
+    expect(result.body.data).toEqual({ teamName: 'Builders', invitedEmail: 'private@example.com', matchesEmail });
   });
 });

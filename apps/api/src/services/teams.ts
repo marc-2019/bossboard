@@ -386,7 +386,7 @@ async function getInviteInfo(inviteCode: string, userId: string) {
     throw createError('Invitation is no longer available', 410, 'INVITE_UNAVAILABLE');
   }
   const user = await db.query<{ email: string }>('SELECT email FROM users WHERE id = $1', [userId]);
-  return { teamName: invite.team_name,
+  return { teamName: invite.team_name, invitedEmail: invite.email,
     matchesEmail: user.rows[0]?.email.toLowerCase() === invite.email.toLowerCase() };
 }
 

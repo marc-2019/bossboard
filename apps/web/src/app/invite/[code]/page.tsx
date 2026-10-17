@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { safeRedirect } from '@/lib/safe-redirect';
+import { decideInviteFlow } from '@/lib/invite-flow';
 import { useAuth } from '@/providers/auth-provider';
 import { teamsClient } from '@/lib/api-client';
 
@@ -13,21 +13,25 @@ export default function InvitePage() {
   const [message, setMessage] = useState('Loading invitation…');
   const [wrongAccount, setWrongAccount] = useState(false);
   const started = useRef(false);
-  const loginUrl = `/login?redirect=${encodeURIComponent(safeRedirect(`/invite/${encodeURIComponent(code)}`))}`;
+  const [loginUrl, setLoginUrl] = useState('');
 
   useEffect(() => {
     if (isLoading) return;
-    if (!user) { router.replace(loginUrl); return; }
+    const initial = decideInviteFlow(code, user?.email ?? null);
+    if (initial.action === 'redirect') { router.replace(initial.loginUrl); return; }
     if (started.current) return;
     started.current = true;
     async function accept() {
       try {
         const info = await teamsClient.inviteInfo(code);
-        if (!info.matchesEmail) {
+        const decision = decideInviteFlow(code, user!.email, info);
+        if (decision.action === 'mismatch') {
           setWrongAccount(true);
-          setMessage(`This invitation to ${info.teamName} is for another account. Switch accounts to accept it.`);
+          setMessage(decision.message);
+          setLoginUrl(decision.loginUrl);
           return;
         }
+        if (decision.action !== 'accept') return;
         await teamsClient.acceptInvite(code);
         window.location.assign('/teams');
       } catch (err) {
@@ -35,7 +39,7 @@ export default function InvitePage() {
       }
     }
     void accept();
-  }, [code, user, isLoading, router, loginUrl]);
+  }, [code, user, isLoading, router]);
 
   return <main className="max-w-lg mx-auto p-8 space-y-4">
     <h1 className="text-2xl font-bold">Team invitation</h1>
@@ -43,6 +47,6 @@ export default function InvitePage() {
     {wrongAccount && <button className="text-blue-700 underline" onClick={async () => {
       try { await logout(); window.location.assign(loginUrl); }
       catch { setMessage('Unable to log out. Please try again.'); }
-    }}>Log out and switch account</button>}
+    }}>Switch account</button>}
   </main>;
 }
