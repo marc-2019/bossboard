@@ -12,6 +12,8 @@ export const config = {
   appName: process.env.APP_NAME || 'BossBoard',
   appDomain: process.env.APP_DOMAIN || '',
 
+  webUrl: process.env.WEB_URL || 'http://localhost:3000',
+
   // Server
   port: parseInt(process.env.PORT || '29000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',

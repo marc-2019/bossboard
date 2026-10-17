@@ -26,11 +26,21 @@
 // ---------------------------------------------------------------------------
 
 const mockDbQuery = jest.fn();
+const mockSendTeamInviteEmail = jest.fn().mockResolvedValue({ messageId: 'msg-test' });
+jest.mock('../../services/email.js', () => ({
+  sendTeamInviteEmail: (...args: unknown[]) => mockSendTeamInviteEmail(...args),
+}));
 
 jest.mock('../../services/database.js', () => ({
   __esModule: true,
   default: {
     query: (...args: unknown[]) => mockDbQuery(...args),
+    transaction: (callback: (client: unknown) => unknown) => callback({
+      query: (sql: string, ...args: unknown[]) => {
+        if (sql.includes('FOR UPDATE') || sql.startsWith('DELETE FROM team_invites')) return Promise.resolve({ rows: [] });
+        return mockDbQuery(sql, ...args);
+      },
+    }),
   },
 }));
 
@@ -122,6 +132,7 @@ function mockQuery(rows: unknown[]) {
 
 beforeEach(() => {
   jest.resetAllMocks();
+  mockSendTeamInviteEmail.mockResolvedValue({ messageId: 'msg-test' });
 });
 
 // ===========================================================================
@@ -402,6 +413,7 @@ describe('inviteMember', () => {
     mockQuery([inviteRow]);          // INSERT INTO team_invites
     mockQuery([]);                   // SELECT users (email not found — no pre-existing user)
 
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
     const invite = await teamsService.inviteMember('user-owner', 'team-1', {
       email: '  NewMember@Example.com  ',
     });
@@ -428,12 +440,28 @@ describe('inviteMember', () => {
     mockQuery([{ id: 'existing-user-id' }]);  // SELECT users WHERE email (user exists)
     mockQuery([]);                             // INSERT INTO team_members ON CONFLICT DO NOTHING
 
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
     await teamsService.inviteMember('user-admin', 'team-1', { email: 'newmember@example.com' });
 
     // Last call should be the team_members insert
     const lastCall = mockDbQuery.mock.calls[5];
     expect(lastCall[0]).toContain('INSERT INTO team_members');
     expect(lastCall[1]).toContain('existing-user-id');
+  });
+
+  it('keeps the created invite when email delivery throws', async () => {
+    mockQuery([{ role: 'owner' }]);
+    mockQuery([]);
+    mockQuery([]);
+    mockQuery([makeInviteRow()]);
+    mockQuery([]);
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
+    mockSendTeamInviteEmail.mockRejectedValueOnce(new Error('Email unavailable'));
+    const invite = await teamsService.inviteMember('user-owner', 'team-1', { email: 'newmember@example.com' });
+    expect(invite.id).toBe('invite-1');
+    expect(invite.emailSent).toBe(false);
+    expect(mockSendTeamInviteEmail).toHaveBeenCalledTimes(1);
+    expect(mockDbQuery.mock.calls.some(([sql]) => sql.includes('INSERT INTO team_invites'))).toBe(true);
   });
 
   it('creates invite with admin role when specified', async () => {
@@ -445,12 +473,15 @@ describe('inviteMember', () => {
     mockQuery([inviteRow]);
     mockQuery([]);
 
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
     const invite = await teamsService.inviteMember('user-owner', 'team-1', {
       email: 'newadmin@example.com',
       role: 'admin',
     });
 
     expect(invite.role).toBe('admin');
+    expect(invite.emailSent).toBe(true);
+    expect(mockSendTeamInviteEmail).toHaveBeenCalledWith(invite.email, expect.objectContaining({ acceptUrl: expect.stringContaining(`/invite/${invite.inviteCode}`) }));
   });
 });
 

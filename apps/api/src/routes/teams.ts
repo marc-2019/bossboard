@@ -6,7 +6,7 @@
  * parameterised routes (/:teamId) to avoid incorrect matching.
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import { attachSubscription, checkLimit } from '../middleware/subscription.js';
@@ -105,17 +105,26 @@ router.get('/invites/pending', authenticate, async (req: Request, res: Response)
 });
 
 /**
- * POST /api/v1/teams/invites/:inviteCode/accept
- * Accept a team invite
+ * GET /api/v1/teams/invites/:inviteCode
+ * Minimal invite details for an authenticated holder of the code
  */
-router.post('/invites/:inviteCode/accept', authenticate, async (req: Request, res: Response) => {
-  const userId = req.user!.userId;
-  const result = await teamsService.acceptInvite(userId, req.params.inviteCode as string);
+router.get('/invites/:inviteCode', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data: await teamsService.getInviteInfo(req.params.inviteCode as string) });
+  } catch (error) { next(error); }
+});
 
-  res.json({
-    success: true,
-    data: result,
-  });
+router.post('/invites/:inviteCode/accept', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const result = await teamsService.acceptInvite(userId, req.params.inviteCode as string);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) { next(error); }
 });
 
 /**
@@ -265,28 +274,30 @@ router.post('/:teamId/leave', authenticate, async (req: Request, res: Response) 
  * POST /api/v1/teams/:teamId/invites
  * Invite a member by email (owner/admin only)
  */
-router.post('/:teamId/invites', authenticate, attachSubscription, checkLimit('teamMember'), async (req: Request, res: Response) => {
-  const validation = inviteMemberSchema.safeParse(req.body);
-  if (!validation.success) {
-    res.status(400).json({
-      success: false,
-      error: 'VALIDATION_ERROR',
-      message: validation.error.errors.map((e) => e.message).join(', '),
+router.post('/:teamId/invites', authenticate, attachSubscription, checkLimit('teamMember'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validation = inviteMemberSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: validation.error.errors.map((e) => e.message).join(', '),
+      });
+      return;
+    }
+
+    const userId = req.user!.userId;
+    const invite = await teamsService.inviteMember(
+      userId,
+      req.params.teamId as string,
+      validation.data
+    );
+
+    res.status(201).json({
+      success: true,
+      data: { invite },
     });
-    return;
-  }
-
-  const userId = req.user!.userId;
-  const invite = await teamsService.inviteMember(
-    userId,
-    req.params.teamId as string,
-    validation.data
-  );
-
-  res.status(201).json({
-    success: true,
-    data: { invite },
-  });
+  } catch (error) { next(error); }
 });
 
 /**

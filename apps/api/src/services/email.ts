@@ -430,12 +430,12 @@ async function send(
   to: string,
   template: { subject: string; html: string; text: string },
   attachments?: Array<{ filename: string; content: Buffer }>,
-  options?: { bcc?: string[] }
+  options?: { bcc?: string[]; from?: string }
 ): Promise<{ messageId: string }> {
   const resend = getResend();
 
   const payload: Parameters<Resend['emails']['send']>[0] = {
-    from: fromAddress(),
+    from: options?.from || fromAddress(),
     to: [to],
     subject: sanitizeEmailSubject(template.subject),
     html: template.html,
@@ -655,6 +655,7 @@ export default {
   isSmtpConfigured,
   isResendConfigured,
   sendVerificationEmail,
+  sendTeamInviteEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
   sendQuoteEmail,
@@ -663,3 +664,17 @@ export default {
   sendPortfolioAlert,
   sendPaymentFailedEmail,
 };
+
+export async function sendTeamInviteEmail(
+  recipientEmail: string,
+  opts: { teamName: string; inviterName: string | null; inviterEmail: string; acceptUrl: string }
+): Promise<{ messageId: string }> {
+  const inviter = opts.inviterName ? `${opts.inviterName} (${opts.inviterEmail})` : opts.inviterEmail;
+  const text = `${inviter} invited you to join ${opts.teamName} on ${appName()}. Accept your invitation: ${opts.acceptUrl}`;
+  return send(recipientEmail, {
+    subject: `Invitation to join ${opts.teamName}`,
+    text,
+    html: layout('#2563EB', 'Team invitation', escapeHtml(opts.teamName),
+      `<p>${escapeHtml(inviter)} invited you to join ${escapeHtml(opts.teamName)}.</p><p><a href="${escapeHtml(opts.acceptUrl)}">Accept invitation</a></p>`),
+  }, undefined, { from: 'info@instilligent.com' });
+}

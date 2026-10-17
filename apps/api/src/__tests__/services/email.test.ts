@@ -50,6 +50,7 @@ import {
   isEmailConfigured,
   isSmtpConfigured,
   isResendConfigured,
+  sendTeamInviteEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
@@ -545,5 +546,22 @@ describe('from address construction', () => {
     await sendVerificationEmail('u@e.com', '123');
     const call = mockEmailsSend.mock.calls[0][0];
     expect(call.from).toContain('noreply@instilligent.com');
+  });
+});
+
+describe('sendTeamInviteEmail', () => {
+  it('uses the invite sender, includes inviter and team, and escapes HTML', async () => {
+    mockEmailsSend.mockResolvedValueOnce({ data: { id: 'team-msg' }, error: null });
+    const result = await sendTeamInviteEmail('worker@example.com', {
+      teamName: 'Builders <NZ>', inviterName: 'Marc & Co', inviterEmail: 'marc@example.com',
+      acceptUrl: 'https://bossboard.example/invite/code-1',
+    });
+    expect(result.messageId).toBe('team-msg');
+    expect(mockEmailsSend).toHaveBeenCalledWith(expect.objectContaining({
+      from: 'info@instilligent.com', to: ['worker@example.com'],
+      text: expect.stringContaining('Marc & Co (marc@example.com)'),
+      html: expect.stringContaining('Builders &lt;NZ&gt;'),
+    }));
+    expect(mockEmailsSend.mock.calls[0][0].html).toContain('https://bossboard.example/invite/code-1');
   });
 });

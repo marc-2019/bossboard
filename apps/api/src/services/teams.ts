@@ -5,11 +5,14 @@
  */
 
 import crypto from 'crypto';
+import { sendTeamInviteEmail } from './email.js';
+import { config } from '../config/index.js';
 import db from './database.js';
 import {
   Team,
   TeamMember,
   TeamInvite,
+  TeamInviteResult,
   TeamRole,
   TeamCreateInput,
   TeamInviteMemberInput,
@@ -260,7 +263,7 @@ async function inviteMember(
   userId: string,
   teamId: string,
   input: TeamInviteMemberInput
-): Promise<TeamInvite> {
+): Promise<TeamInviteResult> {
   await requireRole(userId, teamId, ['owner', 'admin']);
 
   const { email, role = 'worker' } = input;
@@ -276,70 +279,90 @@ async function inviteMember(
 
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Check if already a member
-  const existingMember = await db.query<{ id: string }>(
-    `SELECT tm.id FROM team_members tm
-     JOIN users u ON u.id = tm.user_id
-     WHERE tm.team_id = $1 AND u.email = $2 AND tm.invite_status != 'declined'`,
-    [teamId, normalizedEmail]
-  );
-
-  if (existingMember.rows.length > 0) {
-    throw createError('This user is already a member or has a pending invite', 400, 'ALREADY_MEMBER');
-  }
-
-  // Check if there's already a pending invite for this email
-  const existingInvite = await db.query<{ id: string }>(
-    `SELECT id FROM team_invites
-     WHERE team_id = $1 AND email = $2 AND accepted_at IS NULL AND expires_at > NOW()`,
-    [teamId, normalizedEmail]
-  );
-
-  if (existingInvite.rows.length > 0) {
-    throw createError('An invite is already pending for this email', 400, 'INVITE_PENDING');
-  }
-
-  // Generate invite code (URL-safe)
-  const inviteCode = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 day expiry
-
-  const result = await db.query<{
-    id: string;
-    team_id: string;
-    email: string;
-    role: string;
-    invited_by: string;
-    invite_code: string;
-    expires_at: Date;
-    accepted_at: Date | null;
-    created_at: Date;
-  }>(
-    `INSERT INTO team_invites (team_id, email, role, invited_by, invite_code, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, team_id, email, role, invited_by, invite_code, expires_at, accepted_at, created_at`,
-    [teamId, normalizedEmail, role, userId, inviteCode, expiresAt]
-  );
-
-  const row = result.rows[0];
-
-  // Also check if the user already exists - if so, create a pending team_member entry
-  const existingUser = await db.query<{ id: string }>(
-    'SELECT id FROM users WHERE email = $1 AND is_active = true',
-    [normalizedEmail]
-  );
-
-  if (existingUser.rows.length > 0) {
-    const invitedUserId = existingUser.rows[0].id;
-    await db.query(
-      `INSERT INTO team_members (team_id, user_id, role, invite_status, invited_by, invited_email)
-       VALUES ($1, $2, $3, 'pending', $4, $5)
-       ON CONFLICT (team_id, user_id) DO NOTHING`,
-      [teamId, invitedUserId, role, userId, normalizedEmail]
+  const row = await db.transaction(async (client) => {
+    // Serialize invitations for a team, including when no invite row exists yet.
+    await client.query('SELECT id FROM teams WHERE id = $1 FOR UPDATE', [teamId]);
+    const existingMember = await client.query(
+      `SELECT tm.id FROM team_members tm JOIN users u ON u.id = tm.user_id
+       WHERE tm.team_id = $1 AND lower(u.email) = $2 AND tm.invite_status = 'accepted'`,
+      [teamId, normalizedEmail]
     );
-  }
+    if (existingMember.rows.length) {
+      throw createError('This user is already a member', 400, 'ALREADY_MEMBER');
+    }
+    const existingInvite = await client.query(
+      `SELECT id FROM team_invites WHERE team_id = $1 AND email = $2
+       AND accepted_at IS NULL AND expires_at > NOW()`, [teamId, normalizedEmail]
+    );
+    if (existingInvite.rows.length) {
+      throw createError('An invite is already pending for this email', 400, 'INVITE_PENDING');
+    }
+    await client.query(
+      'DELETE FROM team_invites WHERE team_id = $1 AND email = $2',
+      [teamId, normalizedEmail]
+    );
+    // Generate invite code (URL-safe)
+    const inviteCode = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 day expiry
 
+    const result = await client.query<{
+      id: string;
+      team_id: string;
+      email: string;
+      role: string;
+      invited_by: string;
+      invite_code: string;
+      expires_at: Date;
+      accepted_at: Date | null;
+      created_at: Date;
+    }>(
+      `INSERT INTO team_invites (team_id, email, role, invited_by, invite_code, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, team_id, email, role, invited_by, invite_code, expires_at, accepted_at, created_at`,
+      [teamId, normalizedEmail, role, userId, inviteCode, expiresAt]
+    );
+
+    const row = result.rows[0];
+
+    // Also check if the user already exists - if so, create a pending team_member entry
+    const existingUser = await client.query<{ id: string }>(
+      'SELECT id FROM users WHERE email = $1 AND is_active = true',
+      [normalizedEmail]
+    );
+
+    if (existingUser.rows.length > 0) {
+      const invitedUserId = existingUser.rows[0].id;
+      await client.query(
+        `INSERT INTO team_members (team_id, user_id, role, invite_status, invited_by, invited_email)
+         VALUES ($1, $2, $3, 'pending', $4, $5)
+         ON CONFLICT (team_id, user_id) DO UPDATE SET role = EXCLUDED.role,
+         invite_status = 'pending', invited_by = EXCLUDED.invited_by, invited_at = NOW(), updated_at = NOW()`,
+        [teamId, invitedUserId, role, userId, normalizedEmail]
+      );
+    }
+
+    return row;
+  });
+
+  let emailSent = false;
+  try {
+    const context = await db.query<{ team_name: string; name: string | null; email: string }>(
+      `SELECT t.name AS team_name, u.name, u.email FROM teams t
+       JOIN users u ON u.id = $2 WHERE t.id = $1`, [teamId, userId]
+    );
+    const inviter = context.rows[0];
+    const { messageId } = await sendTeamInviteEmail(row.email, {
+      teamName: inviter.team_name, inviterName: inviter.name, inviterEmail: inviter.email,
+      acceptUrl: `${config.webUrl.replace(/\/$/, '')}/invite/${row.invite_code}`,
+    });
+    console.log('[Teams] Invite email sent', { messageId });
+    emailSent = true;
+  } catch {
+    console.error('[Teams] Invite email delivery failed', { inviteId: row.id });
+  }
   return {
+    emailSent,
     id: row.id,
     teamId: row.team_id,
     email: row.email,
@@ -350,6 +373,17 @@ async function inviteMember(
     acceptedAt: row.accepted_at,
     createdAt: row.created_at,
   };
+}
+
+async function getInviteInfo(inviteCode: string) {
+  const result = await db.query<{ team_name: string; email: string; accepted_at: Date | null; expires_at: Date }>(
+    `SELECT t.name AS team_name, ti.email, ti.accepted_at, ti.expires_at
+     FROM team_invites ti JOIN teams t ON t.id = ti.team_id WHERE ti.invite_code = $1`, [inviteCode]
+  );
+  const invite = result.rows[0];
+  if (!invite) throw createError('Invalid invite code', 404, 'INVITE_NOT_FOUND');
+  return { teamName: invite.team_name, email: invite.email,
+    status: invite.accepted_at ? 'accepted' : new Date(invite.expires_at) <= new Date() ? 'expired' : 'pending' };
 }
 
 /**
@@ -811,6 +845,7 @@ export default {
   updateTeam,
   listMembers,
   inviteMember,
+  getInviteInfo,
   acceptInvite,
   declineInvite,
   listInvites,
