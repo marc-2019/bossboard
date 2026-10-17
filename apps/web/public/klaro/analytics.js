@@ -50,7 +50,7 @@ function isSensitiveAnalyticsUrl(location) {
   }
   var pathname = location.pathname || "";
   if (pathname.indexOf("/invite/") === 0) return true;
-  if (!/^\/(?:login|register|forgot-password|reset-password|auth)(?:\/|$)/i.test(pathname)) return false;
+  // Any page (login, register, verify-email, ...) carrying an invite return value is sensitive.
   if (containsInvite(location.hash)) return true;
   return String(location.search || "").replace(/^\?/, "").split("&").some(function (param) {
     var equals = param.indexOf("=");

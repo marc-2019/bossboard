@@ -77,10 +77,10 @@ for (const pathname of ['/invite/private-code', '/teams']) {
 
 for (const path of ['/invite/', '/invite/code/nested', ...sensitiveUrls.slice(0, -1),
   '/forgot-password?anything=%2Finvite%2F', '/reset-password#/invite/code',
-  '/auth/callback?url=%25252Finvite%25252Fcode']) {
+  '/auth/callback?url=%25252Finvite%25252Fcode', '/verify-email?redirect=%2Finvite%2Fcode', '/teams?next=/invite/code']) {
   assert.equal(isSensitiveAnalyticsUrl(new URL(path, 'https://app.test')), true, path);
 }
-for (const path of ['/login', '/register?redirect=/teams', '/teams?next=/invite/code',
+for (const path of ['/login', '/register?redirect=/teams', 
   '/login?invite=/teams', '/login?next=%broken', '/login?/invite/code=benign']) {
   assert.equal(isSensitiveAnalyticsUrl(new URL(path, 'https://app.test')), false, path);
 }
@@ -90,7 +90,7 @@ for (const path of ['/login', '/register?redirect=/teams', '/teams?next=/invite/
   const document = { title: 'Teams', referrer: '', addEventListener() {},
     createElement: () => ({}), getElementsByTagName: () => [{ parentNode: { insertBefore() {} } }] };
   vm.runInNewContext(source, { window, document });
-  for (const path of ['/invite/code/nested', '/login?next=%252Finvite%252Fcode', '/register#/invite/code']) {
+  for (const path of ['/invite/code/nested', '/login?next=%252Finvite%252Fcode', '/register#/invite/code', '/verify-email?redirect=%2Finvite%2Fcode', '/teams?next=/invite/code']) {
     window.location = new URL(path, 'https://app.test');
     const before = window.dataLayer.length;
     window.gtag('event', 'custom_click', { secret: 'code' });

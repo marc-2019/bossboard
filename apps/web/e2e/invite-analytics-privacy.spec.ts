@@ -22,6 +22,7 @@ async function captureAnalytics(page: Page, context: BrowserContext, baseURL: st
 for (const path of [
   `/invite/${code}`,
   `/login?redirect=%2Finvite%2F${code}`,
+  `/verify-email?redirect=%2Finvite%2F${code}`,
   `/register?redirect=%2Finvite%2F${code}`,
 ]) {
   test(`analytics stays unloaded with consent on ${path}`, async ({ page, context, baseURL }) => {
