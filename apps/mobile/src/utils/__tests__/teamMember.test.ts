@@ -10,9 +10,21 @@ describe('teamMember helpers', () => {
     expect(memberInitial(apiMember)).toBe('M');
   });
 
-  it('regression: no name/email keys (API shape) no longer throws', () => {
-    // Old code did (member.name || member.email)[0] -> TypeError on this shape.
-    expect(() => memberInitial(apiMember)).not.toThrow();
+  it('regression: rows the old expression crashed on now yield strings and an initial', () => {
+    // The pre-fix screen did (member.name || member.email)[0]. API rows carry no
+    // name/email keys and userName/userEmail are nullable, so that threw a TypeError.
+    const oldInitial = (m: { name?: string; email?: string }) => (m.name || m.email)![0];
+    const rows = [
+      { userName: 'Mike Tane', userEmail: 'mike@example.test' },
+      { userName: null, userEmail: 'invitee@example.test' },
+      { userName: null, userEmail: null },
+    ];
+    for (const row of rows) {
+      expect(() => oldInitial(row as { name?: string; email?: string })).toThrow(TypeError);
+      expect(typeof memberName(row)).toBe('string');
+      expect(typeof memberEmail(row)).toBe('string');
+    }
+    expect(rows.map(memberInitial)).toEqual(['M', 'I', '?']);
   });
 
   it('falls back to the email initial when userName is null', () => {
