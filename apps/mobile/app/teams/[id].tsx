@@ -43,6 +43,8 @@ export default function TeamMemberDetailScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [member, setMember] = useState<TeamMember | null>(null);
+  // Name for alerts: name, then email, never an empty string.
+  const displayName = member?.name || member?.email || 'this member';
   const [team, setTeam] = useState<Team | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string>('worker');
@@ -91,7 +93,7 @@ export default function TeamMemberDetailScreen() {
 
     Alert.alert(
       'Change Role',
-      `Change ${member.name}'s role to ${newRole}?`,
+      `Change ${displayName}'s role to ${newRole}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -100,7 +102,7 @@ export default function TeamMemberDetailScreen() {
             try {
               await teamsApi.updateMemberRole(team.id, member.id, newRole);
               setMember((prev) => prev ? { ...prev, role: newRole } : null);
-              Alert.alert('Success', `${member.name} is now a${newRole === 'admin' ? 'n admin' : ' worker'}`);
+              Alert.alert('Success', `${displayName} is now a${newRole === 'admin' ? 'n admin' : ' worker'}`);
             } catch (error) {
               Alert.alert('Error', 'Failed to update role');
             }
@@ -115,7 +117,7 @@ export default function TeamMemberDetailScreen() {
 
     Alert.alert(
       'Remove Team Member',
-      `Are you sure you want to remove ${member.name} from the team?`,
+      `Are you sure you want to remove ${displayName} from the team?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -212,7 +214,7 @@ export default function TeamMemberDetailScreen() {
               {getInitials(member.name)}
             </Text>
           </View>
-          <Text style={styles.memberName}>{member.name}</Text>
+          <Text style={styles.memberName}>{member.name || 'Unnamed'}</Text>
           <Text style={styles.memberEmail}>{member.email}</Text>
 
           <View style={[styles.roleBadge, { backgroundColor: roleColor + '15' }]}>
