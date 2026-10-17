@@ -18,12 +18,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { teamsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { InContentBack } from '../../src/components/InContentBack';
+import { memberName, memberEmail } from '../../src/utils/teamMember';
 
 interface TeamMember {
   id: string;
   userId: string;
-  name: string;
-  email: string;
+  userName?: string | null;
+  userEmail?: string;
+  name?: string | null;
+  email?: string;
   role: 'owner' | 'admin' | 'worker';
   joined_at?: string;
   trade_type?: string;
@@ -56,7 +59,7 @@ export default function TeamMemberDetailScreen() {
           const members = membersResponse.data.data.members || membersResponse.data.data || [];
           const foundMember = members.find((m: TeamMember) => m.id === memberId);
           if (foundMember) {
-            setMember(foundMember);
+            setMember({ ...foundMember, name: memberName(foundMember), email: memberEmail(foundMember) });
           }
 
           // Find current user's role
@@ -167,7 +170,8 @@ export default function TeamMemberDetailScreen() {
     });
   }
 
-  function getInitials(name: string): string {
+  function getInitials(name?: string | null): string {
+    if (!name) return '?';
     return name
       .split(' ')
       .map((n) => n[0])
