@@ -20,6 +20,14 @@ const mockCancelInvite = jest.fn();
 const mockGetMyPendingInvites = jest.fn();
 const mockAcceptInvite = jest.fn();
 const mockDeclineInvite = jest.fn();
+const mockDbQuery = jest.fn();
+
+jest.mock('../../services/database.js', () => ({
+  __esModule: true,
+  default: {
+    query: (...args: unknown[]) => mockDbQuery(...args),
+  },
+}));
 
 jest.mock('../../services/teams.js', () => ({
   __esModule: true,
@@ -67,6 +75,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockDbQuery.mockResolvedValue({ rows: [{ is_verified: true }] });
 });
 
 describe('Team Routes', () => {
@@ -144,6 +153,64 @@ describe('Team Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Invite declined');
+    });
+  });
+
+  describe('unverified email cannot use invitee endpoints', () => {
+    it('GET /invites/pending returns 403 and does not load invites', async () => {
+      mockDbQuery.mockResolvedValueOnce({ rows: [{ is_verified: false }] });
+      mockGetMyPendingInvites.mockResolvedValue([
+        { id: 'inv-1', inviteCode: 'redacted', role: 'admin' },
+      ]);
+
+      const response = await request(app).get('/api/v1/teams/invites/pending');
+
+      expect(mockGetMyPendingInvites).not.toHaveBeenCalled();
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({
+        success: false,
+        error: 'EMAIL_NOT_VERIFIED',
+      });
+      expect(JSON.stringify(response.body)).not.toMatch(/inviteCode|redacted/i);
+    });
+
+    it('POST accept returns 403 and does not create a membership', async () => {
+      mockDbQuery.mockResolvedValueOnce({ rows: [{ is_verified: false }] });
+      mockAcceptInvite.mockResolvedValue({
+        teamId: 't-1',
+        userId: 'test-user-id',
+        role: 'admin',
+        inviteStatus: 'accepted',
+      });
+
+      const response = await request(app).post('/api/v1/teams/invites/redacted/accept');
+
+      expect(mockAcceptInvite).not.toHaveBeenCalled();
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('EMAIL_NOT_VERIFIED');
+      expect(JSON.stringify(response.body)).not.toMatch(/inviteStatus|redacted/i);
+    });
+
+    it('POST decline returns 403 and does not mutate the invite', async () => {
+      mockDbQuery.mockResolvedValueOnce({ rows: [{ is_verified: false }] });
+      mockDeclineInvite.mockResolvedValue(undefined);
+
+      const response = await request(app).post('/api/v1/teams/invites/redacted/decline');
+
+      expect(mockDeclineInvite).not.toHaveBeenCalled();
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('verified callers can still list pending invites', async () => {
+      mockDbQuery.mockResolvedValueOnce({ rows: [{ is_verified: true }] });
+      mockGetMyPendingInvites.mockResolvedValue([{ id: 'inv-1', teamName: 'Team A' }]);
+
+      const response = await request(app).get('/api/v1/teams/invites/pending');
+
+      expect(response.status).toBe(200);
+      expect(mockGetMyPendingInvites).toHaveBeenCalledWith('test-user-id');
+      expect(response.body.data.invites).toHaveLength(1);
     });
   });
 
