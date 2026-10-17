@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
+import { safeGoBack } from '../utils/navigation';
 
 interface Props {
   error: Error;
@@ -10,7 +11,7 @@ interface Props {
   /** Sentry tag for the route group that failed. */
   label: string;
   /** Where "Go back" lands when there is no history to pop. */
-  fallbackHref: Href;
+  fallbackHref: string;
 }
 
 /**
@@ -36,11 +37,8 @@ export function RouteErrorFallback({ error, retry, label, fallbackHref }: Props)
   }
 
   function handleGoBack() {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace(fallbackHref);
-    }
+    // safeGoBack also survives canGoBack() throwing while the navigator is degraded.
+    safeGoBack(router, fallbackHref);
   }
 
   return (
