@@ -1,8 +1,10 @@
 import { Stack } from 'expo-router';
+import { ScreenErrorBoundary } from '../../src/components/ScreenErrorBoundary';
 import { withBackHeader } from '../../src/navigation/headerOptions';
 
 export default function TeamsLayout() {
   return (
+    <ScreenErrorBoundary label="teams">
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: '#fff' },
@@ -20,5 +22,6 @@ export default function TeamsLayout() {
         options={withBackHeader('Team Member', { fallback: '/(tabs)/people' })}
       />
     </Stack>
+    </ScreenErrorBoundary>
   );
 }

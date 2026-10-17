@@ -20,12 +20,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { teamsApi } from '../../src/services/api';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { InContentBack } from '../../src/components/InContentBack';
+import { memberName, memberEmail, memberInitial } from '../../src/utils/teamMember';
 
 interface TeamMember {
   id: string;
   userId: string;
-  name: string | null;
-  email: string;
+  userName?: string | null;
+  userEmail?: string;
+  name?: string | null;
+  email?: string;
   role: 'owner' | 'admin' | 'worker';
   acceptedAt: string | null;
 }
@@ -442,12 +445,12 @@ export default function TeamsScreen() {
             <View key={member.id} style={styles.memberCard}>
               <View style={styles.memberAvatar}>
                 <Text style={styles.memberAvatarText}>
-                  {(member.name || member.email)[0].toUpperCase()}
+                  {memberInitial(member)}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.memberName}>{member.name || 'Unnamed'}</Text>
-                <Text style={styles.memberEmail}>{member.email}</Text>
+                <Text style={styles.memberName}>{memberName(member) || 'Unnamed'}</Text>
+                <Text style={styles.memberEmail}>{memberEmail(member)}</Text>
               </View>
               <View style={[styles.roleBadge, { backgroundColor: getRoleBadgeColor(member.role) + '20' }]}>
                 <Text style={[styles.roleBadgeText, { color: getRoleBadgeColor(member.role) }]}>
@@ -458,13 +461,13 @@ export default function TeamsScreen() {
               {myRole === 'owner' && member.role !== 'owner' && member.userId !== user?.id && (
                 <View style={styles.memberActions}>
                   <TouchableOpacity
-                    onPress={() => handleChangeRole(member.userId, member.name || member.email, member.role)}
+                    onPress={() => handleChangeRole(member.userId, memberName(member) || memberEmail(member), member.role)}
                     style={styles.memberActionBtn}
                   >
                     <Ionicons name="swap-horizontal" size={18} color="#6B7280" />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => handleRemoveMember(member.userId, member.name || member.email)}
+                    onPress={() => handleRemoveMember(member.userId, memberName(member) || memberEmail(member))}
                     style={styles.memberActionBtn}
                   >
                     <Ionicons name="person-remove-outline" size={18} color="#EF4444" />
@@ -474,7 +477,7 @@ export default function TeamsScreen() {
               {/* Admin can remove workers */}
               {myRole === 'admin' && member.role === 'worker' && member.userId !== user?.id && (
                 <TouchableOpacity
-                  onPress={() => handleRemoveMember(member.userId, member.name || member.email)}
+                  onPress={() => handleRemoveMember(member.userId, memberName(member) || memberEmail(member))}
                   style={styles.memberActionBtn}
                 >
                   <Ionicons name="person-remove-outline" size={18} color="#EF4444" />
