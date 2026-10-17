@@ -19,6 +19,9 @@ import {
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
 
+// A fixed namespace plus the normalized team/email hash uses PostgreSQL's two-int lock form.
+const INVITE_LOCK_SQL = "SELECT pg_advisory_xact_lock(0, hashtext($1::text || ':' || lower($2::text)))";
+
 // =============================================================================
 // TEAM CRUD
 // =============================================================================
@@ -280,8 +283,8 @@ async function inviteMember(
   const normalizedEmail = email.toLowerCase().trim();
 
   const row = await db.transaction(async (client) => {
-    // Serialize invitations for a team, including when no invite row exists yet.
-    await client.query('SELECT id FROM teams WHERE id = $1 FOR UPDATE', [teamId]);
+    // Share the acceptance lock, including when no invite row exists yet.
+    await client.query(INVITE_LOCK_SQL, [teamId, normalizedEmail]);
     const existingMember = await client.query(
       `SELECT tm.id FROM team_members tm JOIN users u ON u.id = tm.user_id
        WHERE tm.team_id = $1 AND lower(u.email) = $2 AND tm.invite_status = 'accepted'`,
@@ -290,11 +293,11 @@ async function inviteMember(
     if (existingMember.rows.length) {
       throw createError('This user is already a member', 400, 'ALREADY_MEMBER');
     }
-    const existingInvite = await client.query(
-      `SELECT id FROM team_invites WHERE team_id = $1 AND email = $2
-       AND accepted_at IS NULL AND expires_at > NOW()`, [teamId, normalizedEmail]
+    const existingInvite = await client.query<{ id: string; accepted_at: Date | null; expires_at: Date }>(
+      `SELECT id, accepted_at, expires_at FROM team_invites
+       WHERE team_id = $1 AND lower(email) = $2 FOR UPDATE`, [teamId, normalizedEmail]
     );
-    if (existingInvite.rows.length) {
+    if (existingInvite.rows.some(invite => !invite.accepted_at && new Date(invite.expires_at) > new Date())) {
       throw createError('An invite is already pending for this email', 400, 'INVITE_PENDING');
     }
     await client.query(
@@ -337,7 +340,8 @@ async function inviteMember(
         `INSERT INTO team_members (team_id, user_id, role, invite_status, invited_by, invited_email)
          VALUES ($1, $2, $3, 'pending', $4, $5)
          ON CONFLICT (team_id, user_id) DO UPDATE SET role = EXCLUDED.role,
-         invite_status = 'pending', invited_by = EXCLUDED.invited_by, invited_at = NOW(), updated_at = NOW()`,
+         invite_status = 'pending', invited_by = EXCLUDED.invited_by, invited_at = NOW(), updated_at = NOW()
+         WHERE team_members.invite_status NOT IN ('accepted')`,
         [teamId, invitedUserId, role, userId, normalizedEmail]
       );
     }
@@ -394,85 +398,96 @@ async function getInviteInfo(inviteCode: string, userId: string) {
  * Accept a team invite using invite code
  */
 async function acceptInvite(userId: string, inviteCode: string): Promise<TeamMember> {
-  // Find the invite
-  const inviteResult = await db.query<{
-    id: string;
-    team_id: string;
-    email: string;
-    role: string;
-    expires_at: Date;
-    accepted_at: Date | null;
-  }>(
-    `SELECT id, team_id, email, role, expires_at, accepted_at
-     FROM team_invites
-     WHERE invite_code = $1`,
-    [inviteCode]
-  );
+  return db.transaction(async (client) => {
+    // Discover only the lock identity; all invite state is read again after locking.
+    const identity = await client.query<{ team_id: string; email: string }>(
+      'SELECT team_id, email FROM team_invites WHERE invite_code = $1', [inviteCode]
+    );
+    if (!identity.rows.length) {
+      throw createError('Invalid invite code', 404, 'INVITE_NOT_FOUND');
+    }
+    await client.query(INVITE_LOCK_SQL, [identity.rows[0].team_id, identity.rows[0].email.trim().toLowerCase()]);
 
-  if (inviteResult.rows.length === 0) {
-    throw createError('Invalid invite code', 404, 'INVITE_NOT_FOUND');
-  }
+    // Lock and re-read the invite after waiting for any re-invite or acceptance.
+    const inviteResult = await client.query<{
+      id: string;
+      team_id: string;
+      email: string;
+      role: string;
+      expires_at: Date;
+      accepted_at: Date | null;
+    }>(
+      `SELECT id, team_id, email, role, expires_at, accepted_at
+       FROM team_invites
+       WHERE invite_code = $1 FOR UPDATE`,
+      [inviteCode]
+    );
 
-  const invite = inviteResult.rows[0];
+    if (inviteResult.rows.length === 0) {
+      throw createError('Invalid invite code', 404, 'INVITE_NOT_FOUND');
+    }
 
-  if (invite.accepted_at) {
-    throw createError('This invite has already been accepted', 400, 'INVITE_ALREADY_ACCEPTED');
-  }
+    const invite = inviteResult.rows[0];
 
-  if (new Date() > invite.expires_at) {
-    throw createError('This invite has expired', 400, 'INVITE_EXPIRED');
-  }
+    if (invite.accepted_at) {
+      throw createError('This invite has already been accepted', 400, 'INVITE_ALREADY_ACCEPTED');
+    }
 
-  // Verify the user's email matches the invite email
-  const userResult = await db.query<{ email: string }>(
-    'SELECT email FROM users WHERE id = $1',
-    [userId]
-  );
+    if (new Date() > invite.expires_at) {
+      throw createError('This invite has expired', 400, 'INVITE_EXPIRED');
+    }
 
-  if (userResult.rows.length === 0) {
-    throw createError('User not found', 404, 'USER_NOT_FOUND');
-  }
+    // Verify the user's email matches the invite email
+    const userResult = await client.query<{ email: string }>(
+      'SELECT email FROM users WHERE id = $1',
+      [userId]
+    );
 
-  if (userResult.rows[0].email.toLowerCase() !== invite.email.toLowerCase()) {
-    throw createError('This invite was sent to a different email address', 403, 'EMAIL_MISMATCH');
-  }
+    if (userResult.rows.length === 0) {
+      throw createError('User not found', 404, 'USER_NOT_FOUND');
+    }
 
-  // Mark the invite as accepted
-  await db.query(
-    'UPDATE team_invites SET accepted_at = NOW() WHERE id = $1',
-    [invite.id]
-  );
+    if (userResult.rows[0].email.toLowerCase() !== invite.email.toLowerCase()) {
+      throw createError('This invite was sent to a different email address', 403, 'EMAIL_MISMATCH');
+    }
 
-  // Upsert team member (may already exist as pending)
-  const memberResult = await db.query<{
-    id: string;
-    team_id: string;
-    user_id: string;
-    role: string;
-    invite_status: string;
-    invited_by: string | null;
-    invited_email: string | null;
-    invited_at: Date;
-    accepted_at: Date | null;
-    created_at: Date;
-    updated_at: Date;
-  }>(
-    `INSERT INTO team_members (team_id, user_id, role, invite_status, invited_email, accepted_at)
-     VALUES ($1, $2, $3, 'accepted', $4, NOW())
-     ON CONFLICT (team_id, user_id)
-     DO UPDATE SET invite_status = 'accepted', role = $3, accepted_at = NOW(), updated_at = NOW()
-     RETURNING id, team_id, user_id, role, invite_status, invited_by, invited_email,
-               invited_at, accepted_at, created_at, updated_at`,
-    [invite.team_id, userId, invite.role, invite.email]
-  );
+    // Mark the invite as accepted
+    await client.query(
+      'UPDATE team_invites SET accepted_at = NOW() WHERE id = $1',
+      [invite.id]
+    );
 
-  // Set this team as the user's primary team if they don't have one
-  await db.query(
-    'UPDATE users SET team_id = $1 WHERE id = $2 AND team_id IS NULL',
-    [invite.team_id, userId]
-  );
+    // Upsert team member (may already exist as pending)
+    const memberResult = await client.query<{
+      id: string;
+      team_id: string;
+      user_id: string;
+      role: string;
+      invite_status: string;
+      invited_by: string | null;
+      invited_email: string | null;
+      invited_at: Date;
+      accepted_at: Date | null;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `INSERT INTO team_members (team_id, user_id, role, invite_status, invited_email, accepted_at)
+       VALUES ($1, $2, $3, 'accepted', $4, NOW())
+       ON CONFLICT (team_id, user_id)
+       DO UPDATE SET invite_status = 'accepted', role = $3, accepted_at = NOW(), updated_at = NOW()
+       RETURNING id, team_id, user_id, role, invite_status, invited_by, invited_email,
+                 invited_at, accepted_at, created_at, updated_at`,
+      [invite.team_id, userId, invite.role, invite.email]
+    );
 
-  return mapMemberRow(memberResult.rows[0]);
+    // Set this team as the user's primary team if they don't have one
+    await client.query(
+      'UPDATE users SET team_id = $1 WHERE id = $2 AND team_id IS NULL',
+      [invite.team_id, userId]
+    );
+
+    return mapMemberRow(memberResult.rows[0]);
+  });
 }
 
 /**

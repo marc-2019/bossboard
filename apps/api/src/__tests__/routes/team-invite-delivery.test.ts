@@ -41,16 +41,22 @@ function postInvite() {
 describe('team invitation delivery and replacement through the route', () => {
   let oldInvite: { expires_at: Date; accepted_at: Date | null } | null;
   let deleted: boolean;
+  let acceptedMember: boolean;
+  let locked: boolean;
   beforeEach(() => {
     jest.clearAllMocks();
     oldInvite = { expires_at: new Date(0), accepted_at: null };
     deleted = false;
+    acceptedMember = false;
+    locked = false;
     mockSend.mockResolvedValue({ messageId: 'message-1' });
     mockQuery.mockImplementation(async (sql: string) => ({ rows: sql.includes('AS team_name')
       ? [{ team_name: 'Builders', name: 'Owner', email: 'owner@example.com' }] : [{ role: 'owner' }] }));
     const client = { query: jest.fn(async (sql: string, args: unknown[]) => {
-      if (sql.includes('SELECT id FROM team_invites')) {
-        return { rows: oldInvite && !oldInvite.accepted_at && oldInvite.expires_at > new Date() ? [{ id: 'old' }] : [] };
+      if (sql.includes('pg_advisory_xact_lock')) locked = true;
+      if (sql.includes('SELECT tm.id')) return { rows: locked && acceptedMember ? [{ id: 'accepted-member' }] : [] };
+      if (sql.includes('SELECT id, accepted_at, expires_at FROM team_invites')) {
+        return { rows: oldInvite ? [{ id: 'old', ...oldInvite }] : [] };
       }
       if (sql.startsWith('DELETE FROM team_invites')) { oldInvite = null; deleted = true; }
       if (sql.includes('INSERT INTO team_invites')) {
@@ -61,6 +67,18 @@ describe('team invitation delivery and replacement through the route', () => {
       return { rows: [] };
     }) };
     mockTransaction.mockImplementation(async (fn) => fn(client));
+  });
+
+  it('returns 400 ALREADY_MEMBER after acceptance without deleting the accepted invite', async () => {
+    acceptedMember = true;
+    oldInvite = { expires_at: new Date(Date.now() + 86400000), accepted_at: new Date() };
+    const res = await postInvite();
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('ALREADY_MEMBER');
+    expect(locked).toBe(true);
+    expect(deleted).toBe(false);
+    expect(oldInvite?.accepted_at).not.toBeNull();
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('replaces an expired invite and returns 201, not a unique violation 500', async () => {

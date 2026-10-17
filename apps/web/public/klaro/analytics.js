@@ -1,14 +1,36 @@
+// Pure URL sanitizer, shared by the browser integration and unit tests.
+function sanitizeAnalyticsPath(value) {
+  return value.replace(/(\/invite\/)[^/?#]+\/?(?:[?#].*)?$/, '$1:code');
+}
+if (typeof module !== 'undefined') module.exports = { sanitizeAnalyticsPath };
+
 /* GA4 (gtag.js direct) + Klaro consent + Consent Mode v2 (BossBoard web).
  * Rewritten 2026-05-20 from GTM-PLACEHOLDER to direct gtag.js per Marc-decision
  * (Option A: simpler than GTM container, no GTM admin work needed).
  * Vendor files: /klaro/klaro-no-css.js + /klaro/klaro.min.css (Klaro v0.7.21).
  */
 (function () {
+  if (typeof window === "undefined") return;
   var GA4_ID = "G-83NPHN0QP5";
   var SITE_LABEL = "BossBoard";
 
   window.dataLayer = window.dataLayer || [];
-  function gtag() { window.dataLayer.push(arguments); }
+  function gtag(command, name, params) {
+    if (command === "config" || command === "event") {
+      // Also guard calls after client-side navigation and any automatic defaults.
+      var invitePage = /^\/invite\/[^/]+\/?$/.test(window.location.pathname);
+      if (command === "event" && name === "page_view" && invitePage) return;
+      params = Object.assign({}, params, {
+        page_path: sanitizeAnalyticsPath(window.location.pathname + window.location.search),
+        page_location: sanitizeAnalyticsPath(window.location.href),
+        page_referrer: sanitizeAnalyticsPath(document.referrer || ""),
+        page_title: invitePage ? "Team invitation | BossBoard" : document.title
+      });
+      window.dataLayer.push((function () { return arguments; })(command, name, params));
+      return;
+    }
+    window.dataLayer.push(arguments);
+  }
   window.gtag = gtag;
 
   // Consent Mode v2 — deny analytics until Klaro user-consent updates.
@@ -25,6 +47,8 @@
   // Load gtag.js asynchronously. Pageview deferred until consent grants
   // analytics_storage; on Klaro onAccept we fire an explicit page_view event.
   (function (w, d, s, i) {
+    // Do not load GA on sensitive invitation pages, even with stored consent.
+    if (/^\/invite\/[^/]+\/?$/.test(w.location.pathname)) return;
     var f = d.getElementsByTagName(s)[0];
     var j = d.createElement(s);
     j.async = true;
