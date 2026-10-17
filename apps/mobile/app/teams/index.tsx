@@ -195,8 +195,8 @@ export default function TeamsScreen() {
     ]);
   }
 
-  async function handleRemoveMember(memberId: string, memberName: string) {
-    Alert.alert('Remove Member', `Remove ${memberName || 'this member'} from the team?`, [
+  async function handleRemoveMember(memberId: string, displayName: string) {
+    Alert.alert('Remove Member', `Remove ${displayName || 'this member'} from the team?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -231,11 +231,11 @@ export default function TeamsScreen() {
     ]);
   }
 
-  async function handleChangeRole(memberId: string, memberName: string, currentRole: string) {
+  async function handleChangeRole(memberId: string, displayName: string, currentRole: string) {
     const newRole = currentRole === 'admin' ? 'worker' : 'admin';
     Alert.alert(
       'Change Role',
-      `Change ${memberName || 'this member'} to ${newRole}?`,
+      `Change ${displayName || 'this member'} to ${newRole}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
