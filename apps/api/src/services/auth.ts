@@ -60,6 +60,8 @@ export async function register(input: UserCreateInput): Promise<{ user: User; to
   );
 
   const user = result.rows[0];
+  // Unverified registration must not join a team. Pending invites stay pending
+  // until the invitee verifies and calls the accept endpoint.
   const tokens = await generateTokens(user);
 
   // Store refresh token
