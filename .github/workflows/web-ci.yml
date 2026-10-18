@@ -12,6 +12,7 @@ on:
       - 'packages/shared/**'
       - '.github/workflows/web-ci.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [master, main]
     paths:
       - 'apps/web/**'
@@ -22,8 +23,13 @@ on:
 env:
   NODE_VERSION: '20'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Lint, type-check & route integrity
     runs-on: ubuntu-latest
 
