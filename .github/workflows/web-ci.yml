@@ -11,12 +11,16 @@ on:
       - 'apps/web/**'
       - 'packages/shared/**'
       - '.github/workflows/web-ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
     branches: [master, main]
     paths:
       - 'apps/web/**'
       - 'packages/shared/**'
       - '.github/workflows/web-ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 
 env:
