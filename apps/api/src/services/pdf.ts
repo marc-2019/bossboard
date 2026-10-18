@@ -38,8 +38,9 @@ export async function generateInvoicePDF(invoice: Invoice): Promise<Buffer> {
 }
 
 /**
- * Shared invoice/quote layout. Quote mode changes the title and the two
- * right-hand labels only; coordinates and the rest of the copy stay the same.
+ * Shared invoice/quote layout. Quote mode changes the title, the two
+ * right-hand labels, and the addressee label, and it skips the Payment
+ * Details block. Invoice strings and coordinates stay the same.
  */
 function renderBusinessPdf(invoice: Invoice, options: BusinessPdfOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -60,7 +61,7 @@ function renderBusinessPdf(invoice: Invoice, options: BusinessPdfOptions): Promi
       drawHeader(doc, invoice, pageWidth, options.isQuote);
 
       // ─── Client Details ───
-      drawClientDetails(doc, invoice);
+      drawClientDetails(doc, invoice, options.isQuote);
 
       // ─── Line Items Table ───
       drawLineItems(doc, invoice.lineItems, pageWidth);
@@ -69,7 +70,11 @@ function renderBusinessPdf(invoice: Invoice, options: BusinessPdfOptions): Promi
       drawTotals(doc, invoice, pageWidth);
 
       // ─── Bank Details ───
-      drawBankDetails(doc, invoice);
+      // Quotes are not a demand for payment, so they never draw this block.
+      // Invoices still call the unchanged drawer.
+      if (!options.isQuote) {
+        drawBankDetails(doc, invoice);
+      }
 
       // ─── Notes ───
       if (invoice.notes) {
@@ -176,9 +181,14 @@ function drawHeader(
   doc.moveDown(0.5);
 }
 
-function drawClientDetails(doc: InstanceType<typeof PDFDocument>, invoice: Invoice): void {
+function drawClientDetails(
+  doc: InstanceType<typeof PDFDocument>,
+  invoice: Invoice,
+  isQuote: boolean,
+): void {
   const leftX = doc.page.margins.left;
-  doc.fontSize(10).font('Helvetica-Bold').text('Bill To:', leftX);
+  // Invoice path keeps this string at leftX. Only quotes use the other label.
+  doc.fontSize(10).font('Helvetica-Bold').text(isQuote ? 'Prepared For:' : 'Bill To:', leftX);
   doc.font('Helvetica');
   doc.text(invoice.clientName);
   if (invoice.clientEmail) doc.text(invoice.clientEmail);
@@ -330,7 +340,7 @@ function drawFooter(doc: InstanceType<typeof PDFDocument>, _invoice: Invoice): v
 }
 
 /**
- * Generate a quote PDF (same layout with QUOTE header and valid-until date)
+ * Generate a quote PDF (quote labels, Prepared For, no Payment Details block)
  * Adapts Quote type to Invoice format for PDF generation
  */
 export async function generateQuotePDF(quote: Quote): Promise<Buffer> {
