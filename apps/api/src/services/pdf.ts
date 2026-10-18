@@ -25,10 +25,23 @@ function formatDate(dateStr: string | Date | null): string {
   return `${day}/${month}/${year}`;
 }
 
+/** Internal header mode. `isQuote: true` is set only by generateQuotePDF. */
+interface BusinessPdfOptions {
+  isQuote: boolean;
+}
+
 /**
  * Generate an invoice PDF and return it as a Buffer
  */
 export async function generateInvoicePDF(invoice: Invoice): Promise<Buffer> {
+  return renderBusinessPdf(invoice, { isQuote: false });
+}
+
+/**
+ * Shared invoice/quote layout. Quote mode changes the title and the two
+ * right-hand labels only; coordinates and the rest of the copy stay the same.
+ */
+function renderBusinessPdf(invoice: Invoice, options: BusinessPdfOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
@@ -44,7 +57,7 @@ export async function generateInvoicePDF(invoice: Invoice): Promise<Buffer> {
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
       // ─── Header ───
-      drawHeader(doc, invoice, pageWidth);
+      drawHeader(doc, invoice, pageWidth, options.isQuote);
 
       // ─── Client Details ───
       drawClientDetails(doc, invoice);
@@ -75,9 +88,15 @@ export async function generateInvoicePDF(invoice: Invoice): Promise<Buffer> {
   });
 }
 
-function drawHeader(doc: InstanceType<typeof PDFDocument>, invoice: Invoice, pageWidth: number): void {
-  const isQuote = false; // Future: pass flag for quotes
+function drawHeader(
+  doc: InstanceType<typeof PDFDocument>,
+  invoice: Invoice,
+  pageWidth: number,
+  isQuote: boolean,
+): void {
   const title = isQuote ? 'QUOTE' : 'INVOICE';
+  const numberLabel = isQuote ? 'Quote No:' : 'Invoice No:';
+  const dateLabel = isQuote ? 'Valid Until:' : 'Due Date:';
 
   // Company name (left side)
   doc.fontSize(20).font('Helvetica-Bold');
@@ -85,7 +104,7 @@ function drawHeader(doc: InstanceType<typeof PDFDocument>, invoice: Invoice, pag
     doc.text(invoice.companyName, doc.page.margins.left, 50);
   }
 
-  // INVOICE title (right side)
+  // Document title (right side)
   doc.fontSize(24).font('Helvetica-Bold');
   const titleWidth = doc.widthOfString(title);
   doc.text(title, doc.page.width - doc.page.margins.right - titleWidth, 50);
@@ -114,9 +133,9 @@ function drawHeader(doc: InstanceType<typeof PDFDocument>, invoice: Invoice, pag
     leftY = doc.y;
   }
 
-  // Right side: invoice details
+  // Right side: document number and dates
   doc.font('Helvetica-Bold');
-  doc.text('Invoice No:', rightX, detailsY);
+  doc.text(numberLabel, rightX, detailsY);
   doc.font('Helvetica');
   doc.text(invoice.invoiceNumber, rightX + 80, detailsY);
 
@@ -131,7 +150,7 @@ function drawHeader(doc: InstanceType<typeof PDFDocument>, invoice: Invoice, pag
   if (invoice.dueDate) {
     rightDetailY += 14;
     doc.font('Helvetica-Bold');
-    doc.text('Due Date:', rightX, rightDetailY);
+    doc.text(dateLabel, rightX, rightDetailY);
     doc.font('Helvetica');
     doc.text(formatDate(invoice.dueDate), rightX + 80, rightDetailY);
   }
@@ -334,7 +353,7 @@ export async function generateQuotePDF(quote: Quote): Promise<Buffer> {
     gstAmount: quote.gstAmount,
     total: quote.total,
     status: 'draft', // Not relevant for PDF
-    dueDate: quote.validUntil, // Show valid-until as the date
+    dueDate: quote.validUntil, // Printed under the Valid Until label
     paidAt: null,
     bankAccountName: quote.bankAccountName,
     bankAccountNumber: quote.bankAccountNumber,
@@ -363,7 +382,7 @@ export async function generateQuotePDF(quote: Quote): Promise<Buffer> {
     updatedAt: quote.updatedAt,
   };
 
-  return generateInvoicePDF(invoiceCompat);
+  return renderBusinessPdf(invoiceCompat, { isQuote: true });
 }
 
 // =============================================================================
