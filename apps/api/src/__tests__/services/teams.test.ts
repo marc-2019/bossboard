@@ -26,11 +26,19 @@
 // ---------------------------------------------------------------------------
 
 const mockDbQuery = jest.fn();
+const mockClientQuery = jest.fn();
+const mockSendTeamInviteEmail = jest.fn().mockResolvedValue({ messageId: 'msg-test' });
+jest.mock('../../services/email.js', () => ({
+  sendTeamInviteEmail: (...args: unknown[]) => mockSendTeamInviteEmail(...args),
+}));
 
 jest.mock('../../services/database.js', () => ({
   __esModule: true,
   default: {
     query: (...args: unknown[]) => mockDbQuery(...args),
+    transaction: (callback: (client: unknown) => unknown) => callback({
+      query: (...args: unknown[]) => mockClientQuery(...args),
+    }),
   },
 }));
 
@@ -122,6 +130,13 @@ function mockQuery(rows: unknown[]) {
 
 beforeEach(() => {
   jest.resetAllMocks();
+  mockSendTeamInviteEmail.mockResolvedValue({ messageId: 'msg-test' });
+  mockClientQuery.mockImplementation((sql: string, ...args: unknown[]) => {
+    if (sql.includes('pg_advisory_xact_lock') || sql.startsWith('DELETE FROM team_invites')) {
+      return Promise.resolve({ rows: [] });
+    }
+    return mockDbQuery(sql, ...args);
+  });
 });
 
 // ===========================================================================
@@ -346,6 +361,25 @@ describe('listMembers', () => {
 // ===========================================================================
 
 describe('inviteMember', () => {
+  it('finds the accepted member only after locking and preserves the accepted invite', async () => {
+    let locked = false;
+    mockQuery([{ role: 'owner' }]);
+    mockClientQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) { locked = true; return { rows: [] }; }
+      if (sql.includes('SELECT tm.id')) return { rows: locked ? [{ id: 'accepted-member' }] : [] };
+      throw new Error('Unexpected query after accepted membership check');
+    });
+    await expect(teamsService.inviteMember('user-owner', 'team-1', { email: ' NewMember@Example.COM ' }))
+      .rejects.toMatchObject({ code: 'ALREADY_MEMBER', statusCode: 400 });
+    expect(mockClientQuery.mock.calls[0]).toEqual([
+      "SELECT pg_advisory_xact_lock(0, hashtext($1::text || ':' || lower($2::text)))",
+      ['team-1', 'newmember@example.com'],
+    ]);
+    expect(mockClientQuery.mock.calls.some(([sql]) =>
+      /(?:INSERT INTO|UPDATE) team_members|DELETE FROM team_invites/.test(sql))).toBe(false);
+    expect(mockSendTeamInviteEmail).not.toHaveBeenCalled();
+  });
+
   it('throws NOT_A_MEMBER when inviter is not in team', async () => {
     mockQuery([]); // getUserRole
     await expect(teamsService.inviteMember('user-1', 'team-1', { email: 'a@b.com' }))
@@ -387,10 +421,11 @@ describe('inviteMember', () => {
   it('throws INVITE_PENDING when a pending invite already exists', async () => {
     mockQuery([{ role: 'owner' }]); // getUserRole
     mockQuery([]);                   // no existing member
-    mockQuery([{ id: 'inv-1' }]);   // pending invite exists
+    mockQuery([{ id: 'inv-1', accepted_at: null, expires_at: FUTURE }]); // pending invite exists
 
     await expect(teamsService.inviteMember('user-owner', 'team-1', { email: 'new@example.com' }))
       .rejects.toMatchObject({ code: 'INVITE_PENDING', statusCode: 400 });
+    expect(mockClientQuery.mock.calls[2][0]).toContain('FOR UPDATE');
   });
 
   it('creates invite with normalised email and default worker role', async () => {
@@ -402,6 +437,7 @@ describe('inviteMember', () => {
     mockQuery([inviteRow]);          // INSERT INTO team_invites
     mockQuery([]);                   // SELECT users (email not found — no pre-existing user)
 
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
     const invite = await teamsService.inviteMember('user-owner', 'team-1', {
       email: '  NewMember@Example.com  ',
     });
@@ -428,12 +464,29 @@ describe('inviteMember', () => {
     mockQuery([{ id: 'existing-user-id' }]);  // SELECT users WHERE email (user exists)
     mockQuery([]);                             // INSERT INTO team_members ON CONFLICT DO NOTHING
 
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
     await teamsService.inviteMember('user-admin', 'team-1', { email: 'newmember@example.com' });
 
     // Last call should be the team_members insert
     const lastCall = mockDbQuery.mock.calls[5];
     expect(lastCall[0]).toContain('INSERT INTO team_members');
+    expect(lastCall[0]).toContain("WHERE team_members.invite_status NOT IN ('accepted')");
     expect(lastCall[1]).toContain('existing-user-id');
+  });
+
+  it('keeps the created invite when email delivery throws', async () => {
+    mockQuery([{ role: 'owner' }]);
+    mockQuery([]);
+    mockQuery([]);
+    mockQuery([makeInviteRow()]);
+    mockQuery([]);
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
+    mockSendTeamInviteEmail.mockRejectedValueOnce(new Error('Email unavailable'));
+    const invite = await teamsService.inviteMember('user-owner', 'team-1', { email: 'newmember@example.com' });
+    expect(invite.id).toBe('invite-1');
+    expect(invite.emailSent).toBe(false);
+    expect(mockSendTeamInviteEmail).toHaveBeenCalledTimes(1);
+    expect(mockDbQuery.mock.calls.some(([sql]) => sql.includes('INSERT INTO team_invites'))).toBe(true);
   });
 
   it('creates invite with admin role when specified', async () => {
@@ -445,12 +498,15 @@ describe('inviteMember', () => {
     mockQuery([inviteRow]);
     mockQuery([]);
 
+    mockQuery([{ team_name: 'Test Team', name: 'Owner', email: 'owner@example.com' }]);
     const invite = await teamsService.inviteMember('user-owner', 'team-1', {
       email: 'newadmin@example.com',
       role: 'admin',
     });
 
     expect(invite.role).toBe('admin');
+    expect(invite.emailSent).toBe(true);
+    expect(mockSendTeamInviteEmail).toHaveBeenCalledWith(invite.email, expect.objectContaining({ acceptUrl: expect.stringContaining(`/invite/${invite.inviteCode}`) }));
   });
 });
 
@@ -459,6 +515,26 @@ describe('inviteMember', () => {
 // ===========================================================================
 
 describe('acceptInvite', () => {
+  it('re-checks acceptance after acquiring the lock', async () => {
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]);
+    mockQuery([makeInviteRow({ accepted_at: NOW })]);
+    await expect(teamsService.acceptInvite('user-new', 'code'))
+      .rejects.toMatchObject({ code: 'INVITE_ALREADY_ACCEPTED', statusCode: 400 });
+    expect(mockClientQuery.mock.calls[2][0]).toContain('pg_advisory_xact_lock');
+    expect(mockClientQuery.mock.calls[3][0]).toContain('FOR UPDATE');
+    expect(mockClientQuery.mock.calls).toHaveLength(4);
+  });
+
+  it('rejects an invite replaced while waiting for the lock without writing', async () => {
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]);
+    mockQuery([]);
+    await expect(teamsService.acceptInvite('user-new', 'old-code'))
+      .rejects.toMatchObject({ code: 'INVITE_NOT_FOUND', statusCode: 404 });
+    expect(mockClientQuery.mock.calls).toHaveLength(4);
+  });
+
   it('throws INVITE_NOT_FOUND for unknown invite code', async () => {
     mockQuery([{ email: 'a@b.com', is_verified: true }]);
     mockQuery([]); // SELECT team_invites
@@ -468,6 +544,7 @@ describe('acceptInvite', () => {
 
   it('throws INVITE_ALREADY_ACCEPTED when invite already used', async () => {
     mockQuery([{ email: 'a@b.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'a@b.com', role: 'worker',
                   expires_at: FUTURE, accepted_at: NOW }]);
     await expect(teamsService.acceptInvite('user-1', 'code'))
@@ -477,6 +554,7 @@ describe('acceptInvite', () => {
   it('throws INVITE_EXPIRED when invite has passed expiry', async () => {
     const pastDate = new Date('2025-01-01T00:00:00Z');
     mockQuery([{ email: 'a@b.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'a@b.com', role: 'worker',
                   expires_at: pastDate, accepted_at: null }]);
     await expect(teamsService.acceptInvite('user-1', 'code'))
@@ -492,6 +570,7 @@ describe('acceptInvite', () => {
 
   it('throws EMAIL_MISMATCH when user email does not match invite', async () => {
     mockQuery([{ email: 'different@example.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'invited@example.com', role: 'worker',
                   expires_at: FUTURE, accepted_at: null }]);
 
@@ -502,6 +581,7 @@ describe('acceptInvite', () => {
   it('accepts invite and creates team membership', async () => {
     const memberRow = makeMemberRow({ role: 'worker', user_id: 'user-new' });
     mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'newmember@example.com', role: 'worker',
                   expires_at: FUTURE, accepted_at: null }]);
     mockQuery([]);                                    // UPDATE team_invites SET accepted_at
@@ -509,6 +589,11 @@ describe('acceptInvite', () => {
     mockQuery([]);                                    // UPDATE users SET team_id WHERE team_id IS NULL
 
     const member = await teamsService.acceptInvite('user-new', 'valid-code');
+    expect(mockClientQuery.mock.calls[2]).toEqual([
+      "SELECT pg_advisory_xact_lock(0, hashtext($1::text || ':' || lower($2::text)))",
+      ['team-1', 'newmember@example.com'],
+    ]);
+    expect(mockClientQuery.mock.calls[3][0]).toContain('WHERE invite_code = $1 FOR UPDATE');
     expect(member).toMatchObject({
       teamId: 'team-1',
       userId: 'user-new',
@@ -520,6 +605,7 @@ describe('acceptInvite', () => {
   it('email comparison is case-insensitive', async () => {
     const memberRow = makeMemberRow({ role: 'worker', user_id: 'user-new' });
     mockQuery([{ email: 'user@example.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'newmember@example.com' }]); // lock identity
     mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'User@Example.COM', role: 'worker',
                   expires_at: FUTURE, accepted_at: null }]);
     mockQuery([]);
@@ -997,6 +1083,7 @@ describe('invitee email verification', () => {
 
   it('acceptInvite creates membership for a verified account', async () => {
     mockQuery([{ email: 'invitee@example.com', is_verified: true }]);
+    mockQuery([{ team_id: 'team-1', email: 'invitee@example.com' }]);
     mockQuery([{
       id: 'inv-1',
       team_id: 'team-1',

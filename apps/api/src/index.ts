@@ -1,3 +1,4 @@
+import { redactRequestPath } from './utils/redact-request-path.js';
 /**
  * BossBoard API Server
  *
@@ -161,7 +162,7 @@ const authLimiter = rateLimit({
 // Request logging
 app.use((req: Request, _res: Response, next: NextFunction) => {
   const timestamp = new Date().toISOString();
-  console.log(`${timestamp} ${req.method} ${req.path}`);
+  console.log(`${timestamp} ${req.method} ${redactRequestPath(req.path)}`);
   next();
 });
 
