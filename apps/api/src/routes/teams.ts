@@ -7,6 +7,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { isEmailConfigured, sendTeamInviteEmail } from '../services/email.js';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import { requireVerifiedEmail } from '../middleware/requireVerifiedEmail.js';
@@ -110,8 +111,30 @@ router.get('/invites/pending', authenticate, requireVerifiedEmail, async (req: R
 });
 
 /**
+ * GET /api/v1/teams/invites/:inviteCode
+ * Public preview for the join link. Does not accept the invite.
+ */
+router.get('/invites/:inviteCode', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const code = req.params.inviteCode as string;
+    if (!/^[A-Za-z0-9]{6,128}$/.test(code)) {
+      res.status(404).json({
+        success: false,
+        error: 'INVITE_NOT_FOUND',
+        message: 'Invalid invite code',
+      });
+      return;
+    }
+    const invite = await teamsService.previewInvite(code);
+    res.json({ success: true, data: { invite } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/v1/teams/invites/:inviteCode/accept
- * Accept a team invite. This is the join path — there is no separate /join route.
+ * Accept a team invite.
  */
 router.post('/invites/:inviteCode/accept', authenticate, requireVerifiedEmail, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -295,6 +318,24 @@ router.post('/:teamId/invites', authenticate, attachSubscription, checkLimit('te
     req.params.teamId as string,
     validation.data
   );
+
+  try {
+    const team = await teamsService.getTeam(userId, req.params.teamId as string);
+    const teamName = team?.name || 'your team';
+    if (isEmailConfigured() && invite.inviteCode) {
+      const base = (process.env.PUBLIC_WEB_URL || process.env.APP_URL || 'https://bossboard.instilligent.com').replace(/\/$/, '');
+      await sendTeamInviteEmail(
+        invite.email,
+        teamName,
+        `${base}/join/${invite.inviteCode}`
+      );
+    }
+  } catch (err) {
+    console.warn(
+      '[Teams] invite email failed:',
+      err instanceof Error ? err.message : 'send failed'
+    );
+  }
 
   res.status(201).json({
     success: true,

@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import authService from '../services/auth.js';
+import teamsService from '../services/teams.js';
 import { authenticate } from '../middleware/auth.js';
 import config from '../config/index.js';
 import redis from '../services/redis.js';
@@ -16,6 +17,18 @@ const CODE_LOCKOUT_SECONDS = 900; // 15 minutes
 
 // In-memory fallback when Redis is unavailable: { key -> { count, expiresAt } }
 const memoryAttempts = new Map<string, { count: number; expiresAt: number }>();
+
+async function claimTeamInvites(userId: string | undefined): Promise<void> {
+  if (!userId) return;
+  try {
+    await teamsService.claimPendingInvites(userId);
+  } catch (err) {
+    console.warn(
+      '[Auth] pending team invite claim failed (non-fatal):',
+      err instanceof Error ? err.message : 'claim failed'
+    );
+  }
+}
 
 function memoryCheckAttempts(key: string): { allowed: boolean; attempts: number } {
   const now = Date.now();
@@ -172,6 +185,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
     }
 
     const { user, tokens } = await authService.login(validation.data);
+    await claimTeamInvites(user.id);
 
     res.json({
       success: true,
@@ -469,6 +483,7 @@ router.post('/verify-email', authenticate, async (req: Request, res: Response, n
     }
 
     const user = await authService.verifyEmail(req.user!.userId, validation.data.code);
+    await claimTeamInvites(user.id);
 
     // Success — clear attempt counter
     await clearCodeAttempts(attemptKey);

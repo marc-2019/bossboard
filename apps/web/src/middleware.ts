@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   '/invoice',
   '/klaro/',
   '/r/',
+  '/join',
   '/tools/', // public lead tools (e.g. GST invoice helper)
 ];
 const PUBLIC_EXACT = new Set<string>(['/', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/llms.txt', '/humans.txt']);

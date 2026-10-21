@@ -13,6 +13,13 @@ const mockLogout = jest.fn();
 const mockGetUserById = jest.fn();
 const mockUpdateUser = jest.fn();
 
+jest.mock('../../services/teams.js', () => ({
+  __esModule: true,
+  default: {
+    claimPendingInvites: jest.fn().mockResolvedValue(0),
+  },
+}));
+
 jest.mock('../../services/auth.js', () => ({
   __esModule: true,
   default: {
