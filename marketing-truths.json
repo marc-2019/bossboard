@@ -216,21 +216,26 @@
     },
     {
       "id": "bossboard.teams",
-      "claim": "Team management with invites, role assignment",
+      "claim": "Team management with invites and roles. The invite email has a join link. Creating an account or signing in with that verified address adds the person to the team.",
       "surfaces": [
         "apps/web/src/app/page.tsx#L174-181",
+        "apps/web/src/app/(dashboard)/teams/page.tsx",
+        "apps/web/src/app/(auth)/join/[code]/page.tsx",
         "llms.txt#L12"
       ],
       "code_references": [
-        "apps/api/src/routes/teams.ts (admin/worker roles)"
+        "apps/api/src/routes/teams.ts (admin/worker roles, join preview, invite email)",
+        "apps/api/src/services/teams.ts claimPendingInvites",
+        "apps/api/src/routes/auth.ts (claim after verify and login)"
       ],
       "evidence_references": [
-        "apps/api/src/routes/teams.ts invites (POST /:teamId/invites, accept/decline) + PUT /:teamId/members/:memberId/role (admin/worker)",
+        "apps/api/src/routes/teams.ts invites (POST /:teamId/invites sends the join link, GET /invites/:code preview, accept/decline) + PUT /:teamId/members/:memberId/role (admin/worker)",
+        "apps/web/src/app/(auth)/join/[code]/page.tsx",
         "apps/web/src/app/(dashboard)/teams/page.tsx",
         "apps/web/src/app/page.tsx Team Management card (invite / set roles — no job-assignment claim)"
       ],
       "verdict": "IMPLEMENTED",
-      "last_verified": "2026-09-19"
+      "last_verified": "2026-10-21"
     },
     {
       "id": "bossboard.photos",

@@ -604,6 +604,53 @@ describe('listInvites', () => {
 // getMyPendingInvites
 // ===========================================================================
 
+describe('claimPendingInvites', () => {
+  it('returns 0 when the email is not verified', async () => {
+    mockQuery([{ email: 'newmember@example.com', is_verified: false }]);
+    await expect(teamsService.claimPendingInvites('user-new')).resolves.toBe(0);
+  });
+
+  it('accepts a pending invite once the email is verified', async () => {
+    const memberRow = makeMemberRow({ role: 'worker', user_id: 'user-new' });
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
+    mockQuery([{ invite_code: 'abc123code' }]);
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
+    mockQuery([{ id: 'inv-1', team_id: 'team-1', email: 'newmember@example.com', role: 'worker',
+      expires_at: FUTURE, accepted_at: null }]);
+    mockQuery([]);
+    mockQuery([memberRow]);
+    mockQuery([]);
+
+    await expect(teamsService.claimPendingInvites('user-new')).resolves.toBe(1);
+  });
+});
+
+describe('previewInvite', () => {
+  it('throws INVITE_NOT_FOUND for an unknown code', async () => {
+    mockQuery([]);
+    await expect(teamsService.previewInvite('missing-code'))
+      .rejects.toMatchObject({ code: 'INVITE_NOT_FOUND', statusCode: 404 });
+  });
+
+  it('returns team name and email without the code', async () => {
+    mockQuery([{
+      email: 'newmember@example.com',
+      role: 'worker',
+      expires_at: FUTURE,
+      accepted_at: null,
+      team_name: 'Instilligent',
+    }]);
+    const preview = await teamsService.previewInvite('secret-code');
+    expect(preview).toEqual({
+      teamName: 'Instilligent',
+      email: 'newmember@example.com',
+      role: 'worker',
+      status: 'pending',
+    });
+    expect(preview).not.toHaveProperty('inviteCode');
+  });
+});
+
 describe('getMyPendingInvites', () => {
   it('returns empty array when user not found', async () => {
     mockQuery([]); // SELECT users WHERE id

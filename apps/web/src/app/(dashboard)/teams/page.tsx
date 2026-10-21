@@ -429,7 +429,8 @@ export default function TeamsPage() {
             </div>
           </form>
           <p className="text-xs text-gray-500 mt-3">
-            Invited members get an email with a link to join. Workers can log time and use
+            Invited members get an email with a link. They open it and sign up or sign in
+            with that same address, which adds them to this team. Workers can log time and use
             assigned features; admins can also invite and manage other members.
           </p>
         </Card>
