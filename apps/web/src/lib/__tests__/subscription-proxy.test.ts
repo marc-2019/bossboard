@@ -10,6 +10,7 @@ function harness(options: { token?: string | null; subscription?: SubscriptionIn
   return { calls, deps: {
     getToken: async () => options.token === undefined ? 'mock-token' : options.token,
     apiUrl: 'https://api.example.test',
+    publicOrigin: 'https://bossboard.example.test',
     fetch: (async (url, init) => {
       calls.push({ path: String(url), init });
       if (String(url).endsWith('/me')) return Response.json({ success: !options.meStatus, data: { subscription: options.subscription ?? free } }, { status: options.meStatus ?? 200 });
@@ -98,4 +99,36 @@ test('portal requires Stripe customer and validates billing hostname', async () 
   assert.equal(res.status, 200);
   assert.deepEqual(JSON.parse(h.calls[1].init?.body as string), { returnUrl: 'https://bossboard.example.test/subscription' });
   assert.equal(safeStripeUrl('https://checkout.stripe.com/x', 'portal'), null);
+});
+
+
+test('internal Next origin and forged forwarding headers never set browser or return origins', async () => {
+  for (const action of ['checkout', 'portal'] as const) {
+    const h = harness({ subscription: action === 'portal' ? { ...free, stripeCustomerId: 'cus_mock' } : free,
+      result: { success: true, data: { url: action === 'portal' ? 'https://billing.stripe.com/p/session/mock' : 'https://checkout.stripe.com/c/pay/mock' } } });
+    const req = new Request('http://0.0.0.0:3000/api/subscriptions/' + action, {
+      method: 'POST', headers: { origin: 'https://bossboard.example.test', 'Content-Type': 'application/json',
+        host: 'evil.test', 'x-forwarded-host': 'evil.test', 'x-forwarded-proto': 'http' }, body: JSON.stringify({ tier: 'team' }),
+    });
+    assert.equal((await subscriptionProxy(req, action, h.deps)).status, 200);
+    assert.ok(JSON.stringify(h.calls[1].init?.body).includes('https://bossboard.example.test/subscription'));
+    assert.ok(!JSON.stringify(h.calls).includes('evil.test'));
+  }
+});
+test('explicit local public origin works while invalid public configuration fails closed', async () => {
+  const h = harness(); h.deps.publicOrigin = 'http://127.0.0.1:3137';
+  const req = new Request('http://0.0.0.0:3000/api/subscriptions/checkout', { method: 'POST',
+    headers: { origin: h.deps.publicOrigin, 'Content-Type': 'application/json' }, body: JSON.stringify({ tier: 'team' }) });
+  assert.equal((await subscriptionProxy(req, 'checkout', h.deps)).status, 200);
+  assert.ok(String(h.calls[1].init?.body).includes('http://127.0.0.1:3137/subscription'));
+  for (const origin of ['http://remote.test', 'https://user:pass@bossboard.example.test', 'https://bossboard.example.test/path',
+    'https://bossboard.example.test?x=1', 'https://bossboard.example.test#fragment', 'null', '']) {
+    const bad = harness(); bad.deps.publicOrigin = origin;
+    assert.equal((await subscriptionProxy(request(), 'checkout', bad.deps)).status, 502);
+    assert.equal(bad.calls.length, 0);
+  }
+});
+test('forged forwarding headers cannot authorize a foreign browser origin', async () => {
+  const h = harness(); const req = request('https://evil.test'); req.headers.set('x-forwarded-host', 'evil.test');
+  assert.equal((await subscriptionProxy(req, 'checkout', h.deps)).status, 403); assert.equal(h.calls.length, 0);
 });

@@ -1,7 +1,7 @@
 import { canStartCheckout, safeStripeUrl } from './subscription-checkout.ts';
 import type { SubscriptionInfo } from '@bossboard/shared';
 
-type Dependencies = { getToken: () => Promise<string | null | undefined>; apiUrl: string; fetch: typeof fetch };
+type Dependencies = { getToken: () => Promise<string | null | undefined>; apiUrl: string; fetch: typeof fetch; publicOrigin?: string };
 type Action = 'tiers' | 'checkout' | 'portal';
 const reply = (data: unknown, status = 200) => Response.json(data, {
   status, headers: { 'Cache-Control': 'no-store' },
@@ -9,10 +9,22 @@ const reply = (data: unknown, status = 200) => Response.json(data, {
 const error = (status: number, code: string, message: string) =>
   reply({ success: false, error: code, message }, status);
 
+/** Server configuration only. Never derive this from Host/Forwarded headers or request.url. */
+function publicOrigin(configured: string): string {
+  const url = new URL(configured);
+  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash ||
+    (url.protocol !== 'https:' && !(url.protocol === 'http:' &&
+      ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))) {
+    throw new Error('Invalid billing public origin');
+  }
+  return url.origin;
+}
+
 /** Cookie-authenticated BFF; dependencies injectable for offline contract tests. */
 export async function subscriptionProxy(request: Request, action: Action, deps: Dependencies) {
   try {
-    const origin = new URL(request.url).origin;
+    const origin = publicOrigin(deps.publicOrigin ?? process.env.BOSSBOARD_PUBLIC_ORIGIN ??
+      'https://bossboard.instilligent.com');
     if (action !== 'tiers' && (request.headers.get('origin') !== origin ||
       request.headers.get('sec-fetch-site') === 'cross-site')) {
       return error(403, 'INVALID_ORIGIN', 'Please retry from BossBoard.');
