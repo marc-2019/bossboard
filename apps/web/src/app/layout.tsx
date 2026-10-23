@@ -13,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="stylesheet" href="/klaro/klaro.min.css" />
+        <link rel="describedby" href="/llms.txt" />
       </head>
       <body className="antialiased">
         <Script src="/klaro/analytics.js" strategy="beforeInteractive" />
