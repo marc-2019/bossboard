@@ -495,6 +495,7 @@ async function generateTokens(user: User): Promise<AuthTokens> {
   const refreshToken = jwt.sign(payload, config.jwt.refreshSecret, {
     expiresIn: config.jwt.refreshTokenExpiry,
     algorithm: 'HS256',
+    jwtid: crypto.randomUUID(),
   });
 
   return {
@@ -509,11 +510,8 @@ async function storeRefreshToken(userId: string, token: string): Promise<void> {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
-  // ON CONFLICT (token) DO NOTHING handles the JWT iat-collision case:
-  // when register and login happen within the same second for one user,
-  // the JWTs are byte-identical (same payload + same secret => same
-  // signature). The row already exists from the prior call, so a no-op
-  // is correct — the client gets back the same valid token.
+  // Refresh JWTs have a unique jti, even when issued in the same second.
+  // A token conflict must never reactivate an existing revoked row.
   await db.query(
     `INSERT INTO refresh_tokens (id, user_id, token, expires_at)
      VALUES ($1, $2, $3, $4)

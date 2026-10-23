@@ -488,6 +488,157 @@ describe('refreshToken()', () => {
 });
 
 // ===========================================================================
+// Same-second refresh token regressions (real JWTs, no live database)
+// ===========================================================================
+
+describe('same-second refresh token issuance', () => {
+  const input = { email: TEST_USER.email, password: 'StrongPass123!' };
+  type StoredToken = { id: string; user_id: string; expiresAt: Date; revoked: boolean };
+  let stored: Map<string, StoredToken>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-23T00:00:00.000Z'));
+    stored = new Map();
+    mockBcryptHash.mockResolvedValue('$2b$12$fakehash');
+    mockBcryptCompare.mockResolvedValue(true);
+
+    // Model token uniqueness and revocation together. In particular, a duplicate
+    // INSERT must leave an existing revoked row revoked (ON CONFLICT DO NOTHING).
+    mockDbQuery.mockImplementation(async (sql: string, params: unknown[]) => {
+      if (sql.includes('SELECT id FROM users WHERE email')) {
+        return { rows: [] };
+      }
+      if (sql.includes('INSERT INTO users') || sql.includes('FROM users')) {
+        return { rows: [{ ...TEST_USER, password_hash: '$2b$12$fakehash' }] };
+      }
+      if (sql.includes('INSERT INTO refresh_tokens')) {
+        const [id, userId, token, expiresAt] = params as [string, string, string, Date];
+        if (!stored.has(token)) {
+          stored.set(token, { id, user_id: userId, expiresAt, revoked: false });
+        }
+        return { rows: [] };
+      }
+      if (sql.includes('SELECT id, user_id FROM refresh_tokens')) {
+        const row = stored.get(params[0] as string);
+        return {
+          rows: row && !row.revoked && row.expiresAt.getTime() > Date.now() ? [row] : [],
+        };
+      }
+      if (sql.includes('UPDATE refresh_tokens SET revoked_at')) {
+        for (const [token, row] of stored) {
+          const matches = sql.includes('WHERE user_id = $1')
+            ? row.user_id === params[0] && (params.length === 1 || token === params[1])
+            : token === params[0];
+          if (matches) row.revoked = true;
+        }
+        return { rows: [] };
+      }
+      throw new Error('Unexpected SQL in refresh token regression');
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    mockDbQuery.mockReset();
+  });
+
+  function verifyRefresh(token: string): jwt.JwtPayload {
+    return jwt.verify(token, JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as jwt.JwtPayload;
+  }
+
+  it('issues distinct refresh JWTs for register and repeated logins at the same instant', async () => {
+    mockGetUserTeamInfo.mockResolvedValue({ teamId: 'team-abc', teamRole: 'worker' });
+    const first = (await register(input)).tokens;
+    const second = (await login(input)).tokens;
+    const third = (await login(input)).tokens;
+    const tokens = [first, second, third];
+
+    expect(new Set(tokens.map((pair) => pair.refreshToken)).size).toBe(3);
+    const claims = tokens.map((pair) => verifyRefresh(pair.refreshToken));
+    expect(new Set(claims.map((claim) => claim.jti)).size).toBe(3);
+    for (const claim of claims) {
+      expect(claim.jti).toEqual(expect.any(String));
+      expect(claim.jti).not.toBe('');
+      expect(claim).toMatchObject({
+        userId: TEST_USER.id,
+        email: TEST_USER.email,
+        teamId: 'team-abc',
+        teamRole: 'worker',
+        iat: 1792713600,
+        exp: 1792713600 + 7 * 24 * 60 * 60,
+      });
+    }
+    expect(stored.size).toBe(3);
+    for (const pair of tokens) {
+      expect(stored.get(pair.refreshToken)?.revoked).toBe(false);
+      const access = jwt.verify(pair.accessToken, JWT_SECRET) as jwt.JwtPayload;
+      expect(access.exp! - access.iat!).toBe(15 * 60);
+      expect(access).not.toHaveProperty('jti');
+      expect(pair.expiresIn).toBe(900);
+    }
+  });
+
+  it.each(['single token', 'all tokens'])(
+    'keeps a fresh login usable after %s logout in the same second',
+    async (mode) => {
+      const first = (await login(input)).tokens;
+      await logout(TEST_USER.id, mode === 'single token' ? first.refreshToken : undefined);
+      const second = (await login(input)).tokens;
+
+      expect(stored.get(first.refreshToken)?.revoked).toBe(true);
+      await expect(refreshToken(first.refreshToken)).rejects.toMatchObject({
+        statusCode: 401, code: 'INVALID_REFRESH_TOKEN',
+      });
+      // A no-op conflicting INSERT would return a revoked token here.
+      const rotated = await refreshToken(second.refreshToken);
+      expect(new Set([first.refreshToken, second.refreshToken, rotated.refreshToken]).size).toBe(3);
+      expect(stored.get(second.refreshToken)?.revoked).toBe(true);
+      expect(stored.get(rotated.refreshToken)?.revoked).toBe(false);
+    }
+  );
+
+  it('rotates twice within one second while rejecting replay of each consumed token', async () => {
+    const first = (await login(input)).tokens;
+    const second = await refreshToken(first.refreshToken);
+    await expect(refreshToken(first.refreshToken)).rejects.toMatchObject({
+      statusCode: 401, code: 'INVALID_REFRESH_TOKEN',
+    });
+    // Before the fix the first rotation returns the just-revoked JWT.
+    const third = await refreshToken(second.refreshToken);
+    await expect(refreshToken(second.refreshToken)).rejects.toMatchObject({
+      statusCode: 401, code: 'INVALID_REFRESH_TOKEN',
+    });
+
+    expect(new Set([first.refreshToken, second.refreshToken, third.refreshToken]).size).toBe(3);
+    expect(new Set([first, second, third].map((pair) => verifyRefresh(pair.refreshToken).jti)).size).toBe(3);
+    expect(stored.size).toBe(3);
+    expect(stored.get(first.refreshToken)?.revoked).toBe(true);
+    expect(stored.get(second.refreshToken)?.revoked).toBe(true);
+    expect(stored.get(third.refreshToken)?.revoked).toBe(false);
+    await expect(refreshToken(third.refreshToken)).resolves.toHaveProperty('refreshToken');
+  });
+
+  it('still accepts a stored legacy refresh JWT without jti and revokes it on rotation', async () => {
+    const legacy = makeRefreshToken(TEST_USER.id, TEST_USER.email);
+    expect(verifyRefresh(legacy)).not.toHaveProperty('jti');
+    stored.set(legacy, {
+      id: 'legacy-row', user_id: TEST_USER.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), revoked: false,
+    });
+
+    const rotated = await refreshToken(legacy);
+    await expect(refreshToken(legacy)).rejects.toMatchObject({
+      statusCode: 401, code: 'INVALID_REFRESH_TOKEN',
+    });
+    expect(stored.get(legacy)?.revoked).toBe(true);
+    expect(verifyRefresh(rotated.refreshToken).jti).toEqual(expect.any(String));
+    expect(stored.get(rotated.refreshToken)?.revoked).toBe(false);
+    await expect(refreshToken(rotated.refreshToken)).resolves.toHaveProperty('refreshToken');
+  });
+});
+
+// ===========================================================================
 // logout()
 // ===========================================================================
 
