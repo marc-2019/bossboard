@@ -15,6 +15,7 @@ on:
       - 'docker-compose.production.yml'
       - 'railway.toml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [master, main]
     paths:
       - 'apps/api/**'
@@ -24,8 +25,13 @@ on:
 env:
   NODE_VERSION: '20'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test API
     runs-on: ubuntu-latest
     
