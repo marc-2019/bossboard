@@ -77,6 +77,7 @@ jest.mock('../../config/index.js', () => ({
 // ---------------------------------------------------------------------------
 
 import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import {
   register,
   login,
@@ -495,11 +496,13 @@ describe('same-second refresh token issuance', () => {
   const input = { email: TEST_USER.email, password: 'StrongPass123!' };
   type StoredToken = { id: string; user_id: string; expiresAt: Date; revoked: boolean };
   let stored: Map<string, StoredToken>;
+  let currentUser = { ...TEST_USER };
 
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-10-23T00:00:00.000Z'));
     stored = new Map();
+    currentUser = { ...TEST_USER };
     mockBcryptHash.mockResolvedValue('$2b$12$fakehash');
     mockBcryptCompare.mockResolvedValue(true);
 
@@ -510,10 +513,14 @@ describe('same-second refresh token issuance', () => {
         return { rows: [] };
       }
       if (sql.includes('INSERT INTO users') || sql.includes('FROM users')) {
-        return { rows: [{ ...TEST_USER, password_hash: '$2b$12$fakehash' }] };
+        return { rows: [{ ...currentUser, password_hash: '$2b$12$fakehash' }] };
       }
       if (sql.includes('INSERT INTO refresh_tokens')) {
         const [id, userId, token, expiresAt] = params as [string, string, string, Date];
+        // Match database/init.sql: token VARCHAR(500), including failed inserts.
+        if (token.length > 500) {
+          throw new Error('value too long for type character varying(500)');
+        }
         if (!stored.has(token)) {
           stored.set(token, { id, user_id: userId, expiresAt, revoked: false });
         }
@@ -560,11 +567,9 @@ describe('same-second refresh token issuance', () => {
     for (const claim of claims) {
       expect(claim.jti).toEqual(expect.any(String));
       expect(claim.jti).not.toBe('');
+      expect(Object.keys(claim).sort()).toEqual(['exp', 'iat', 'jti', 'userId']);
       expect(claim).toMatchObject({
         userId: TEST_USER.id,
-        email: TEST_USER.email,
-        teamId: 'team-abc',
-        teamRole: 'worker',
         iat: 1792713600,
         exp: 1792713600 + 7 * 24 * 60 * 60,
       });
@@ -573,10 +578,82 @@ describe('same-second refresh token issuance', () => {
     for (const pair of tokens) {
       expect(stored.get(pair.refreshToken)?.revoked).toBe(false);
       const access = jwt.verify(pair.accessToken, JWT_SECRET) as jwt.JwtPayload;
+      expect(access).toMatchObject({
+        userId: TEST_USER.id, email: TEST_USER.email,
+        teamId: 'team-abc', teamRole: 'worker',
+      });
       expect(access.exp! - access.iat!).toBe(15 * 60);
       expect(access).not.toHaveProperty('jti');
       expect(pair.expiresIn).toBe(900);
     }
+  });
+
+  // Valid local/domain label lengths; the legacy JWT fits VARCHAR(500), while
+  // adding a UUID jti to the old shared payload exceeds that storage boundary.
+  const longEmail = `${'a'.repeat(64)}@${'b'.repeat(63)}.${'c'.repeat(47)}.com`;
+  const longUserId = '12345678-1234-4123-8123-123456789abc';
+
+  it.each(['register', 'login'])(
+    'stores %s refresh JWTs within 500 characters for a long valid email',
+    async (operation) => {
+      expect(z.string().email().safeParse(longEmail).success).toBe(true);
+      currentUser = { ...TEST_USER, id: longUserId, email: longEmail };
+      const legacy = makeRefreshToken(currentUser.id, currentUser.email);
+      expect(legacy.length).toBeLessThanOrEqual(500);
+      const oversized = jwt.sign(
+        { userId: currentUser.id, email: currentUser.email },
+        JWT_REFRESH_SECRET,
+        { expiresIn: '7d', jwtid: '12345678-1234-4123-8123-123456789abc' }
+      );
+      expect(oversized.length).toBeGreaterThan(500);
+
+      const result = await (operation === 'register' ? register : login)({
+        ...input, email: longEmail,
+      });
+      expect(result.tokens.refreshToken.length).toBeLessThanOrEqual(500);
+      expect(stored.get(result.tokens.refreshToken)?.revoked).toBe(false);
+      expect(verifyRefresh(result.tokens.refreshToken).userId).toBe(longUserId);
+      const access = jwt.verify(result.tokens.accessToken, JWT_SECRET) as jwt.JwtPayload;
+      expect(access.email).toBe(longEmail);
+    }
+  );
+
+  it('rotates a stored legacy JWT within 500 characters using fresh DB user and team claims', async () => {
+    expect(z.string().email().safeParse(longEmail).success).toBe(true);
+    currentUser = { ...TEST_USER, id: longUserId, email: longEmail };
+    const legacy = makeRefreshToken(longUserId, longEmail);
+    expect(legacy.length).toBeLessThanOrEqual(500);
+    stored.set(legacy, {
+      id: 'long-email-legacy-row', user_id: longUserId,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), revoked: false,
+    });
+
+    // Claims in the old JWT must not override the current database user/team.
+    mockGetUserTeamInfo.mockResolvedValue({
+      teamId: '12345678-1234-4123-8123-123456789abc', teamRole: 'owner',
+    });
+    // Keep the new email long enough to exercise storage during rotation too.
+    currentUser.email = longEmail.replace(/^a/, 'd');
+    const rotated = await refreshToken(legacy);
+    expect(rotated.refreshToken.length).toBeLessThanOrEqual(500);
+    expect(stored.get(legacy)?.revoked).toBe(true);
+    expect(stored.get(rotated.refreshToken)?.revoked).toBe(false);
+    expect(Object.keys(verifyRefresh(rotated.refreshToken)).sort()).toEqual(
+      ['exp', 'iat', 'jti', 'userId']
+    );
+    const access = jwt.verify(rotated.accessToken, JWT_SECRET) as jwt.JwtPayload;
+    expect(access).toMatchObject({
+      userId: longUserId, email: currentUser.email,
+      teamId: '12345678-1234-4123-8123-123456789abc', teamRole: 'owner',
+    });
+    await expect(refreshToken(legacy)).rejects.toMatchObject({
+      statusCode: 401, code: 'INVALID_REFRESH_TOKEN',
+    });
+    await expect(refreshToken(rotated.refreshToken)).resolves.toHaveProperty('refreshToken');
+    expect(mockDbQuery).toHaveBeenCalledWith(
+      expect.stringContaining('FROM users WHERE id = $1 AND is_active = true'),
+      [longUserId]
+    );
   });
 
   it.each(['single token', 'all tokens'])(

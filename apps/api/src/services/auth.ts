@@ -129,7 +129,7 @@ export async function refreshToken(token: string): Promise<AuthTokens> {
     // Verify refresh token
     const decoded = jwt.verify(token, config.jwt.refreshSecret, {
       algorithms: ['HS256'],
-    }) as JwtPayload;
+    }) as Pick<JwtPayload, 'userId'>;
 
     // Check if token is stored and not revoked
     const result = await db.query<{ id: string; user_id: string }>(
@@ -492,7 +492,9 @@ async function generateTokens(user: User): Promise<AuthTokens> {
     algorithm: 'HS256',
   });
 
-  const refreshToken = jwt.sign(payload, config.jwt.refreshSecret, {
+  // Refresh only needs identity; reload user/team claims from the database.
+  // Keep it independent of email/team size to fit refresh_tokens.token VARCHAR(500).
+  const refreshToken = jwt.sign({ userId: user.id }, config.jwt.refreshSecret, {
     expiresIn: config.jwt.refreshTokenExpiry,
     algorithm: 'HS256',
     jwtid: crypto.randomUUID(),
