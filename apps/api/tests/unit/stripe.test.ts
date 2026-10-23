@@ -165,232 +165,27 @@ beforeEach(() => {
   mockDbQuery.mockResolvedValue({ rows: [], rowCount: 1 });
 });
 
-// ===========================================================================
-// 1. ensureStripeCustomer
-// ===========================================================================
-describe('ensureStripeCustomer', () => {
-  it('returns existing customer ID without calling Stripe', async () => {
-    mockDbQuery.mockResolvedValueOnce({
-      rows: [{ stripe_customer_id: 'cus_existing_001' }],
-    });
-
-    const result = await ensureStripeCustomer('user-001', 'tradie@example.com', 'Bob Smith');
-
-    expect(result).toBe('cus_existing_001');
-    expect(mockCustomersCreate).not.toHaveBeenCalled();
+// Durable customer/checkout behavior is exercised with real PostgreSQL in
+// src/__tests__/services/stripe-checkout.test.ts. Keep wrapper contract coverage here.
+const mockDurableCustomer = jest.fn();
+const mockDurableCheckout = jest.fn();
+jest.mock('../../src/services/stripe-checkout.js', () => ({
+  durableStripeCustomer: (...args: unknown[]) => mockDurableCustomer(...args),
+  durableCheckout: (...args: unknown[]) => mockDurableCheckout(...args),
+}));
+describe('durable billing wrappers', () => {
+  it('delegates customer creation to the shared durable lock', async () => {
+    mockDurableCustomer.mockResolvedValueOnce('cus_mock');
+    expect(await ensureStripeCustomer('user-001', 'mock@example.test', null)).toBe('cus_mock');
+    expect(mockDurableCustomer).toHaveBeenCalledWith(expect.anything(), 'user-001', 'mock@example.test', null);
   });
-
-  it('creates a new Stripe customer when DB has null customer ID', async () => {
-    mockDbQuery
-      .mockResolvedValueOnce({ rows: [{ stripe_customer_id: null }] })  // SELECT
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 });                 // UPDATE
-    mockCustomersCreate.mockResolvedValueOnce({ id: 'cus_new_001' });
-
-    const result = await ensureStripeCustomer('user-001', 'tradie@example.com', 'Bob Smith');
-
-    expect(result).toBe('cus_new_001');
-    expect(mockCustomersCreate).toHaveBeenCalledWith({
-      email: 'tradie@example.com',
-      name: 'Bob Smith',
-      metadata: { bossboard_user_id: 'user-001' },
-    });
-  });
-
-  it('creates a new Stripe customer when user has no row in DB', async () => {
-    mockDbQuery
-      .mockResolvedValueOnce({ rows: [] })               // SELECT returns empty
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // UPDATE
-    mockCustomersCreate.mockResolvedValueOnce({ id: 'cus_new_002' });
-
-    const result = await ensureStripeCustomer('user-002', 'new@example.com', null);
-
-    expect(result).toBe('cus_new_002');
-    expect(mockCustomersCreate).toHaveBeenCalledWith({
-      email: 'new@example.com',
-      name: undefined,  // null → undefined per stripe.ts
-      metadata: { bossboard_user_id: 'user-002' },
-    });
-  });
-
-  it('persists new customer ID to the users table', async () => {
-    mockDbQuery
-      .mockResolvedValueOnce({ rows: [{ stripe_customer_id: null }] })
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
-    mockCustomersCreate.mockResolvedValueOnce({ id: 'cus_persisted_001' });
-
-    await ensureStripeCustomer('user-001', 'tradie@example.com', 'Bob');
-
-    const updateCall = mockDbQuery.mock.calls[1];
-    expect(updateCall[0]).toMatch(/UPDATE users SET stripe_customer_id/);
-    expect(updateCall[1]).toEqual(['cus_persisted_001', 'user-001']);
-  });
-
-  it('passes name as undefined (not null) to Stripe when name is null', async () => {
-    mockDbQuery
-      .mockResolvedValueOnce({ rows: [{ stripe_customer_id: null }] })
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
-    mockCustomersCreate.mockResolvedValueOnce({ id: 'cus_no_name' });
-
-    await ensureStripeCustomer('user-003', 'noname@example.com', null);
-
-    expect(mockCustomersCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ name: undefined })
-    );
-  });
-});
-
-// ===========================================================================
-// 2. createCheckoutSession
-// ===========================================================================
-describe('createCheckoutSession', () => {
-  const baseInput = {
-    userId: 'user-001',
-    userEmail: 'tradie@example.com',
-    userName: 'Bob Smith',
-    tier: 'tradie' as const,
-    successUrl: 'https://app.bossboard.test/success',
-    cancelUrl: 'https://app.bossboard.test/cancel',
-  };
-
-  beforeEach(() => {
-    // ensureStripeCustomer: user already has a customer ID
-    mockDbQuery.mockResolvedValueOnce({
-      rows: [{ stripe_customer_id: 'cus_test_001' }],
-    });
-  });
-
-  it('creates a checkout session for the tradie tier and returns sessionId + url', async () => {
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_test_tradie_001',
-      url: 'https://checkout.stripe.com/pay/cs_test_tradie_001',
-    });
-
-    const result = await createCheckoutSession(baseInput);
-
-    expect(result).toEqual({
-      sessionId: 'cs_test_tradie_001',
-      url: 'https://checkout.stripe.com/pay/cs_test_tradie_001',
-    });
-  });
-
-  it('uses the tradie price ID from config for tradie tier', async () => {
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_test_002',
-      url: 'https://checkout.stripe.com/pay/cs_test_002',
-    });
-
-    await createCheckoutSession(baseInput);
-
-    expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        line_items: [{ price: 'price_tradie_test', quantity: 1 }],
-      })
-    );
-  });
-
-  it('uses the team price ID from config for team tier', async () => {
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_test_team_001',
-      url: 'https://checkout.stripe.com/pay/cs_test_team_001',
-    });
-
-    await createCheckoutSession({ ...baseInput, tier: 'team' });
-
-    expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        line_items: [{ price: 'price_team_test', quantity: 1 }],
-      })
-    );
-  });
-
-  it('creates session in subscription mode with promo codes enabled', async () => {
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_test_003',
-      url: 'https://checkout.stripe.com/pay/cs_test_003',
-    });
-
-    await createCheckoutSession(baseInput);
-
-    expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mode: 'subscription',
-        allow_promotion_codes: true,
-      })
-    );
-  });
-
-  it('embeds bossboard_user_id and tier in session metadata', async () => {
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_test_004',
-      url: 'https://checkout.stripe.com/pay/cs_test_004',
-    });
-
-    await createCheckoutSession(baseInput);
-
-    expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
-        subscription_data: expect.objectContaining({
-          metadata: { bossboard_user_id: 'user-001', tier: 'tradie' },
-        }),
-      })
-    );
-  });
-
-  it('passes success_url and cancel_url through to Stripe', async () => {
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_test_005',
-      url: 'https://checkout.stripe.com/pay/cs_test_005',
-    });
-
-    await createCheckoutSession(baseInput);
-
-    expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success_url: baseInput.successUrl,
-        cancel_url: baseInput.cancelUrl,
-      })
-    );
-  });
-
-  it('throws when Stripe does not return a checkout URL', async () => {
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_no_url',
-      url: null,
-    });
-
-    await expect(createCheckoutSession(baseInput)).rejects.toThrow(
-      'Stripe did not return a checkout URL'
-    );
-  });
-
-  it('propagates Stripe API errors', async () => {
-    mockCheckoutSessionsCreate.mockRejectedValueOnce(
-      new Error('Stripe API error: card declined')
-    );
-
-    await expect(createCheckoutSession(baseInput)).rejects.toThrow(
-      'Stripe API error: card declined'
-    );
-  });
-
-  it('calls ensureStripeCustomer and passes the customer ID to Stripe', async () => {
-    // Override: user has no existing customer → create one
-    mockDbQuery
-      .mockReset()
-      .mockResolvedValueOnce({ rows: [{ stripe_customer_id: null }] })  // SELECT
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 });                 // UPDATE
-    mockCustomersCreate.mockResolvedValueOnce({ id: 'cus_fresh_001' });
-    mockCheckoutSessionsCreate.mockResolvedValueOnce({
-      id: 'cs_fresh_001',
-      url: 'https://checkout.stripe.com/pay/cs_fresh_001',
-    });
-
-    await createCheckoutSession(baseInput);
-
-    expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ customer: 'cus_fresh_001' })
-    );
+  it.each(['tradie', 'team'] as const)('delegates %s checkout with configured price and complete input', async tier => {
+    const input = { userId: 'user-001', userEmail: 'mock@example.test', userName: null, tier,
+      successUrl: 'https://bossboard.instilligent.com/subscription', cancelUrl: 'https://bossboard.instilligent.com/subscription' };
+    const result = { sessionId: 'cs_mock', url: 'https://checkout.stripe.com/c/pay/mock' };
+    mockDurableCheckout.mockResolvedValueOnce(result);
+    expect(await createCheckoutSession(input)).toEqual(result);
+    expect(mockDurableCheckout).toHaveBeenCalledWith(expect.anything(), `price_${tier}_test`, input);
   });
 });
 

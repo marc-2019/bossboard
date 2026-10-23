@@ -14,6 +14,7 @@
  */
 
 import Stripe from 'stripe';
+import { durableCheckout, durableStripeCustomer } from './stripe-checkout.js';
 import { config } from '../config/index.js';
 import { SubscriptionTier } from '../types/index.js';
 import { updateSubscriptionTier } from './subscriptions.js';
@@ -121,32 +122,7 @@ export async function ensureStripeCustomer(
   email: string,
   name: string | null
 ): Promise<string> {
-  const stripe = getStripe();
-
-  // Check if already has a customer ID
-  const result = await db.query<{ stripe_customer_id: string | null }>(
-    'SELECT stripe_customer_id FROM users WHERE id = $1',
-    [userId]
-  );
-
-  if (result.rows[0]?.stripe_customer_id) {
-    return result.rows[0].stripe_customer_id;
-  }
-
-  // Create new Stripe customer
-  const customer = await stripe.customers.create({
-    email,
-    name: name ?? undefined,
-    metadata: { bossboard_user_id: userId },
-  });
-
-  // Persist the customer ID
-  await db.query(
-    'UPDATE users SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-    [customer.id, userId]
-  );
-
-  return customer.id;
+  return durableStripeCustomer(getStripe(), userId, email, name);
 }
 
 // ---------------------------------------------------------------------------
@@ -184,39 +160,7 @@ export async function createCheckoutSession(
     throw new Error(`STRIPE_PRICE_ID_${input.tier.toUpperCase()} is not configured`);
   }
 
-  const customerId = await ensureStripeCustomer(
-    input.userId,
-    input.userEmail,
-    input.userName
-  );
-
-  // Phase 1 wallets: omit payment_method_types so Stripe Checkout can offer
-  // card + Apple Pay / Google Pay / Link when those are enabled in the Dashboard.
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: input.successUrl,
-    cancel_url: input.cancelUrl,
-    subscription_data: {
-      metadata: {
-        bossboard_user_id: input.userId,
-        tier: input.tier,
-      },
-    },
-    allow_promotion_codes: true,
-    billing_address_collection: 'auto',
-    metadata: {
-      bossboard_user_id: input.userId,
-      tier: input.tier,
-    },
-  });
-
-  if (!session.url) {
-    throw new Error('Stripe did not return a checkout URL');
-  }
-
-  return { sessionId: session.id, url: session.url };
+  return durableCheckout(stripe, priceId, input);
 }
 
 // ---------------------------------------------------------------------------
