@@ -560,7 +560,7 @@ function quoteTemplate(
 
   const body = `
     ${clientNoteHtml(customMessage)}
-    <p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">Quote for:</p>
+    <p style="margin: 0 0 4px; color: #6B7280; font-size: 13px;">Prepared For:</p>
     <p style="margin: 0 0 16px; color: #111827; font-size: 16px; font-weight: 600;">${quote.clientName}</p>
     ${quote.jobDescription ? `<p style="margin: 0 0 16px; color: #374151; font-size: 14px;">${quote.jobDescription}</p>` : ''}
     ${validUntilHtml}
@@ -589,7 +589,7 @@ function quoteTemplate(
     quote.companyName ? `From: ${quote.companyName}` : '',
     '',
     ...(customMessage?.trim() ? [customMessage.trim(), ''] : []),
-    `For: ${quote.clientName}`,
+    `Prepared For: ${quote.clientName}`,
     quote.jobDescription ? `Job: ${quote.jobDescription}` : '',
     quote.validUntil ? `Valid until: ${new Date(quote.validUntil).toLocaleDateString('en-NZ')}` : '',
     '',
