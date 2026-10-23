@@ -23,6 +23,7 @@ import type {
 import { Smartphone, Pencil, Gift, Copy, Check, Building2, Landmark, Rocket } from 'lucide-react';
 import { DocumentsPanel } from '@/components/documents-panel';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -176,10 +177,9 @@ export default function SettingsPage() {
         ) : (
           <p className="text-sm text-gray-500 py-4">Loading subscription…</p>
         )}
-        <p className="text-xs text-gray-500 mt-4">
-          Plan changes and billing checkout are currently completed in the BossBoard mobile app
-          (App Store / Google Play where available). Web shows tier usage and referral invites.
-        </p>
+        <Link href="/subscription" className="inline-block text-accent underline focus:outline focus:outline-2 focus:outline-offset-2">
+          View plans and manage subscription
+        </Link>
       </Card>
 
       <ReferralCard />
