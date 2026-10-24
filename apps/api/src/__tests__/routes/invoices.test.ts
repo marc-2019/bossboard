@@ -441,6 +441,34 @@ describe('Invoice Routes', () => {
         { replyTo: 'office@example.com' }
       );
     });
+
+    it('ignores body replyTo and uses the resolver mailbox', async () => {
+      mockIsEmailConfigured.mockReturnValue(true);
+      mockGetBusinessProfile.mockResolvedValue({
+        company_name: 'Test Co',
+        company_email: 'office@example.com',
+      });
+      mockResolveInvoiceBcc.mockReturnValue(null);
+      mockResolveInvoiceReplyTo.mockReturnValue('office@example.com');
+      mockGetInvoiceByIdRaw.mockResolvedValue({ id: 'inv-1', invoiceNumber: 'INV-001', status: 'sent' });
+      mockGenerateInvoicePDF.mockResolvedValue(Buffer.from('fake-pdf'));
+      mockSendInvoiceEmail.mockResolvedValue({ messageId: 'msg-reply' });
+      mockGetInvoiceById.mockResolvedValue({ id: 'inv-1', status: 'sent' });
+
+      const response = await request(app)
+        .post('/api/v1/invoices/inv-1/email')
+        .send({ recipientEmail: 'client@example.com', replyTo: 'attacker@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(mockSendInvoiceEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        'client@example.com',
+        'Test Co',
+        undefined,
+        { replyTo: 'office@example.com' }
+      );
+    });
   });
 
   describe('GET /api/v1/invoices/:id/pdf', () => {

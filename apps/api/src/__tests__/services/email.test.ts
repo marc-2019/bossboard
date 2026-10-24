@@ -637,6 +637,35 @@ describe.each<[string, (options: { bcc?: string; replyTo?: string }) => Promise<
     });
   });
 
+  it.each([
+    ['CRLF Bcc payload', 'a@example.com\r\nBcc: x@example.com'],
+    ['single-at CRLF header', 'a@example.com\r\nBcc: x'],
+    ['comma list without space', 'a@example.com,b@example.com'],
+    ['comma list with space', 'a@example.com, b@example.com'],
+    ['NUL control', 'a\u0000b@example.com'],
+    ['SOH control', 'a\u0001b@example.com'],
+    ['unit separator control', 'a\u001fb@example.com'],
+    ['DEL control', 'a\u007fb@example.com'],
+    ['comma local part', 'a,b@example.com'],
+    ['semicolon local part', 'a;b@example.com'],
+    ['angle address', '<a@example.com>'],
+    ['display name', 'Name<a@example.com>'],
+    ['encoded-word local part', '=?utf-8?q?a?=@example.com'],
+  ])('rejects unsafe Reply-To: %s', async (_label, replyTo) => {
+    expect(resolveInvoiceReplyTo({
+      companyEmail: replyTo, userEmail: 'sender@example.com', recipientEmail: 'client@example.com',
+    })).toBe('sender@example.com');
+    expect(resolveInvoiceReplyTo({
+      companyEmail: null, userEmail: replyTo, recipientEmail: 'client@example.com',
+    })).toBeNull();
+
+    // Check the send-time boundary too, even if a caller bypasses the resolver.
+    await sendDocument({ bcc: 'accounts@example.com', replyTo });
+    const payload = mockEmailsSend.mock.calls[0][0];
+    expect(payload.replyTo).toBeUndefined();
+    expect(payload.bcc).toEqual(['accounts@example.com']);
+  });
+
   it.each([' CLIENT@EXAMPLE.COM ', 'invalid', '   ', 'office@example.com\r\nBcc: other@example.com'])(
     'omits unusable Reply-To %j without dropping BCC', async (replyTo) => {
       await sendDocument({ bcc: 'accounts@example.com', replyTo });

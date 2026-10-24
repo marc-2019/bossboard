@@ -355,6 +355,25 @@ describe('Quote Routes', () => {
       );
     });
 
+    it('ignores body replyTo and uses the resolver mailbox', async () => {
+      mockGetBusinessProfile.mockResolvedValue({ company_name: 'Example Business', company_email: 'office@example.com' });
+      mockResolveInvoiceBcc.mockReturnValue(null);
+      mockResolveInvoiceReplyTo.mockReturnValue('office@example.com');
+      mockSendQuoteEmail.mockResolvedValue({ messageId: 'msg-reply' });
+      const sent = { id: 'q-1', status: 'sent', sent_at: '2026-08-24T07:00:00.000Z' };
+      mockMarkAsSent.mockResolvedValue(sent);
+      mockGetQuoteById.mockResolvedValue(sent);
+
+      const response = await request(app).post('/api/v1/quotes/q-1/email')
+        .send({ recipientEmail: 'client@example.com', replyTo: 'attacker@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(mockSendQuoteEmail).toHaveBeenCalledWith(
+        expect.anything(), expect.anything(), 'client@example.com', 'Example Business', undefined,
+        { replyTo: 'office@example.com' }
+      );
+    });
+
     it('must not 200 when sendQuoteEmail succeeds but markAsSent returns no stamp', async () => {
       mockSendQuoteEmail.mockResolvedValue({ messageId: 'msg-discard' });
       mockMarkAsSent.mockResolvedValue(null);

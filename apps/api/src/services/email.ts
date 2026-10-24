@@ -4,6 +4,7 @@
  */
 
 import { Resend } from 'resend';
+import { z } from 'zod';
 import { config } from '../config/index.js';
 import { Invoice, Quote } from '../types/index.js';
 
@@ -426,11 +427,14 @@ function paymentFailedTemplate(opts: {
 // Send functions
 // ---------------------------------------------------------------------------
 
+// Shared with business-profile writes so stored and send-time mailboxes use the same rules.
+export const mailboxEmailSchema = z.string().email('Invalid email format');
+
 function distinctMailbox(raw: string | undefined, recipientEmail: string): string | undefined {
   const email = (raw || '').trim();
   if (!email) return undefined;
   if (email.toLowerCase() === recipientEmail.trim().toLowerCase()) return undefined;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return undefined;
+  if (!mailboxEmailSchema.safeParse(email).success) return undefined;
   return email;
 }
 
