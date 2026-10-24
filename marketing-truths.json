@@ -323,24 +323,38 @@
       "claim": "Free $0 (3 invoices/mo, 2 SWMS/mo) · Tradie $4.99/wk · Team $9.99/wk (up to 5 team members + roles)",
       "surfaces": [
         "apps/web/src/app/page.tsx#L196-274",
-        "llms.txt#L30-32"
+        "llms.txt#L30-32",
+        "apps/api/src/landing.html (API landing, live pre-#135)",
+        "apps/api/src/routes/legal.ts (/legal/terms)",
+        "apps/web/public/llms.txt"
       ],
       "code_references": [
         "apps/api/src/services/subscriptions.ts (tier definitions + isBetaMode env-driven, post-commit 1b33d93)",
         "apps/api/src/services/stripe.ts (Stripe Checkout wired — createCheckoutSession at L120)",
         "apps/api/src/routes/subscriptions.ts#L158 (POST /checkout)",
         "apps/mobile/src/services/payments.ts (iOS/Android native IAP; do not open Stripe from the binary)",
-        "apps/mobile/app/subscription.tsx (Upgrade uses startPaidUpgrade, not Linking.openURL to Stripe)"
+        "apps/mobile/app/subscription.tsx (Upgrade uses startPaidUpgrade, not Linking.openURL to Stripe)",
+        "apps/api/src/routes/subscriptions.ts#L45-46 (GET /tiers pricing: monthlyEquivalent 19.99 / 39.99 — wrong arithmetic, still on master 2237898)",
+        "apps/api/src/services/stripe.ts#L5-7,L77-80 ('billed monthly' $19.99/$39.99 comment + GA4 value constants — NOT Stripe price objects)"
       ],
       "evidence_references": [
         "apps/web/src/app/page.tsx#pricing Free $0 (3 invoices/mo, 2 SWMS/mo) · Tradie $4.99/wk · Team $9.99/wk (up to 5 members + roles)",
         "apps/api/src/services/subscriptions.ts TIER_LIMITS (free 3/2, teamMembers: 5)",
         "apps/mobile/app/subscription.tsx priceWeekly $4.99 / $9.99",
-        "https://bossboard.instilligent.com#pricing (HTTP 200, 2026-09-19)"
+        "https://bossboard.instilligent.com#pricing (HTTP 200, 2026-09-19)",
+        "LIVE 2026-10-18 19:15 NZDT L1 https://api.instilligent.com/legal/terms (HTTP 200): '$4.99/week (~$19.99/month)' and '$9.99/week (~$39.99/month)'",
+        "LIVE 2026-10-18 19:15 NZDT L2 https://api.instilligent.com/legal/terms (HTTP 200): 'Tradie and Team are paid subscriptions.' + 'If you subscribe in the iOS app, billing is through the App Store and Apple’s terms apply.'",
+        "LIVE 2026-10-18 19:15 NZDT L3 https://api.instilligent.com/ (HTTP 200, pre-#135 API): price cards '$4.99 /week' + '~$19.99/month', '$9.99 /week' + '~$39.99/month' (separate elements) with 'Start Free' CTAs (x4)",
+        "LIVE 2026-10-18 19:15 NZDT L4 https://api.instilligent.com/ (HTTP 200): 'Free during beta. Paid tiers from $4.99/week when we launch billing.'",
+        "LIVE 2026-10-18 19:15 NZDT L5 https://bossboard.instilligent.com/ (HTTP 200, post-#135 web): 'Free during beta. Paid tiers from $4.99/week when we launch billing.', 'Free during beta; paid tiers from $4.99/week', 'Tradie features free during beta', 'Team features free during beta'",
+        "LIVE 2026-10-18 19:15 NZDT L6 https://bossboard.instilligent.com/llms.txt (HTTP 200): '- Tradie: $4.99/week.' '- Team: $9.99/week (up to 5 team members).' '- Free during beta. Paid tiers from $4.99/week when we launch billing.'"
       ],
-      "verdict": "IMPLEMENTED",
-      "last_verified": "2026-09-19",
-      "notes": "Price list is live in-app. iOS/Android paid upgrades must use store IAP (Guideline 3.1.1 / Play Billing). Web may still use Stripe. Do not claim 'all features free during beta/launch' on iOS store surfaces."
+      "verdict": "PARTIAL",
+      "last_verified": "2026-10-18",
+      "notes": "Price list is live in-app. iOS/Android paid upgrades must use store IAP (Guideline 3.1.1 / Play Billing). Web may still use Stripe. Do not claim 'all features free during beta/launch' on iOS store surfaces. | 2026-10-18 CONFLICTING / LIVE GAP (verdict IMPLEMENTED -> PARTIAL): weekly tier prices are shown correctly, but live surfaces pair them with wrong monthly equivalents (L1, L3) and 'Free during beta' (L4-L6), which contradicts the live Terms 'Tradie and Team are paid subscriptions' billed by the App Store (L2). Monthly approximations are WRONG: $4.99 x 52 / 12 = $21.62/mo (not ~$19.99); $9.99 x 52 / 12 = $43.29/mo (not ~$39.99). ~$19.99/~$39.99 are 4-week totals (19.96 / 39.96). #135 (94bff8c) removed the ~$X/month strings from apps/api/src/landing.html and routes/legal.ts on master, but prod API is pre-#135 so L1/L3 stay live until an API redeploy; master still returns monthlyEquivalent 19.99/39.99 from GET /api/v1/subscriptions/tiers and keeps 'Free during beta' in landing.html, apps/web/src/app/page.tsx, llms.txt and subscriptions.ts checkout messages. Stripe price objects (amount/interval behind STRIPE_PRICE_ID_TRADIE/TEAM) UNKNOWN; App Store Connect IAP prices UNKNOWN; BETA_MODE value in prod UNKNOWN. No pricing model chosen here — display (P1/P2/P3) and beta wording (F1/F2/F3) are pending Marc.",
+      "owner": "BossBoard PO",
+      "decision": null,
+      "decision_notes": "Decision pending Marc (opened 2026-10-18): price display P1 weekly-only / P2 weekly + correct monthly ($21.62/$43.29) / P3 per-rail; beta wording F1 scope free claim / F2 beta-on-web + iOS caveat / F3 switch off iOS IAP during beta. Options in BossBoard PO draft bb-marketing-truths-price-draft-2026-10-18. Gap owner: BossBoard PO. CPO has not selected an option."
     },
     {
       "id": "bossboard.subscription-billing-rails",
@@ -358,9 +372,21 @@
         "apps/api/src/services/stripe.ts (web checkout only)"
       ],
       "verdict": "PARTIAL",
-      "last_verified": "2026-08-23",
-      "notes": "Copy is in legal.ts (1A). Not IMPLEMENTED until curl of https://api.instilligent.com/legal/terms, /privacy, /support matches and has no beta-free / Stripe-as-iOS-processor claims.",
-      "previous_overclaim": "Terms said 'Beta Programme' (Tradie-tier free) and 'Subscription payments are processed by Stripe' on the page Apple Review taps. Privacy listed Stripe as the payment processor. Support FAQ said all features free in beta."
+      "last_verified": "2026-10-18",
+      "notes": "Copy is in legal.ts (1A). Not IMPLEMENTED until curl of https://api.instilligent.com/legal/terms, /privacy, /support matches and has no beta-free / Stripe-as-iOS-processor claims. | 2026-10-18 CONFLICTING / LIVE GAP (stays PARTIAL): Terms/Support/Privacy do not say beta-free and keep Stripe = website only (PROVEN), but the Terms carry wrong monthly approximations (L1; Monthly approximations are WRONG: $4.99 x 52 / 12 = $21.62/mo (not ~$19.99); $9.99 x 52 / 12 = $43.29/mo (not ~$39.99). ~$19.99/~$39.99 are 4-week totals (19.96 / 39.96).) and the marketing surfaces (API landing L4, web home L5, llms.txt L6) say 'Free during beta ... when we launch billing', contradicting the live Terms (L2: paid subscriptions, App Store billing). Stripe monthly rail exists only as code comment/constants in stripe.ts; real Stripe price objects UNKNOWN and open_items still says 'Stripe NZ integration: pending'. App Store IAP prices UNKNOWN (only weekly product IDs in apps/api/src/config/index.ts#L68-71 are PROVEN). BETA_MODE in prod UNKNOWN. Not IMPLEMENTED until the chosen F-option wording is live on the marketing surfaces and the Terms monthly figures are gone after an API redeploy.",
+      "previous_overclaim": "Terms said 'Beta Programme' (Tradie-tier free) and 'Subscription payments are processed by Stripe' on the page Apple Review taps. Privacy listed Stripe as the payment processor. Support FAQ said all features free in beta.",
+      "evidence_references": [
+        "LIVE 2026-10-18 19:15 NZDT L1 https://api.instilligent.com/legal/terms (HTTP 200): '$4.99/week (~$19.99/month)' and '$9.99/week (~$39.99/month)'",
+        "LIVE 2026-10-18 19:15 NZDT L2 https://api.instilligent.com/legal/terms (HTTP 200): 'Tradie and Team are paid subscriptions.' + 'If you subscribe in the iOS app, billing is through the App Store and Apple’s terms apply.'",
+        "LIVE 2026-10-18 19:15 NZDT L3 https://api.instilligent.com/ (HTTP 200, pre-#135 API): price cards '$4.99 /week' + '~$19.99/month', '$9.99 /week' + '~$39.99/month' (separate elements) with 'Start Free' CTAs (x4)",
+        "LIVE 2026-10-18 19:15 NZDT L4 https://api.instilligent.com/ (HTTP 200): 'Free during beta. Paid tiers from $4.99/week when we launch billing.'",
+        "LIVE 2026-10-18 19:15 NZDT L5 https://bossboard.instilligent.com/ (HTTP 200, post-#135 web): 'Free during beta. Paid tiers from $4.99/week when we launch billing.', 'Free during beta; paid tiers from $4.99/week', 'Tradie features free during beta', 'Team features free during beta'",
+        "LIVE 2026-10-18 19:15 NZDT L6 https://bossboard.instilligent.com/llms.txt (HTTP 200): '- Tradie: $4.99/week.' '- Team: $9.99/week (up to 5 team members).' '- Free during beta. Paid tiers from $4.99/week when we launch billing.'",
+        "LIVE 2026-10-18 19:16 NZDT https://api.instilligent.com/legal/support (HTTP 200): 'Paid Tradie and Team plans start at $4.99 NZD per week. If you subscribe in the iOS app, billing is through the App Store.'; /legal/terms has 0 'beta' matches"
+      ],
+      "owner": "BossBoard PO",
+      "decision": null,
+      "decision_notes": "Decision pending Marc (opened 2026-10-18): which billing story is canonical (iOS IAP weekly, web Stripe interval/amount, or retire one rail) and F1/F2/F3 beta wording. Gap owner: BossBoard PO. CPO has not selected an option."
     },
     {
       "id": "bossboard.privacy-consent-banner",
@@ -726,6 +752,12 @@
       "claim_dropped": "package.json/README/app.json/App.tsx/settings About: 'compliance and cashflow platform' / 'Compliance, cashflow & operations'; STORE_LISTING.md: 'Compliant with Health and Safety at Work Act 2015', 'WorkSafe NZ compliant templates', crew tracking/dispatch, digital signatures, cashflow position, Xero/MYOB coming soon; store-listing.json: 'AI-powered', 'all-in-one', 'aligned to WorkSafe categories', Xero/visa roadmap; nginx/html legacy landing: invented testimonials, '8+ hours a week' stat, competitor prices, 'WorkSafe-compliant', Xero roadmap; web + API landing: 'The All-in-One App', 'safety paperwork and revenue insights' lead, 'Full audit trail for billing and compliance', 'Get started in under a minute', paid-tier 'Start Free' CTAs on the API landing (FTA-B2)",
       "verdict_at_recall": "RECALLED",
       "reason": "CPO claims fix (surface 3 of 6, branch cpo/bb-claims-fix-1010). Lead with invoicing, quotes and jobs; SWMS kept in the bossboard.compliance-framing form ('aligned to the Health and Safety at Work Act 2015 — you stay the PCBU and sign off'); bossboard.cashflow-forecasting is ABSENT. Gate: apps/api/tests/unit/customer-copy-banned-phrases.test.ts."
+    },
+    {
+      "date": "2026-10-17",
+      "claim_dropped": "apps/api/src/landing.html price cards '~$19.99/month' / '~$39.99/month' and apps/api/src/routes/legal.ts Terms '$4.99/week (~$19.99/month)' / '$9.99/week (~$39.99/month)' — monthly equivalents computed as 4 weeks (correct: $21.62 / $43.29)",
+      "verdict_at_recall": "RECALLED",
+      "reason": "Removed on master by PR #135 (merge 94bff8c, 17 Oct 12:49 NZDT); recorded 2026-10-18 by CPO. MASTER ONLY: still live on api.instilligent.com / and /legal/terms (prod API pre-#135) until an API redeploy. Not yet removed: GET /api/v1/subscriptions/tiers monthlyEquivalent 19.99/39.99 (apps/api/src/routes/subscriptions.ts#L45-46) and stripe.ts comment/GA4 constants. Replacement display wording pending Marc (P1-P3)."
     }
   ],
   "verified_clean_directives": [
