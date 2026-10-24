@@ -80,6 +80,7 @@ jest.mock('../../services/email.js', () => ({
     isEmailConfigured: () => true,
     sendQuoteEmail: (...args: unknown[]) => mockSendQuoteEmail(...args),
     resolveInvoiceBcc: () => null,
+    resolveInvoiceReplyTo: () => null,
   },
 }));
 

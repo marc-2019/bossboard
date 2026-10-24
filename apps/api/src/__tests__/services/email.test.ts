@@ -53,7 +53,9 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
+  sendQuoteEmail,
   resolveInvoiceBcc,
+  resolveInvoiceReplyTo,
   sendTradeConfirmation,
   sendPortfolioAlert,
   sendPaymentFailedEmail,
@@ -311,6 +313,35 @@ describe('sendInvoiceEmail', () => {
     const call = mockEmailsSend.mock.calls[0][0];
     expect(call.bcc).toBeUndefined();
   });
+
+  it('sets reply_to when provided and different from recipient', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@example.com', 'Example Business', undefined, {
+      replyTo: 'office@example.com',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.replyTo).toEqual(['office@example.com']);
+  });
+
+  it('omits reply_to when same as recipient', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@example.com', 'Example Business', undefined, {
+      replyTo: 'client@example.com',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.replyTo).toBeUndefined();
+  });
+
+  it('keeps both bcc and replyTo on the Resend payload when both are set', async () => {
+    const invoice = makeInvoice();
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@example.com', 'Example Business', undefined, {
+      bcc: 'accounts@example.com',
+      replyTo: 'office@example.com',
+    });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.bcc).toEqual(['accounts@example.com']);
+    expect(call.replyTo).toEqual(['office@example.com']);
+  });
 });
 
 describe('resolveInvoiceBcc', () => {
@@ -362,6 +393,48 @@ describe('resolveInvoiceBcc', () => {
     expect(
       resolveInvoiceBcc({
         invoiceBccEmail: null,
+        companyEmail: null,
+        userEmail: 'client@example.com',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBeNull();
+  });
+});
+
+describe('resolveInvoiceReplyTo', () => {
+  it('prefers company email over user email', () => {
+    expect(
+      resolveInvoiceReplyTo({
+        companyEmail: 'office@example.com',
+        userEmail: 'sender@example.com',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('office@example.com');
+  });
+
+  it('falls back to user email when company email unset', () => {
+    expect(
+      resolveInvoiceReplyTo({
+        companyEmail: null,
+        userEmail: 'sender@example.com',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('sender@example.com');
+  });
+
+  it('skips the recipient so replies do not bounce to the client', () => {
+    expect(
+      resolveInvoiceReplyTo({
+        companyEmail: 'client@example.com',
+        userEmail: 'sender@example.com',
+        recipientEmail: 'client@example.com',
+      })
+    ).toBe('sender@example.com');
+  });
+
+  it('returns null when no distinct mailbox is available', () => {
+    expect(
+      resolveInvoiceReplyTo({
         companyEmail: null,
         userEmail: 'client@example.com',
         recipientEmail: 'client@example.com',
@@ -546,4 +619,30 @@ describe('from address construction', () => {
     const call = mockEmailsSend.mock.calls[0][0];
     expect(call.from).toContain('noreply@instilligent.com');
   });
+});
+
+describe.each<[string, (options: { bcc?: string; replyTo?: string }) => Promise<unknown>]>([
+  ['invoice', (options: { bcc?: string; replyTo?: string }) =>
+    sendInvoiceEmail(makeInvoice(), Buffer.from('pdf'), 'client@example.com', 'Example Business', undefined, options)],
+  ['quote', (options: { bcc?: string; replyTo?: string }) =>
+    sendQuoteEmail({ ...makeInvoice(), quoteNumber: 'QTE-001', validUntil: null } as any,
+      Buffer.from('pdf'), 'client@example.com', 'Example Business', undefined, options)],
+])('%s Reply-To payload', (_kind, sendDocument) => {
+  it('preserves the default noreply From while sending BCC and Reply-To', async () => {
+    await sendDocument({ bcc: 'accounts@example.com', replyTo: ' office@example.com ' });
+    expect(mockEmailsSend.mock.calls[0][0]).toMatchObject({
+      from: 'BossBoard <noreply@instilligent.com>',
+      bcc: ['accounts@example.com'],
+      replyTo: ['office@example.com'],
+    });
+  });
+
+  it.each([' CLIENT@EXAMPLE.COM ', 'invalid', '   ', 'office@example.com\r\nBcc: other@example.com'])(
+    'omits unusable Reply-To %j without dropping BCC', async (replyTo) => {
+      await sendDocument({ bcc: 'accounts@example.com', replyTo });
+      const payload = mockEmailsSend.mock.calls[0][0];
+      expect(payload.replyTo).toBeUndefined();
+      expect(payload.bcc).toEqual(['accounts@example.com']);
+    }
+  );
 });

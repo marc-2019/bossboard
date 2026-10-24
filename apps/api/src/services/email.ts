@@ -426,11 +426,19 @@ function paymentFailedTemplate(opts: {
 // Send functions
 // ---------------------------------------------------------------------------
 
+function distinctMailbox(raw: string | undefined, recipientEmail: string): string | undefined {
+  const email = (raw || '').trim();
+  if (!email) return undefined;
+  if (email.toLowerCase() === recipientEmail.trim().toLowerCase()) return undefined;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return undefined;
+  return email;
+}
+
 async function send(
   to: string,
   template: { subject: string; html: string; text: string },
   attachments?: Array<{ filename: string; content: Buffer }>,
-  options?: { bcc?: string[] }
+  options?: { bcc?: string[]; replyTo?: string[] }
 ): Promise<{ messageId: string }> {
   const resend = getResend();
 
@@ -444,6 +452,10 @@ async function send(
 
   if (options?.bcc?.length) {
     payload.bcc = options.bcc;
+  }
+
+  if (options?.replyTo?.length) {
+    payload.replyTo = options.replyTo;
   }
 
   if (attachments?.length) {
@@ -478,26 +490,32 @@ export async function sendPasswordResetEmail(
   return send(recipientEmail, passwordResetTemplate(code));
 }
 
+function invoiceSendOptions(
+  recipientEmail: string,
+  options?: { bcc?: string; replyTo?: string }
+): { bcc?: string[]; replyTo?: string[] } | undefined {
+  const bcc = distinctMailbox(options?.bcc, recipientEmail);
+  const replyTo = distinctMailbox(options?.replyTo, recipientEmail);
+  if (!bcc && !replyTo) return undefined;
+  return {
+    ...(bcc ? { bcc: [bcc] } : {}),
+    ...(replyTo ? { replyTo: [replyTo] } : {}),
+  };
+}
+
 export async function sendInvoiceEmail(
   invoice: Invoice,
   pdfBuffer: Buffer,
   recipientEmail: string,
   senderName: string,
   customMessage?: string,
-  options?: { bcc?: string }
+  options?: { bcc?: string; replyTo?: string }
 ): Promise<{ messageId: string }> {
-  const bccList =
-    options?.bcc &&
-    options.bcc.trim() &&
-    options.bcc.trim().toLowerCase() !== recipientEmail.trim().toLowerCase()
-      ? [options.bcc.trim()]
-      : undefined;
-
   return send(
     recipientEmail,
     invoiceTemplate(invoice, senderName, customMessage),
     [{ filename: `Invoice-${invoice.invoiceNumber}.pdf`, content: pdfBuffer }],
-    bccList ? { bcc: bccList } : undefined
+    invoiceSendOptions(recipientEmail, options)
   );
 }
 
@@ -579,20 +597,13 @@ export async function sendQuoteEmail(
   recipientEmail: string,
   senderName: string,
   customMessage?: string,
-  options?: { bcc?: string }
+  options?: { bcc?: string; replyTo?: string }
 ): Promise<{ messageId: string }> {
-  const bccList =
-    options?.bcc &&
-    options.bcc.trim() &&
-    options.bcc.trim().toLowerCase() !== recipientEmail.trim().toLowerCase()
-      ? [options.bcc.trim()]
-      : undefined;
-
   return send(
     recipientEmail,
     quoteTemplate(quote, senderName, customMessage),
     [{ filename: `Quote-${quote.quoteNumber}.pdf`, content: pdfBuffer }],
-    bccList ? { bcc: bccList } : undefined
+    invoiceSendOptions(recipientEmail, options)
   );
 }
 
@@ -607,15 +618,26 @@ export function resolveInvoiceBcc(opts: {
   userEmail?: string | null;
   recipientEmail: string;
 }): string | null {
-  const recipient = opts.recipientEmail.trim().toLowerCase();
-  const candidates = [opts.invoiceBccEmail, opts.companyEmail, opts.userEmail];
-  for (const raw of candidates) {
-    const email = (raw || '').trim();
-    if (!email) continue;
-    if (email.toLowerCase() === recipient) continue;
-    // light validation — full email schema already applied on profile fields
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
-    return email;
+  for (const raw of [opts.invoiceBccEmail, opts.companyEmail, opts.userEmail]) {
+    const email = distinctMailbox(raw || undefined, opts.recipientEmail);
+    if (email) return email;
+  }
+  return null;
+}
+
+/**
+ * Reply-To for invoice/quote mail. From is the platform mailbox (often noreply,
+ * which is not a real inbox). Replies must land on the business.
+ * Chain: company_email → user login email. Never the recipient.
+ */
+export function resolveInvoiceReplyTo(opts: {
+  companyEmail?: string | null;
+  userEmail?: string | null;
+  recipientEmail: string;
+}): string | null {
+  for (const raw of [opts.companyEmail, opts.userEmail]) {
+    const email = distinctMailbox(raw || undefined, opts.recipientEmail);
+    if (email) return email;
   }
   return null;
 }
@@ -659,6 +681,7 @@ export default {
   sendInvoiceEmail,
   sendQuoteEmail,
   resolveInvoiceBcc,
+  resolveInvoiceReplyTo,
   sendTradeConfirmation,
   sendPortfolioAlert,
   sendPaymentFailedEmail,
