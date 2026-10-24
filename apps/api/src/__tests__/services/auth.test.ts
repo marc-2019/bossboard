@@ -39,11 +39,13 @@ jest.mock('../../services/email.js', () => ({
 }));
 
 const mockGetUserTeamInfo = jest.fn();
+const mockAcceptInvite = jest.fn();
 
 jest.mock('../../services/teams.js', () => ({
   __esModule: true,
   default: {
     getUserTeamInfo: (...args: unknown[]) => mockGetUserTeamInfo(...args),
+    acceptInvite: (...args: unknown[]) => mockAcceptInvite(...args),
   },
 }));
 
@@ -295,6 +297,25 @@ describe('register()', () => {
 
     // Should not throw — email failure is non-fatal
     await expect(register(input)).resolves.toBeDefined();
+  });
+
+  it('does not auto-accept a pending team invite or create membership while unverified', async () => {
+    mockBcryptHash.mockResolvedValue('$2b$12$fakehash');
+    setupRegisterSuccess();
+
+    const { user } = await register({
+      email: 'invitee@example.com',
+      password: 'StrongPass123!',
+      name: 'Invitee',
+    });
+
+    expect(user.isVerified).toBe(false);
+    expect(mockAcceptInvite).not.toHaveBeenCalled();
+
+    const sql = mockDbQuery.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(sql).not.toMatch(/team_members/i);
+    expect(sql).not.toMatch(/team_invites/i);
+    expect(sql).not.toMatch(/invite_status/i);
   });
 });
 

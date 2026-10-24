@@ -352,10 +352,36 @@ async function inviteMember(
   };
 }
 
+const EMAIL_NOT_VERIFIED_MESSAGE =
+  'Verify your email before viewing or accepting team invites';
+
+/**
+ * Load the caller and refuse invitee actions until the email is verified.
+ * Registration issues a live session immediately, so the JWT alone is not proof.
+ */
+async function requireVerifiedInvitee(userId: string): Promise<{ email: string }> {
+  const userResult = await db.query<{ email: string; is_verified: boolean }>(
+    'SELECT email, is_verified FROM users WHERE id = $1',
+    [userId]
+  );
+
+  if (userResult.rows.length === 0) {
+    throw createError('User not found', 404, 'USER_NOT_FOUND');
+  }
+
+  if (userResult.rows[0].is_verified !== true) {
+    throw createError(EMAIL_NOT_VERIFIED_MESSAGE, 403, 'EMAIL_NOT_VERIFIED');
+  }
+
+  return { email: userResult.rows[0].email };
+}
+
 /**
  * Accept a team invite using invite code
  */
 async function acceptInvite(userId: string, inviteCode: string): Promise<TeamMember> {
+  const user = await requireVerifiedInvitee(userId);
+
   // Find the invite
   const inviteResult = await db.query<{
     id: string;
@@ -385,17 +411,7 @@ async function acceptInvite(userId: string, inviteCode: string): Promise<TeamMem
     throw createError('This invite has expired', 400, 'INVITE_EXPIRED');
   }
 
-  // Verify the user's email matches the invite email
-  const userResult = await db.query<{ email: string }>(
-    'SELECT email FROM users WHERE id = $1',
-    [userId]
-  );
-
-  if (userResult.rows.length === 0) {
-    throw createError('User not found', 404, 'USER_NOT_FOUND');
-  }
-
-  if (userResult.rows[0].email.toLowerCase() !== invite.email.toLowerCase()) {
+  if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
     throw createError('This invite was sent to a different email address', 403, 'EMAIL_MISMATCH');
   }
 
@@ -441,6 +457,8 @@ async function acceptInvite(userId: string, inviteCode: string): Promise<TeamMem
  * Decline a team invite
  */
 async function declineInvite(userId: string, inviteCode: string): Promise<void> {
+  const user = await requireVerifiedInvitee(userId);
+
   const inviteResult = await db.query<{ id: string; team_id: string; email: string }>(
     `SELECT id, team_id, email FROM team_invites WHERE invite_code = $1 AND accepted_at IS NULL`,
     [inviteCode]
@@ -452,13 +470,7 @@ async function declineInvite(userId: string, inviteCode: string): Promise<void> 
 
   const invite = inviteResult.rows[0];
 
-  // Verify user email matches
-  const userResult = await db.query<{ email: string }>(
-    'SELECT email FROM users WHERE id = $1',
-    [userId]
-  );
-
-  if (userResult.rows[0]?.email.toLowerCase() !== invite.email.toLowerCase()) {
+  if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
     throw createError('This invite was sent to a different email address', 403, 'EMAIL_MISMATCH');
   }
 
@@ -522,12 +534,16 @@ async function listInvites(userId: string, teamId: string): Promise<TeamInvite[]
  * Get pending invites for the current user (by email)
  */
 async function getMyPendingInvites(userId: string): Promise<TeamInvite[]> {
-  const userResult = await db.query<{ email: string }>(
-    'SELECT email FROM users WHERE id = $1',
+  const userResult = await db.query<{ email: string; is_verified: boolean }>(
+    'SELECT email, is_verified FROM users WHERE id = $1',
     [userId]
   );
 
   if (userResult.rows.length === 0) return [];
+
+  if (userResult.rows[0].is_verified !== true) {
+    throw createError(EMAIL_NOT_VERIFIED_MESSAGE, 403, 'EMAIL_NOT_VERIFIED');
+  }
 
   const result = await db.query<{
     id: string;
