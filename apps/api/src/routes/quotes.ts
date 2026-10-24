@@ -15,6 +15,7 @@ import {
   looksLikeInternalInvoiceNotes,
   INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
 } from '../types/index.js';
+import { MAX_INVOICE_LINE_AMOUNT_CENTS, sumExceedsInvoiceCap } from '../services/invoice-integer-cap.js';
 
 // App error type for error handling
 interface AppError extends Error {
@@ -38,7 +39,7 @@ function quoteHasSentAt(quote: Record<string, unknown> | null | undefined): bool
 
 const lineItemSchema = z.object({
   description: z.string().min(1, 'Description is required'),
-  amount: z.number().int().min(0, 'Amount must be positive (in cents)'),
+  amount: z.number().int().min(0, 'Amount must be positive (in cents)').max(MAX_INVOICE_LINE_AMOUNT_CENTS),
 });
 
 const createSchema = z.object({
@@ -56,6 +57,14 @@ const createSchema = z.object({
   notes: z.string().optional(),
   /** Staff-only — never on PDF */
   internalMemo: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (sumExceedsInvoiceCap(data.lineItems.map((item) => item.amount))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Total exceeds the maximum',
+      path: ['lineItems'],
+    });
+  }
 });
 
 const updateSchema = z.object({
@@ -71,6 +80,14 @@ const updateSchema = z.object({
   bankAccountNumber: z.string().optional(),
   notes: z.string().optional(),
   internalMemo: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.lineItems && sumExceedsInvoiceCap(data.lineItems.map((item) => item.amount))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Total exceeds the maximum',
+      path: ['lineItems'],
+    });
+  }
 });
 
 // =============================================================================
