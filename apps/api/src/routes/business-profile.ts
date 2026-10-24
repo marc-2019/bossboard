@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import businessProfileService from '../services/business-profile.js';
+import { mailboxEmailSchema } from '../services/email.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -22,7 +23,7 @@ const upsertSchema = z.object({
   isGstRegistered: z.boolean().optional(),
   companyAddress: z.string().optional(),
   companyPhone: z.string().optional(),
-  companyEmail: z.string().email('Invalid email format').optional(),
+  companyEmail: mailboxEmailSchema.optional(),
   /** Optional BCC for invoice emails; leave unset to fall back to company email / account email */
   invoiceBccEmail: z
     .union([z.string().email('Invalid BCC email format'), z.literal('')])

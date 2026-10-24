@@ -43,12 +43,14 @@ jest.mock('../../services/pdf.js', () => ({
 const mockIsEmailConfigured = jest.fn();
 const mockSendQuoteEmail = jest.fn();
 const mockResolveInvoiceBcc = jest.fn();
+const mockResolveInvoiceReplyTo = jest.fn();
 jest.mock('../../services/email.js', () => ({
   __esModule: true,
   default: {
     isEmailConfigured: mockIsEmailConfigured,
     sendQuoteEmail: mockSendQuoteEmail,
     resolveInvoiceBcc: mockResolveInvoiceBcc,
+    resolveInvoiceReplyTo: mockResolveInvoiceReplyTo,
   },
 }));
 
@@ -83,6 +85,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockResolveInvoiceReplyTo.mockReturnValue(null);
 });
 
 describe('Quote Routes', () => {
@@ -328,6 +331,47 @@ describe('Quote Routes', () => {
         status: 'draft',
         notes: null,
       });
+    });
+
+    it.each([null, 'accounts@example.com'])('passes Reply-To alongside BCC %j', async (bcc) => {
+      mockGetBusinessProfile.mockResolvedValue({ company_name: 'Example Business', company_email: 'office@example.com' });
+      mockResolveInvoiceBcc.mockReturnValue(bcc);
+      mockResolveInvoiceReplyTo.mockReturnValue('office@example.com');
+      mockSendQuoteEmail.mockResolvedValue({ messageId: 'msg-reply' });
+      const sent = { id: 'q-1', status: 'sent', sent_at: '2026-08-24T07:00:00.000Z' };
+      mockMarkAsSent.mockResolvedValue(sent);
+      mockGetQuoteById.mockResolvedValue(sent);
+
+      const response = await request(app).post('/api/v1/quotes/q-1/email')
+        .send({ recipientEmail: 'client@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(mockResolveInvoiceReplyTo).toHaveBeenCalledWith({
+        companyEmail: 'office@example.com', userEmail: 'test@example.com', recipientEmail: 'client@example.com',
+      });
+      expect(mockSendQuoteEmail).toHaveBeenCalledWith(
+        expect.anything(), expect.anything(), 'client@example.com', 'Example Business', undefined,
+        { ...(bcc ? { bcc } : {}), replyTo: 'office@example.com' }
+      );
+    });
+
+    it('ignores body replyTo and uses the resolver mailbox', async () => {
+      mockGetBusinessProfile.mockResolvedValue({ company_name: 'Example Business', company_email: 'office@example.com' });
+      mockResolveInvoiceBcc.mockReturnValue(null);
+      mockResolveInvoiceReplyTo.mockReturnValue('office@example.com');
+      mockSendQuoteEmail.mockResolvedValue({ messageId: 'msg-reply' });
+      const sent = { id: 'q-1', status: 'sent', sent_at: '2026-08-24T07:00:00.000Z' };
+      mockMarkAsSent.mockResolvedValue(sent);
+      mockGetQuoteById.mockResolvedValue(sent);
+
+      const response = await request(app).post('/api/v1/quotes/q-1/email')
+        .send({ recipientEmail: 'client@example.com', replyTo: 'attacker@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(mockSendQuoteEmail).toHaveBeenCalledWith(
+        expect.anything(), expect.anything(), 'client@example.com', 'Example Business', undefined,
+        { replyTo: 'office@example.com' }
+      );
     });
 
     it('must not 200 when sendQuoteEmail succeeds but markAsSent returns no stamp', async () => {
