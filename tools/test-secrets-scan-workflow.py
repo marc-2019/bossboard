@@ -255,6 +255,54 @@ def require_hidden(blob: bytes) -> bytes:
     return blob
 
 
+def lying_deflate_zip(member_name: str, payload: bytes, declared: int) -> bytes:
+    """Zip whose uncompressed size and CRC describe only a short prefix.
+
+    The deflate stream still expands to the full payload. ZipExtFile stops
+    at the declared size, so a scanner that trusts that read misses the rest.
+    """
+    if declared < 0 or declared >= len(payload):
+        raise SystemExit("lying zip fixture declared size is out of range")
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(member_name, payload)
+    data = bytearray(bio.getvalue())
+    crc = zlib.crc32(payload[:declared]) & 0xFFFFFFFF
+
+    def patch(sig: bytes, crc_at: int, size_at: int) -> None:
+        idx = data.find(sig)
+        if idx < 0:
+            raise SystemExit("lying zip fixture is missing a header")
+        data[idx + crc_at : idx + crc_at + 4] = crc.to_bytes(4, "little")
+        data[idx + size_at : idx + size_at + 4] = declared.to_bytes(4, "little")
+
+    patch(b"PK\x03\x04", 14, 22)
+    patch(b"PK\x01\x02", 16, 24)
+    blob = bytes(data)
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        info = archive.infolist()[0]
+        if info.file_size != declared:
+            raise SystemExit("lying zip fixture did not patch the declared size")
+        short = archive.read(info)
+        if len(short) != declared:
+            raise SystemExit("lying zip fixture short read is unexpected")
+        if token_bytes() in short:
+            raise SystemExit("fixture is invalid: token is inside the declared prefix")
+        archive.fp.seek(info.header_offset)
+        local = archive.fp.read(30)
+        name_len = int.from_bytes(local[26:28], "little")
+        extra_len = int.from_bytes(local[28:30], "little")
+        archive.fp.seek(info.header_offset + 30 + name_len + extra_len)
+        raw = archive.fp.read(info.compress_size)
+    decoder = zlib.decompressobj(wbits=-15)
+    inflated = decoder.decompress(raw, declared + 1)
+    if len(inflated) <= declared or decoder.eof:
+        raise SystemExit("lying zip fixture deflate stream does not continue")
+    if len(blob) >= 32 * 1024 * 1024:
+        raise SystemExit("lying zip fixture is larger than the compressed cap")
+    return require_hidden(blob) if token_bytes() in payload else blob
+
+
 def tiny_png() -> bytes:
     def chunk(tag: bytes, data: bytes) -> bytes:
         crc = zlib.crc32(tag + data) & 0xFFFFFFFF
@@ -763,6 +811,33 @@ def case_issuer() -> tuple[Repo, dict[str, str]]:
     return repo, repo.push_env()
 
 
+def case_nul_prefixed(kind: str, name: str) -> tuple[Repo, dict[str, str]]:
+    if kind == "gzip":
+        body = gzip.compress(token_bytes())
+    elif kind == "zip":
+        body = zip_bytes("secret.txt", token_bytes())
+    else:
+        raise SystemExit("unknown nul fixture")
+    blob = b"\x00" + body
+    if not (blob[1:3] == b"\x1f\x8b" or blob[1:5] == b"PK\x03\x04"):
+        raise SystemExit("nul fixture magic is not at offset 1")
+    return prepare_secret_file(name, require_hidden(blob))
+
+
+def case_lying_token(name: str) -> tuple[Repo, dict[str, str]]:
+    payload = b"A" * 8000 + token_bytes() + b"B" * 8000
+    blob = lying_deflate_zip("secret.txt", payload, 64)
+    if token_bytes() in blob:
+        raise SystemExit("fixture is invalid: token is visible in the archive bytes")
+    return prepare_secret_file(name, blob)
+
+
+def case_lying_zero(name: str) -> tuple[Repo, dict[str, str]]:
+    payload = b"\x00" * (40 * 1024 * 1024)
+    blob = lying_deflate_zip("big.bin", payload, 128)
+    return prepare_secret_file(name, blob, hidden=False)
+
+
 def case_issuer_plus_token() -> tuple[Repo, dict[str, str]]:
     repo = Repo()
     repo.commit(
@@ -783,6 +858,22 @@ CASES = [
     ("zip-inner.bin", 2, case_zip_inner_bin, 90, 0),
     ("gzip-notes.bin", 2, case_gz_bin, 90, 0),
     ("gzip-of-zip", 2, case_gz_of_zip, 90, 0),
+    ("nul-gzip-bin", 2, lambda: case_nul_prefixed("gzip", "notes.bin"), 90, 0),
+    ("nul-gzip-gz", 2, lambda: case_nul_prefixed("gzip", "notes.gz"), 90, 0),
+    ("nul-gzip-none", 2, lambda: case_nul_prefixed("gzip", "notes"), 90, 0),
+    ("nul-gzip-zip", 2, lambda: case_nul_prefixed("gzip", "notes.zip"), 90, 0),
+    ("nul-zip-bin", 2, lambda: case_nul_prefixed("zip", "notes.bin"), 90, 0),
+    ("nul-zip-gz", 2, lambda: case_nul_prefixed("zip", "notes.gz"), 90, 0),
+    ("nul-zip-none", 2, lambda: case_nul_prefixed("zip", "notes"), 90, 0),
+    # A .zip name is opened by gitleaks itself, which accepts a leading NUL,
+    # so the previous job already exited 2. The other names did not.
+    ("nul-zip-zip", 2, lambda: case_nul_prefixed("zip", "notes.zip"), 90, 2),
+    ("lying-token-bin", 1, lambda: case_lying_token("notes.bin"), 90, 0),
+    ("lying-token-zip", 1, lambda: case_lying_token("notes.zip"), 90, 0),
+    ("lying-token-none", 1, lambda: case_lying_token("notes"), 90, 0),
+    ("lying-zero-bin", 1, lambda: case_lying_zero("notes.bin"), 120, 0),
+    ("lying-zero-zip", 1, lambda: case_lying_zero("notes.zip"), 120, 0),
+    ("lying-zero-none", 1, lambda: case_lying_zero("notes"), 120, 0),
     ("bzip2-notes.png", 2, case_bz2_png, 90, None),
     ("xz-notes.bin", 2, case_xz_bin, 90, None),
     ("zeros-gz-33mib", 1, case_zeros_gz, 120, 0),
@@ -877,6 +968,8 @@ def main() -> int:
             note = "missing decompress-cap marker"
         if name == "nested-9" and "Archive nesting exceeds" not in output:
             note = "missing depth marker"
+        if name.startswith("lying-") and "declared size" not in output:
+            note = "missing declared-size marker"
         if name in {"clean-branch-on-main", "clean-lightweight-tag"} and (
             "feature-clean-tip" in output or "clean-tag-v1" in output
         ):
