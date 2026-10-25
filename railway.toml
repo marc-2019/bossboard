@@ -17,7 +17,7 @@
 dockerfilePath = "Dockerfile.api"
 
 # Build context is the project root (Dockerfile copies from apps/api/ and packages/shared/)
-watchPatterns = ["apps/api/src/**", "apps/api/package*.json", "apps/api/tsconfig.json", "packages/shared/src/**", "packages/shared/package.json", "Dockerfile.api"]
+watchPatterns = ["apps/api/src/**", "apps/api/package*.json", "apps/api/tsconfig.json", "packages/shared/src/**", "packages/shared/package.json", "package.json", "package-lock.json", "Dockerfile.api"]
 
 [deploy]
 # Health check
