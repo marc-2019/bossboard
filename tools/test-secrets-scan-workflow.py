@@ -838,6 +838,110 @@ def case_lying_zero(name: str) -> tuple[Repo, dict[str, str]]:
     return prepare_secret_file(name, blob, hidden=False)
 
 
+def assert_zip_hello(blob: bytes) -> bytes:
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        if archive.read(archive.infolist()[0]) != b"hello\n":
+            raise SystemExit("zip fixture member body changed")
+    return require_hidden(blob)
+
+
+def case_trail_after(kind: str) -> tuple[Repo, dict[str, str]]:
+    payload = zip_bytes("secret.txt", token_bytes())
+    if kind == "bz2":
+        blob = bz2.compress(b"hello") + payload
+    elif kind == "xz":
+        blob = lzma.compress(b"hello") + payload
+    elif kind == "gzip":
+        blob = gzip.compress(b"hello") + payload
+    else:
+        raise SystemExit("unknown trailing-stream fixture")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_zip_comment() -> tuple[Repo, dict[str, str]]:
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("hello.txt", b"hello\n")
+        archive.comment = gzip.compress(token_bytes())
+    blob = bio.getvalue()
+    if gzip.decompress(zipfile.ZipFile(io.BytesIO(blob)).comment) != token_bytes():
+        raise SystemExit("zip comment fixture did not keep the compressed token")
+    return prepare_secret_file("notes.bin", assert_zip_hello(blob))
+
+
+def case_zip_gap() -> tuple[Repo, dict[str, str]]:
+    raw = zip_bytes("hello.txt", b"hello\n")
+    eocd = raw.rfind(b"PK\x05\x06")
+    cd_off = int.from_bytes(raw[eocd + 16 : eocd + 20], "little")
+    gap = gzip.compress(token_bytes())
+    blob = bytearray(raw[:cd_off] + gap + raw[cd_off:])
+    moved = eocd + len(gap)
+    blob[moved + 16 : moved + 20] = (cd_off + len(gap)).to_bytes(4, "little")
+    return prepare_secret_file("notes.bin", assert_zip_hello(bytes(blob)))
+
+
+def case_zip_after_eocd() -> tuple[Repo, dict[str, str]]:
+    blob = zip_bytes("hello.txt", b"hello\n") + gzip.compress(token_bytes())
+    return prepare_secret_file("notes.bin", assert_zip_hello(blob))
+
+
+def gzip_tar(build) -> bytes:
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w") as archive:
+        build(archive)
+    blob = gzip.compress(bio.getvalue())
+    return require_hidden(blob)
+
+
+def case_tar_tail() -> tuple[Repo, dict[str, str]]:
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w") as archive:
+        info = tarfile.TarInfo("hello.txt")
+        info.size = 6
+        archive.addfile(info, io.BytesIO(b"hello\n"))
+    blob = gzip.compress(bio.getvalue() + gzip.compress(token_bytes()))
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_tar_name() -> tuple[Repo, dict[str, str]]:
+    def build(archive: tarfile.TarFile) -> None:
+        info = tarfile.TarInfo(token_text())
+        info.size = 6
+        archive.addfile(info, io.BytesIO(b"hello\n"))
+
+    return prepare_secret_file("notes.bin", gzip_tar(build))
+
+
+def case_tar_link() -> tuple[Repo, dict[str, str]]:
+    def build(archive: tarfile.TarFile) -> None:
+        info = tarfile.TarInfo("link")
+        info.type = tarfile.SYMTYPE
+        info.linkname = token_text()
+        archive.addfile(info)
+
+    return prepare_secret_file("notes.bin", gzip_tar(build))
+
+
+def case_tar_pax() -> tuple[Repo, dict[str, str]]:
+    def build(archive: tarfile.TarFile) -> None:
+        info = tarfile.TarInfo("hello.txt")
+        info.size = 6
+        info.pax_headers = {"BOSSBOARD": token_text()}
+        archive.addfile(info, io.BytesIO(b"hello\n"))
+
+    return prepare_secret_file("notes.bin", gzip_tar(build))
+
+
+def case_over_cap_suffix() -> tuple[Repo, dict[str, str]]:
+    suffix = gzip.compress(token_bytes())
+    blob = b"A" * (MAX_ARCHIVE + 1) + suffix
+    if len(blob) <= MAX_ARCHIVE:
+        raise SystemExit("over-cap fixture is not larger than the window")
+    if b"\x1f\x8b" in blob[: MAX_ARCHIVE + 1]:
+        raise SystemExit("over-cap fixture signature is inside the prefix window")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
 def case_issuer_plus_token() -> tuple[Repo, dict[str, str]]:
     repo = Repo()
     repo.commit(
@@ -918,6 +1022,17 @@ CASES = [
     ("other-akia", 2, case_other_akia, 90, None),
     ("issuer-id", 0, case_issuer, 90, None),
     ("issuer-plus-token", 2, case_issuer_plus_token, 90, None),
+    ("trail-bz2-zip", 2, lambda: case_trail_after("bz2"), 90, 0),
+    ("trail-xz-zip", 2, lambda: case_trail_after("xz"), 90, 0),
+    ("trail-gz-zip", 2, lambda: case_trail_after("gzip"), 90, 0),
+    ("zip-comment-gz", 2, case_zip_comment, 90, 0),
+    ("zip-gap-gz", 2, case_zip_gap, 90, 0),
+    ("zip-after-eocd", 2, case_zip_after_eocd, 90, 0),
+    ("tar-tail-gz", 2, case_tar_tail, 90, 0),
+    ("tar-name-gz", 2, case_tar_name, 90, 0),
+    ("tar-link-gz", 2, case_tar_link, 90, 0),
+    ("tar-pax-gz", 2, case_tar_pax, 90, 0),
+    ("over-cap-suffix", 1, case_over_cap_suffix, 180, 0),
 ]
 
 
@@ -970,6 +1085,8 @@ def main() -> int:
             note = "missing depth marker"
         if name.startswith("lying-") and "declared size" not in output:
             note = "missing declared-size marker"
+        if name == "over-cap-suffix" and "compressed blob exceeds cap" not in output:
+            note = "missing over-cap marker"
         if name in {"clean-branch-on-main", "clean-lightweight-tag"} and (
             "feature-clean-tip" in output or "clean-tag-v1" in output
         ):
