@@ -827,11 +827,18 @@ export const gettingStartedClient = {
     ),
 };
 
-/** Subscriptions API (read-only).
- *  Plan changes / Stripe checkout still happen in the mobile app. */
+/** Authenticated subscription comparison and Stripe billing. */
 export const subscriptionsClient = {
+  tiers: () => clientFetch<import('./subscription-tiers').TiersPayload>('/api/subscriptions/tiers'),
+  checkout: (tier: 'tradie' | 'team') =>
+    clientFetch<import('./subscription-tiers').CheckoutResponse>('/api/subscriptions/checkout', {
+      method: 'POST', body: { tier },
+    }),
+  portal: () => clientFetch<import('./subscription-tiers').PortalResponse>('/api/subscriptions/portal', {
+    method: 'POST', body: {},
+  }),
   me: () =>
-    clientFetch<{ subscription: import('@bossboard/shared').SubscriptionInfo }>(
+    clientFetch<{ subscription: import('@bossboard/shared').SubscriptionInfo; betaMode: boolean }>(
       '/api/subscriptions/me',
     ),
 
