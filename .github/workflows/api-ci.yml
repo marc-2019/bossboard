@@ -14,11 +14,17 @@ on:
       - 'Dockerfile.api'
       - 'docker-compose.production.yml'
       - 'railway.toml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/api-ci.yml'
   pull_request:
     branches: [master, main]
     paths:
       - 'apps/api/**'
       - 'packages/shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/api-ci.yml'
   workflow_dispatch:
 
 env:
