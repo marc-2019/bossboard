@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 import {
   buildPolitePaymentReminder,
   buildPoliteReminderMailto,
@@ -182,6 +184,23 @@ describe('buildPolitePaymentReminder', () => {
     expect(sanitizeReminderField('\u0085enc:v1:nextline')).toBe('');
   });
 
+  it('strips soft hyphen, U+061C, and U+180E before the enc:v1 check', () => {
+    expect(sanitizeReminderField('enc:\u00ADv1:secret')).toBe('');
+    expect(sanitizeReminderField('\u061Cenc:v1:secret')).toBe('');
+    expect(sanitizeReminderField('\u180Eenc:v1:secret')).toBe('');
+    expect(sanitizeReminderField('Pa\u00ADt\u061C\u180E')).toBe('Pat');
+
+    const { body } = buildPolitePaymentReminder({
+      customerName: 'Pa\u00ADt\u061C\u180E',
+      invoiceNumber: 'INV-1',
+      asOf: AS_OF,
+    });
+    expect(body).toContain('Hi Pat,');
+    expect(body).not.toContain('\u00AD');
+    expect(body).not.toContain('\u061C');
+    expect(body).not.toContain('\u180E');
+  });
+
   it('strips U+0085 from the greeting so it cannot start a new line', () => {
     const { body } = buildPolitePaymentReminder({
       customerName: 'Pat\u0085Bcc: hidden@evil.example',
@@ -213,12 +232,17 @@ describe('politeReminderFromInvoice staff fields and Stripe ids', () => {
     expect(rendered).not.toContain('sam@example.com');
   });
 
-  it('never includes a Stripe payment intent or checkout session id', () => {
+  it('never copies a Stripe id, and does include the customer Checkout pay link', () => {
+    // The pay link is the customer's payment URL. Stripe Checkout URLs contain
+    // cs_… and are included on purpose. pi_ / cs_ values that are not that URL
+    // (payment_reference, notes) must not appear.
+    const checkoutUrl = 'https://checkout.stripe.com/c/pay/cs_test_SessionInLink';
     const invoiceWithStripeIds = {
       clientName: 'Sam',
       invoiceNumber: 'INV-20',
       status: 'overdue',
       dueDate: '2026-12-01',
+      paymentLinkUrl: checkoutUrl,
       paymentReference: 'pi_3AbcSecretIntent',
       payment_reference: 'cs_test_SessionSecret',
       notes: 'please quote pi_3FromNotes and cs_test_FromNotes',
@@ -231,6 +255,7 @@ describe('politeReminderFromInvoice staff fields and Stripe ids', () => {
           invoiceNumber: 'INV-20',
           asOf: AS_OF,
           dueDate: '2026-12-01',
+          paymentLinkUrl: checkoutUrl,
         },
         {
           paymentReference: 'pi_3FromInput',
@@ -241,12 +266,73 @@ describe('politeReminderFromInvoice staff fields and Stripe ids', () => {
 
     for (const reminder of [fromInvoice, fromInput]) {
       const text = `${reminder.subject}\n${reminder.body}`;
+      expect(text).toContain(`Pay online: ${checkoutUrl}`);
       expect(text).not.toMatch(/pi_/);
-      expect(text).not.toMatch(/cs_/);
+      const withoutPayLink = text.split(checkoutUrl).join('');
+      expect(withoutPayLink).not.toMatch(/cs_/);
     }
     expect(fromInvoice.body).toContain('Payment reference: INV-20');
     expect(fromInvoice.body).toContain('is still outstanding (due 1 Dec 2026)');
     expect(fromInvoice.body).not.toContain('was due on');
+    expect(fromInvoice.body).not.toContain('pi_3AbcSecretIntent');
+    expect(fromInvoice.body).not.toContain('cs_test_SessionSecret');
+    expect(fromInvoice.body).not.toContain('cs_test_FromNotes');
+  });
+});
+
+describe('due today under Pacific/Auckland and UTC', () => {
+  it('never says a SQL DATE of today was due', () => {
+    const reminderPath = path.resolve(
+      __dirname,
+      '../../../../../packages/shared/src/utils/payment-reminder.ts',
+    );
+    const tsxBin = path.resolve(__dirname, '../../../../../node_modules/.bin/tsx');
+    const script = `
+      import { buildPolitePaymentReminder, reminderLocalCalendarKey } from ${JSON.stringify(reminderPath)};
+      const due = new Date(2026, 9, 25, 0, 0, 0, 0);
+      const asOf = reminderLocalCalendarKey(new Date(2026, 9, 25, 15, 0, 0));
+      const { body } = buildPolitePaymentReminder({
+        customerName: 'Sam',
+        amountCents: 100,
+        invoiceNumber: 'INV-TZ',
+        dueDate: due,
+        asOf,
+      });
+      const payload = {
+        tz: process.env.TZ,
+        iso: due.toISOString(),
+        asOf,
+        wasDue: body.includes('was due'),
+        outstanding: body.includes('still outstanding (due 25 Oct 2026)'),
+      };
+      console.log(JSON.stringify(payload));
+      if (payload.wasDue || !payload.outstanding || payload.asOf !== '2026-10-25') process.exit(1);
+    `;
+
+    for (const tz of ['Pacific/Auckland', 'UTC']) {
+      const result = spawnSync(tsxBin, ['-e', script], {
+        env: { ...process.env, TZ: tz },
+        encoding: 'utf8',
+      });
+      if (result.status !== 0) {
+        throw new Error(result.stderr || result.stdout || `tsx exited ${result.status}`);
+      }
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout.trim().split('\n').pop() as string) as {
+        tz: string;
+        iso: string;
+        wasDue: boolean;
+        outstanding: boolean;
+      };
+      expect(payload.tz).toBe(tz);
+      expect(payload.wasDue).toBe(false);
+      expect(payload.outstanding).toBe(true);
+      if (tz === 'Pacific/Auckland') {
+        expect(payload.iso.startsWith('2026-10-24T11:00:00.000Z')).toBe(true);
+      } else {
+        expect(payload.iso.startsWith('2026-10-25T00:00:00.000Z')).toBe(true);
+      }
+    }
   });
 });
 
@@ -323,6 +409,44 @@ describe('formatPoliteReminderClipboard and mailto', () => {
     expect(poisoned).not.toContain('<');
     expect(decodeURIComponent(poisoned)).not.toMatch(/\r/);
     expect(decodeURIComponent(poisoned).split('\n').some((line) => /^bcc:/i.test(line))).toBe(false);
+  });
+
+  it('rejects percent-encoded header injection, including a sync client_email', () => {
+    // routes/sync.ts stores client_email as a free string, not an email schema.
+    const syncClientEmail = 'victim%0D%0ABcc%3Aattacker@evil.com';
+    const encoded = buildPoliteReminderMailto({
+      to: syncClientEmail,
+      subject: 'Friendly reminder',
+      body: 'Please pay.',
+    });
+    expect(encoded.startsWith('mailto:?subject=')).toBe(true);
+    expect(encoded.toLowerCase()).not.toContain('%0d');
+    expect(encoded.toLowerCase()).not.toContain('%0a');
+    expect(encoded).not.toContain('attacker@evil.com');
+    expect(encoded).not.toContain('victim');
+
+    for (const to of [
+      'victim%0d%0aBcc%3Aattacker@evil.com',
+      'user%0A@evil.com',
+      'a%2Cb@evil.com',
+      'a%3Bb@evil.com',
+      'name%3Aextra@evil.com',
+    ]) {
+      const bad = buildPoliteReminderMailto({ to, subject: 'Hi', body: 'Pay' });
+      expect(bad.startsWith('mailto:?')).toBe(true);
+      expect(decodeURIComponent(bad)).not.toMatch(/[\r\n]/);
+      expect(bad.toLowerCase()).not.toContain('attacker');
+      expect(bad).not.toContain('%2C');
+      expect(bad).not.toContain('%3B');
+      expect(bad).not.toContain('%3A');
+    }
+
+    const plus = buildPoliteReminderMailto({
+      to: 'user+tag@example.com',
+      subject: 'Hi',
+      body: 'Pay',
+    });
+    expect(plus.startsWith('mailto:user+tag@example.com?')).toBe(true);
   });
 });
 

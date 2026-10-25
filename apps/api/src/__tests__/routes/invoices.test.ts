@@ -302,7 +302,11 @@ describe('Invoice Routes', () => {
   describe('POST /api/v1/invoices/:id/share', () => {
     it('should generate a shareable link', async () => {
       mockGenerateShareToken.mockResolvedValue('share-token-123');
-      mockGetInvoiceById.mockResolvedValue({ id: 'inv-1', status: 'sent' });
+      mockGetInvoiceById.mockResolvedValue({
+        id: 'inv-1',
+        status: 'sent',
+        payment_link_url: 'https://checkout.stripe.com/c/pay/cs_test_sharesecret',
+      });
 
       const response = await request(app).post('/api/v1/invoices/inv-1/share');
 
@@ -310,6 +314,8 @@ describe('Invoice Routes', () => {
       expect(response.body.data.token).toBe('share-token-123');
       expect(response.body.data.shareUrl).toContain('share-token-123');
       expect(response.body.data.invoice?.status).toBe('sent');
+      expect(response.body.data.invoice).not.toHaveProperty('payment_link_url');
+      expect(JSON.stringify(response.body)).not.toContain('cs_test_sharesecret');
     });
 
     it('should return 404 when invoice not found', async () => {
@@ -366,6 +372,28 @@ describe('Invoice Routes', () => {
         undefined
       );
       expect(response.body.data.bccEmail).toBeNull();
+    });
+
+    it('omits payment_link_url from the email JSON', async () => {
+      const checkout = 'https://checkout.stripe.com/c/pay/cs_test_emailsecret';
+      mockIsEmailConfigured.mockReturnValue(true);
+      mockGetInvoiceByIdRaw.mockResolvedValue({ id: 'inv-1', invoiceNumber: 'INV-001', status: 'sent' });
+      mockGenerateInvoicePDF.mockResolvedValue(Buffer.from('fake-pdf'));
+      mockSendInvoiceEmail.mockResolvedValue({ messageId: 'msg-1' });
+      mockGetInvoiceById.mockResolvedValue({
+        id: 'inv-1',
+        status: 'sent',
+        payment_link_url: checkout,
+      });
+      mockResolveInvoiceBcc.mockReturnValue(null);
+
+      const response = await request(app)
+        .post('/api/v1/invoices/inv-1/email')
+        .send({ recipientEmail: 'client@example.com' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.invoice).not.toHaveProperty('payment_link_url');
+      expect(JSON.stringify(response.body)).not.toContain('cs_test_emailsecret');
     });
 
     it('should BCC business mailbox when resolveInvoiceBcc returns an address', async () => {

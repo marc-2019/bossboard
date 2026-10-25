@@ -25,6 +25,12 @@ import {
   Repeat,
 } from 'lucide-react';
 
+/** Sent, paid, email, and share JSON omit the pay link. Keep the one from GET detail. */
+function keepLoadedPayLink(next: Invoice, prev: Invoice | null): Invoice {
+  if (next.paymentLinkUrl || !prev?.paymentLinkUrl) return next;
+  return { ...next, paymentLinkUrl: prev.paymentLinkUrl };
+}
+
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -104,7 +110,7 @@ export default function InvoiceDetailPage() {
     setError(null);
     try {
       const data = await fn();
-      setInvoice(data.invoice);
+      setInvoice((prev) => keepLoadedPayLink(data.invoice, prev));
       setActionMessage(successMsg);
       if (opts?.promptReferral) {
         void maybePromptReferralAfterInvoiceSend();
@@ -184,7 +190,7 @@ export default function InvoiceDetailPage() {
         recipientEmail: recipient.trim(),
         customMessage: customMessage.trim() || undefined,
       });
-      setInvoice(data.invoice);
+      setInvoice((prev) => keepLoadedPayLink(data.invoice, prev));
       const bccNote =
         data.bccEmail && typeof data.bccEmail === 'string'
           ? ` A copy was BCC’d to ${data.bccEmail}.`
@@ -222,8 +228,9 @@ export default function InvoiceDetailPage() {
       const data = await invoicesClient.share(id);
       setShareUrl(data.shareUrl);
       // API auto-marks draft → sent on first client share
-      if (data.invoice) {
-        setInvoice(data.invoice);
+      const sharedInvoice = data.invoice;
+      if (sharedInvoice) {
+        setInvoice((prev) => keepLoadedPayLink(sharedInvoice, prev));
       } else if (invoice?.status === 'draft') {
         setInvoice({ ...invoice, status: 'sent' });
       }

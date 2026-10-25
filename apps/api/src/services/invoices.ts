@@ -327,6 +327,33 @@ export async function createInvoice(
 }
 
 /**
+ * SQL DATE → `YYYY-MM-DD` using local calendar parts.
+ *
+ * node-pg parses oid 1082 as local midnight. JSON would then emit the UTC
+ * instant, which is the previous day in Pacific/Auckland
+ * (2026-10-25 local midnight is 2026-10-24T11:00Z). A global
+ * `setTypeParser(1082)` is not used: PDF and email format a `YYYY-MM-DD`
+ * string with `new Date(string)`, which is UTC midnight and shifts the day
+ * west of UTC, and quotes, certs, and expenses share that parser. Invoice
+ * due dates are normalised here, before the client or the reminder sees them.
+ */
+function sqlDateToCalendarKey(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  if (typeof value === 'string') {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim());
+    return match ? match[1] : value;
+  }
+  return null;
+}
+
+/**
  * Transform DB row to Invoice type with proper casing
  */
 function transformInvoice(row: Record<string, unknown>): Invoice {
@@ -348,7 +375,7 @@ function transformInvoice(row: Record<string, unknown>): Invoice {
     gstAmount: row.gst_amount as number,
     total: row.total as number,
     status: row.status as InvoiceStatus,
-    dueDate: row.due_date as string | null,
+    dueDate: sqlDateToCalendarKey(row.due_date),
     paidAt: row.paid_at as Date | null,
     // Decrypt bank/PII (never surface enc:v1:… to UI/PDF/email)
     bankAccountName: decryptForDisplay(row.bank_account_name as string | null),
@@ -381,10 +408,16 @@ function transformInvoice(row: Record<string, unknown>): Invoice {
 }
 
 /**
- * Transform to mobile-friendly snake_case format
+ * Transform to mobile-friendly snake_case format.
+ * `payment_link_url` is the customer pay link (often a Checkout URL). It is
+ * returned on invoice detail only. List, update, sent, paid, and email
+ * payloads omit it.
  */
-function transformForMobile(invoice: Invoice): Record<string, unknown> {
-  return {
+function transformForMobile(
+  invoice: Invoice,
+  options?: { includePaymentLink?: boolean },
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
     id: invoice.id,
     user_id: invoice.userId,
     invoice_number: invoice.invoiceNumber,
@@ -422,12 +455,14 @@ function transformForMobile(invoice: Invoice): Record<string, unknown> {
     ird_number: invoice.irdNumber,
     gst_number: invoice.gstNumber,
     share_token: invoice.shareToken,
-    // Customer pay link only. payment_reference is a Stripe pi_/cs_ id and
-    // stays server-side (nothing in the client payload reads it).
-    payment_link_url: invoice.paymentLinkUrl,
     created_at: invoice.createdAt,
     updated_at: invoice.updatedAt,
   };
+  // Detail only. payment_reference (Stripe pi_/cs_ id) stays server-side.
+  if (options?.includePaymentLink) {
+    payload.payment_link_url = invoice.paymentLinkUrl;
+  }
+  return payload;
 }
 
 /**
@@ -590,11 +625,14 @@ async function maybeRepairEncryptedBankFields(
  */
 export async function getInvoiceById(
   invoiceId: string,
-  userId: string
+  userId: string,
+  options?: { includePaymentLink?: boolean },
 ): Promise<Record<string, unknown> | null> {
   const invoice = await getInvoiceByIdRaw(invoiceId, userId);
   if (!invoice) return null;
-  return transformForMobile(invoice);
+  // Detail (the default) includes the customer pay link. Update passes false.
+  const includePaymentLink = options?.includePaymentLink !== false;
+  return transformForMobile(invoice, { includePaymentLink });
 }
 
 /**
@@ -802,7 +840,7 @@ export async function updateInvoice(
   }
 
   if (fields.length === 0) {
-    return getInvoiceById(invoiceId, userId);
+    return getInvoiceById(invoiceId, userId, { includePaymentLink: false });
   }
 
   fields.push('updated_at = NOW()');
@@ -814,7 +852,7 @@ export async function updateInvoice(
     values
   );
 
-  return getInvoiceById(invoiceId, userId);
+  return getInvoiceById(invoiceId, userId, { includePaymentLink: false });
 }
 
 /**

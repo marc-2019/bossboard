@@ -83,7 +83,12 @@ export function isUnpaidInvoiceStatus(status: string | null | undefined): boolea
 
 /** C0, DEL, C1 (includes U+0085 NEXT LINE), and Unicode line separators. */
 const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g;
-const INVISIBLE_CHARS = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+/**
+ * Invisible / format characters that must not hide `enc:v1:` or split a field.
+ * Includes the soft hyphen (U+00AD), Arabic letter mark (U+061C), and
+ * Mongolian vowel separator (U+180E).
+ */
+const INVISIBLE_CHARS = /[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
 
 /**
  * Single-line field sanitiser.
@@ -156,15 +161,18 @@ export function reminderLocalCalendarKey(now: Date = new Date()): string {
 
 /**
  * Calendar date as YYYY-MM-DD.
- * A `YYYY-MM-DD` string is that calendar date (invoice `due_date` is a DATE).
- * A Date instant is read in UTC, because node-pg DATE values are UTC midnight
- * and there is no owner timezone to reinterpret them.
+ * A `YYYY-MM-DD` string is that calendar date (invoice `due_date` is a SQL DATE).
+ * A Date is read with local year/month/day. node-pg parses DATE as local
+ * midnight, not UTC midnight — UTC parts would turn 2026-10-25 into
+ * 2026-10-24 in Pacific/Auckland (local midnight is 2026-10-24T11:00Z).
+ * An ISO datetime string uses the calendar date written before `T`.
+ * Callers should pass `YYYY-MM-DD` for due dates; the invoice mapper does.
  */
 export function reminderCalendarKey(value: string | Date | null | undefined): string | null {
   if (value == null || value === '') return null;
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return null;
-    return calendarKeyFromParts(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
+    return calendarKeyFromParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
   }
   const raw = sanitizeReminderField(value, 40);
   if (!raw) return null;
@@ -209,10 +217,25 @@ function safePaymentUrl(value: string | null | undefined): string | null {
   return href;
 }
 
+/**
+ * Single mailbox for a mailto `To` header. The address is inserted raw, so
+ * `%` is not allowed: a client decodes `%0D%0A` / `%3A` into a new header.
+ * Sync stores `client_email` as a free string, so this check is the gate
+ * for that value too. Reject anything whose decode contains CR, LF, or
+ * `:`, `,`, `;`.
+ */
 function safeEmailAddress(value: string | null | undefined): string | null {
   const s = sanitizeReminderField(value, 254);
-  if (!s) return null;
-  if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(s)) return null;
+  if (!s || s.includes('%')) return null;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(s);
+  } catch {
+    return null;
+  }
+  if (/[\r\n:;,]/u.test(s) || /[\r\n:;,]/u.test(decoded)) return null;
+  if (!/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(decoded)) return null;
+  if (!/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(s)) return null;
   return s;
 }
 
@@ -263,6 +286,9 @@ export function buildPolitePaymentReminder(input: PolitePaymentReminderInput): P
   if (iban) payLines.push(`IBAN: ${iban}`);
   if (swift) payLines.push(`SWIFT/BIC: ${swift}`);
   if (intlBank) payLines.push(`Bank: ${intlBank}`);
+  // Customer pay link (may be a Stripe Checkout URL that contains cs_).
+  // That URL is the way the customer pays, so it is included on purpose.
+  // Stripe payment_intent / session ids that are not this URL are never copied.
   const link = safePaymentUrl(input.paymentLinkUrl);
   if (link) payLines.push(`Pay online: ${link}`);
 
@@ -336,7 +362,9 @@ export function formatPoliteReminderClipboard(subject: string, body: string): st
 
 /**
  * mailto URL. Does not send mail — the user's mail app opens a draft.
- * Recipient is included only when it is a single plain address (no header breaks).
+ * Recipient is included only when it is a single plain address. `%0D%0A` and
+ * other encoded header breaks are dropped, including a `client_email` that
+ * sync stored without an email schema.
  */
 export function buildPoliteReminderMailto(opts: {
   to?: string | null;

@@ -61,6 +61,12 @@ interface Invoice {
   created_at: string;
 }
 
+/** Sent, paid, email, and share JSON omit the pay link. Keep the one from GET detail. */
+function keepLoadedPayLink(next: Invoice, prev: Invoice | null): Invoice {
+  if (next.payment_link_url || !prev?.payment_link_url) return next;
+  return { ...next, payment_link_url: prev.payment_link_url };
+}
+
 export default function InvoiceDetailScreen() {
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -161,7 +167,7 @@ export default function InvoiceDetailScreen() {
             try {
               const response = await invoicesApi.markAsSent(id);
               if (response.data.success) {
-                setInvoice(response.data.data.invoice);
+                setInvoice((prev) => keepLoadedPayLink(response.data.data.invoice, prev));
                 Alert.alert('Success', 'Invoice marked as sent', [
                   {
                     text: 'OK',
@@ -195,7 +201,7 @@ export default function InvoiceDetailScreen() {
             try {
               const response = await invoicesApi.markAsPaid(id);
               if (response.data.success) {
-                setInvoice(response.data.data.invoice);
+                setInvoice((prev) => keepLoadedPayLink(response.data.data.invoice, prev));
                 Alert.alert('Success', 'Invoice marked as paid');
               }
             } catch (error) {
@@ -303,7 +309,7 @@ export default function InvoiceDetailScreen() {
               const response = await invoicesApi.emailInvoice(id, recipientEmail);
               if (response.data.success) {
                 if (response.data.data?.invoice) {
-                  setInvoice(response.data.data.invoice);
+                  setInvoice((prev) => keepLoadedPayLink(response.data.data.invoice, prev));
                 }
                 const bcc = response.data.data?.bccEmail as string | null | undefined;
                 const successMsg = bcc
