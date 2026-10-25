@@ -21,6 +21,7 @@ import * as Sharing from 'expo-sharing';
 import { invoicesApi, getAuthToken } from '../../src/services/api';
 import { maybePromptReferralAfterInvoiceSend } from '../../src/services/referralShare';
 import PhotoAttachments from '../../src/components/PhotoAttachments';
+import PolitePaymentReminder from '../../src/components/PolitePaymentReminder';
 import { safeGoBack } from '../../src/utils/navigation';
 
 interface Invoice {
@@ -56,6 +57,8 @@ interface Invoice {
   notes: string | null;
   internal_memo?: string | null;
   internalMemo?: string | null;
+  payment_link_url?: string | null;
+  payment_reference?: string | null;
   created_at: string;
 }
 
@@ -622,6 +625,10 @@ export default function InvoiceDetailScreen() {
               <Text style={styles.secondaryButtonText}>Edit Invoice</Text>
             </TouchableOpacity>
           </>
+        )}
+
+        {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+          <PolitePaymentReminder invoice={invoice} />
         )}
 
         {(invoice.status === 'sent' || invoice.status === 'overdue') && (

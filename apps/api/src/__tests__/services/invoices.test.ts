@@ -431,7 +431,14 @@ describe('getInvoiceByIdRaw', () => {
 
 describe('getInvoiceById', () => {
   it('returns snake_case formatted invoice for mobile clients', async () => {
-    mockDbQuery.mockResolvedValueOnce({ rows: [makeInvoiceRow()] });
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [
+        makeInvoiceRow({
+          payment_link_url: 'https://pay.example.com/inv-0001',
+          payment_reference: 'INV-0001',
+        }),
+      ],
+    });
 
     const result = await getInvoiceById('inv-uuid-1', 'user-1');
 
@@ -440,6 +447,13 @@ describe('getInvoiceById', () => {
     expect(result!['invoice_number']).toBe('INV-0001');
     expect(result!['client_name']).toBe('Test Client');
     expect(result!['gst_amount']).toBe(1500);
+    expect(result!['payment_link_url']).toBe('https://pay.example.com/inv-0001');
+    expect(result!['payment_reference']).toBe('INV-0001');
+    // Ownership stays on the existing user_id predicate — no cross-user read.
+    expect(mockDbQuery).toHaveBeenCalledWith(
+      expect.stringContaining('user_id = $2'),
+      ['inv-uuid-1', 'user-1'],
+    );
   });
 
   it('returns null when invoice not found', async () => {

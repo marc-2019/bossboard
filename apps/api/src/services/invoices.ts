@@ -422,6 +422,9 @@ function transformForMobile(invoice: Invoice): Record<string, unknown> {
     ird_number: invoice.irdNumber,
     gst_number: invoice.gstNumber,
     share_token: invoice.shareToken,
+    // Customer pay link / reference for reminders. Stripe ids stay server-side.
+    payment_reference: invoice.paymentReference,
+    payment_link_url: invoice.paymentLinkUrl,
     created_at: invoice.createdAt,
     updated_at: invoice.updatedAt,
   };

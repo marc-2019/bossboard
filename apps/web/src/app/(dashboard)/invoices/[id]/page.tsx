@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/badge';
 import { invoicesClient, recurringInvoicesClient, ApiError } from '@/lib/api-client';
 import { maybePromptReferralAfterInvoiceSend } from '@/lib/referral-share';
 import { PhotoUploader } from '@/components/ui/photo-uploader';
+import { PolitePaymentReminder } from '@/components/polite-payment-reminder';
 import type { Invoice } from '@bossboard/shared';
 import {
   ArrowLeft,
@@ -386,6 +387,20 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
         </div>
+
+        {isSent && (
+          <PolitePaymentReminder
+            invoice={invoice}
+            onUseInEmail={(message) => {
+              setCustomMessage(message);
+              setEmailFormOpen(true);
+              setError(null);
+              setActionMessage(
+                'Reminder added to the email form. Nothing is sent until you click Send email.',
+              );
+            }}
+          />
+        )}
 
         {actionMessage && (
           <div className="mt-3 p-3 rounded-lg bg-success-light text-success text-sm">
