@@ -471,6 +471,36 @@ export async function sendVerificationEmail(
   return send(recipientEmail, welcomeTemplate(code));
 }
 
+export async function sendTeamInviteEmail(
+  recipientEmail: string,
+  teamName: string,
+  joinUrl: string
+): Promise<{ messageId: string }> {
+  const safeTeam = escapeHtml(teamName);
+  const safeUrl = escapeHtml(joinUrl);
+  const subject = `You're invited to ${teamName} on ${appName()}`;
+  const html = layout(
+    '#FF6B35',
+    `Join ${safeTeam}`,
+    appName(),
+    `<p style="margin: 0 0 16px; color: #374151; font-size: 16px;">You have been invited to the ${safeTeam} team.</p>
+     <p style="margin: 0 0 16px; color: #374151;">Open the link and sign in, or create an account, with <strong>${escapeHtml(recipientEmail)}</strong>. Verify that address. That adds you to the team.</p>
+     <div style="margin: 24px 0; text-align: center;">
+       <a href="${safeUrl}" style="display: inline-block; padding: 12px 28px; background: #FF6B35; color: #FFFFFF; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Join ${safeTeam}</a>
+     </div>
+     <p style="margin: 0; color: #6B7280; font-size: 13px;">If the button does not work, copy this address into your browser:<br>${safeUrl}</p>`
+  );
+  const text = [
+    `You have been invited to the ${teamName} team on ${appName()}.`,
+    '',
+    `Open this link and sign in, or create an account, with ${recipientEmail}:`,
+    joinUrl,
+    '',
+    'Verify that email address. That adds you to the team.',
+  ].join('\n');
+  return send(recipientEmail, { subject, html, text });
+}
+
 export async function sendPasswordResetEmail(
   recipientEmail: string,
   code: string
@@ -655,6 +685,7 @@ export default {
   isSmtpConfigured,
   isResendConfigured,
   sendVerificationEmail,
+  sendTeamInviteEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
   sendQuoteEmail,

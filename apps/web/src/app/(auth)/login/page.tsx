@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
@@ -16,6 +16,19 @@ export default function LoginPage() {
   );
 }
 
+function signupHref(searchParams: { get: (name: string) => string | null }): string {
+  const redirect = searchParams.get('redirect') || '';
+  const email = searchParams.get('email') || '';
+  const q = new URLSearchParams();
+  if (email) q.set('email', email);
+  if (redirect.startsWith('/join/')) {
+    const invite = redirect.slice('/join/'.length).split(/[/?#]/)[0];
+    if (invite) q.set('invite', invite);
+  }
+  const query = q.toString();
+  return query ? `/register?${query}` : '/register';
+}
+
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,6 +36,11 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const searchParams = useSearchParams();
+  const emailFromLink = searchParams.get('email') || '';
+
+  useEffect(() => {
+    if (emailFromLink) setEmail(emailFromLink);
+  }, [emailFromLink]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -97,7 +115,7 @@ function LoginForm() {
 
       <p className="mt-4 text-sm text-center text-gray-500">
         {"Don't have an account? "}
-        <Link href="/register" className="text-accent font-medium hover:underline">
+        <Link href={signupHref(searchParams)} className="text-accent font-medium hover:underline">
           Sign up
         </Link>
       </p>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -15,14 +14,25 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [emailLocked, setEmailLocked] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
-  const router = useRouter();
 
   useEffect(() => {
     try {
       const qs = new URLSearchParams(window.location.search);
+      const invite = qs.get('invite') || '';
+      const emailFromLink = qs.get('email') || '';
+      if (/^[A-Za-z0-9]{6,128}$/.test(invite)) {
+        setInviteCode(invite);
+        if (emailFromLink) {
+          setEmail(emailFromLink);
+          setEmailLocked(true);
+        }
+        return;
+      }
       const fromQuery = qs.get('ref') || qs.get('referral');
       if (fromQuery) {
         setReferralCode(fromQuery.toUpperCase());
@@ -53,7 +63,9 @@ export default function RegisterPage() {
       } catch {
         /* ignore */
       }
-      router.push('/dashboard');
+      const dest = inviteCode ? `/join/${inviteCode}` : '/dashboard';
+      window.location.assign(dest);
+      return;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -65,7 +77,13 @@ export default function RegisterPage() {
     <Card>
       <h1 className="text-xl font-bold text-gray-900 mb-6">Create your account</h1>
 
-      {referralCode && (
+      {inviteCode && (
+        <div className="mb-4 p-3 rounded-lg bg-accent/10 text-sm text-gray-800">
+          This address is invited to a team. Creating the account adds you to that team.
+        </div>
+      )}
+
+      {referralCode && !inviteCode && (
         <div className="mb-4 p-3 rounded-lg bg-accent/10 text-sm text-gray-800">
           Friend invite code <span className="font-mono font-semibold">{referralCode}</span> will
           apply — when you subscribe, you and your mate both get a free month.
@@ -91,6 +109,7 @@ export default function RegisterPage() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           required
+          readOnly={emailLocked}
         />
         <Input
           label="Password"
@@ -101,12 +120,14 @@ export default function RegisterPage() {
           required
           minLength={8}
         />
-        <Input
-          label="Friend code (optional)"
-          value={referralCode}
-          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-          placeholder="e.g. BBABC123"
-        />
+        {!inviteCode && (
+          <Input
+            label="Friend code (optional)"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            placeholder="e.g. BBABC123"
+          />
+        )}
         <Button type="submit" loading={loading} className="w-full">
           Create account
         </Button>

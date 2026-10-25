@@ -564,7 +564,7 @@ async function getMyPendingInvites(userId: string): Promise<TeamInvite[]> {
      FROM team_invites ti
      JOIN teams t ON t.id = ti.team_id
      JOIN users u ON u.id = ti.invited_by
-     WHERE ti.email = $1 AND ti.accepted_at IS NULL AND ti.expires_at > NOW()
+     WHERE LOWER(ti.email) = LOWER($1) AND ti.accepted_at IS NULL AND ti.expires_at > NOW()
      ORDER BY ti.created_at DESC`,
     [userResult.rows[0].email.toLowerCase()]
   );
@@ -582,6 +582,80 @@ async function getMyPendingInvites(userId: string): Promise<TeamInvite[]> {
     teamName: row.team_name,
     invitedByName: row.invited_by_name || undefined,
   }));
+}
+
+/**
+ * Public preview for an invite link. Does not return the code.
+ */
+async function previewInvite(inviteCode: string): Promise<{
+  teamName: string;
+  email: string;
+  role: string;
+  status: 'pending' | 'accepted' | 'expired';
+}> {
+  const result = await db.query<{
+    email: string;
+    role: string;
+    expires_at: Date;
+    accepted_at: Date | null;
+    team_name: string;
+  }>(
+    `SELECT ti.email, ti.role, ti.expires_at, ti.accepted_at, t.name as team_name
+     FROM team_invites ti
+     JOIN teams t ON t.id = ti.team_id
+     WHERE ti.invite_code = $1`,
+    [inviteCode]
+  );
+
+  if (result.rows.length === 0) {
+    throw createError('Invalid invite code', 404, 'INVITE_NOT_FOUND');
+  }
+
+  const row = result.rows[0];
+  let status: 'pending' | 'accepted' | 'expired' = 'pending';
+  if (row.accepted_at) status = 'accepted';
+  else if (new Date() > new Date(row.expires_at)) status = 'expired';
+
+  return {
+    teamName: row.team_name,
+    email: row.email,
+    role: row.role,
+    status,
+  };
+}
+
+/**
+ * Join every unexpired invite for this user's email once the address is verified.
+ */
+async function claimPendingInvites(userId: string): Promise<number> {
+  const userResult = await db.query<{ email: string; is_verified: boolean }>(
+    'SELECT email, is_verified FROM users WHERE id = $1',
+    [userId]
+  );
+  if (userResult.rows.length === 0) return 0;
+  if (userResult.rows[0].is_verified !== true) return 0;
+
+  const email = userResult.rows[0].email.toLowerCase();
+  const pending = await db.query<{ invite_code: string }>(
+    `SELECT invite_code FROM team_invites
+     WHERE LOWER(email) = $1 AND accepted_at IS NULL AND expires_at > NOW()
+     ORDER BY created_at ASC`,
+    [email]
+  );
+
+  let claimed = 0;
+  for (const row of pending.rows) {
+    try {
+      await acceptInvite(userId, row.invite_code);
+      claimed += 1;
+    } catch (err) {
+      console.warn(
+        '[Teams] pending invite was not claimed:',
+        err instanceof Error ? err.message : 'claim failed'
+      );
+    }
+  }
+  return claimed;
 }
 
 /**
@@ -831,6 +905,8 @@ export default {
   declineInvite,
   listInvites,
   getMyPendingInvites,
+  previewInvite,
+  claimPendingInvites,
   removeMember,
   updateMemberRole,
   cancelInvite,
