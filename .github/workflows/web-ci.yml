@@ -14,7 +14,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
   pull_request:
-    branches: [master, main]
+    branches: [master, main, develop]
     paths:
       - 'apps/web/**'
       - 'packages/shared/**'
