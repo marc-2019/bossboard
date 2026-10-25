@@ -435,7 +435,7 @@ describe('getInvoiceById', () => {
       rows: [
         makeInvoiceRow({
           payment_link_url: 'https://pay.example.com/inv-0001',
-          payment_reference: 'INV-0001',
+          payment_reference: 'pi_3SecretIntent',
         }),
       ],
     });
@@ -448,7 +448,8 @@ describe('getInvoiceById', () => {
     expect(result!['client_name']).toBe('Test Client');
     expect(result!['gst_amount']).toBe(1500);
     expect(result!['payment_link_url']).toBe('https://pay.example.com/inv-0001');
-    expect(result!['payment_reference']).toBe('INV-0001');
+    expect(result).not.toHaveProperty('payment_reference');
+    expect(JSON.stringify(result)).not.toContain('pi_3SecretIntent');
     // Ownership stays on the existing user_id predicate — no cross-user read.
     expect(mockDbQuery).toHaveBeenCalledWith(
       expect.stringContaining('user_id = $2'),

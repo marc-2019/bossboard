@@ -23,18 +23,12 @@ export interface PolitePaymentReminderInput {
   intlSwiftBic?: string | null;
   intlBankName?: string | null;
   paymentLinkUrl?: string | null;
-  /** Extra reference shown under how-to-pay (for example a payment reference). */
-  paymentReference?: string | null;
   /**
-   * When true, the due sentence says the invoice is overdue.
-   * Callers can also leave this false and pass `asOf` so a past due date
-   * selects the overdue sentence.
-   */
-  overdue?: boolean;
-  /**
-   * Calendar "today" used only to decide overdue wording when `overdue` is
-   * not already true. Defaults to the current UTC date. Does not appear in
-   * the message.
+   * Calendar "today" used to decide whether the due date is already past.
+   * Does not appear in the message. Users have no stored timezone: pass the
+   * device-local calendar date (`reminderLocalCalendarKey`). If omitted, the
+   * runtime's local calendar date is used. On a UTC server that can be a day
+   * off from Pacific/Auckland around midnight.
    */
   asOf?: string | Date | null;
 }
@@ -69,8 +63,6 @@ export interface PoliteReminderInvoiceLike {
   intl_bank_name?: string | null;
   paymentLinkUrl?: string | null;
   payment_link_url?: string | null;
-  paymentReference?: string | null;
-  payment_reference?: string | null;
   status?: string | null;
 }
 
@@ -89,32 +81,32 @@ export function isUnpaidInvoiceStatus(status: string | null | undefined): boolea
   return s === 'sent' || s === 'overdue';
 }
 
+/** C0, DEL, C1 (includes U+0085 NEXT LINE), and Unicode line separators. */
+const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g;
+const INVISIBLE_CHARS = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+
 /**
  * Single-line field sanitiser.
- * Strips control characters (header injection), angle brackets (HTML tags),
- * and encrypted `enc:v1:` blobs so ciphertext is never pasted into a customer message.
+ * Trim, then strip control characters, then drop the field if `enc:v1:`
+ * appears anywhere in what remains. Also strips angle brackets.
  */
 export function sanitizeReminderField(value: unknown, max = FIELD_MAX): string {
   if (value == null) return '';
-  let s = String(value);
-  if (s.startsWith('enc:v1:')) return '';
-  s = s
-    .replace(/[\u0000-\u001F\u007F\u2028\u2029]/g, ' ')
-    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '')
-    .replace(/[<>]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  let s = String(value).trim();
+  s = s.replace(CONTROL_CHARS, '').replace(INVISIBLE_CHARS, '');
+  s = s.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+  if (s.toLowerCase().includes('enc:v1:')) return '';
   if (s.length > max) s = s.slice(0, max).trim();
   return s;
 }
 
-/** Plain-text body. Keeps intentional newlines. Strips CR and HTML brackets. */
+/** Plain-text body. Keeps intentional newlines. Strips other controls, including C1. */
 export function sanitizeReminderBody(body: string): string {
   return String(body ?? '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u2028\u2029]/g, '')
-    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]/g, '')
+    .replace(INVISIBLE_CHARS, '')
     .replace(/[<>]/g, '')
     .slice(0, BODY_MAX);
 }
@@ -149,7 +141,25 @@ function calendarKeyFromParts(year: number, month: number, day: number): string 
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-/** Calendar date as YYYY-MM-DD in UTC, or null when the value is not a real date. */
+/**
+ * Calendar date of `now` in the runtime's local timezone.
+ * BossBoard does not store an owner timezone. The mobile and web apps run
+ * this on the tradie's device, so the local date is theirs. A UTC server
+ * that omits `asOf` can be a day away from Pacific/Auckland around midnight.
+ */
+export function reminderLocalCalendarKey(now: Date = new Date()): string {
+  return (
+    calendarKeyFromParts(now.getFullYear(), now.getMonth() + 1, now.getDate()) ??
+    now.toISOString().slice(0, 10)
+  );
+}
+
+/**
+ * Calendar date as YYYY-MM-DD.
+ * A `YYYY-MM-DD` string is that calendar date (invoice `due_date` is a DATE).
+ * A Date instant is read in UTC, because node-pg DATE values are UTC midnight
+ * and there is no owner timezone to reinterpret them.
+ */
 export function reminderCalendarKey(value: string | Date | null | undefined): string | null {
   if (value == null || value === '') return null;
   if (value instanceof Date) {
@@ -225,19 +235,17 @@ export function buildPolitePaymentReminder(input: PolitePaymentReminderInput): P
   const amount = formatNzd(input.amountCents);
   const dueKey = reminderCalendarKey(input.dueDate ?? null);
   const due = formatCalendarKey(dueKey);
-  const asOfKey = reminderCalendarKey(input.asOf ?? null) ?? new Date().toISOString().slice(0, 10);
+  const asOfKey = resolveAsOfKey(input.asOf);
+  // Wording follows the calendar date only. A status of "overdue" with a
+  // future due date must not say the invoice "was due".
   const pastDue = Boolean(dueKey && dueKey < asOfKey);
-  const overdue = input.overdue === true || pastDue;
-  const reference = sanitizeReminderField(input.paymentReference);
 
   const invoiceLabel = invoiceRef ? `invoice ${invoiceRef}` : 'your invoice';
   const amountLabel = amount ? ` for ${amount}` : '';
 
   let dueSentence: string;
-  if (overdue && due) {
+  if (pastDue && due) {
     dueSentence = `${capitalise(invoiceLabel)}${amountLabel} was due on ${due} and is still unpaid.`;
-  } else if (overdue) {
-    dueSentence = `${capitalise(invoiceLabel)}${amountLabel} is overdue and still unpaid.`;
   } else if (due) {
     dueSentence = `${capitalise(invoiceLabel)}${amountLabel} is still outstanding (due ${due}).`;
   } else {
@@ -257,11 +265,15 @@ export function buildPolitePaymentReminder(input: PolitePaymentReminderInput): P
   if (intlBank) payLines.push(`Bank: ${intlBank}`);
   const link = safePaymentUrl(input.paymentLinkUrl);
   if (link) payLines.push(`Pay online: ${link}`);
-  if (reference) payLines.push(`Payment reference: ${reference}`);
 
-  const payBlock = payLines.length
+  const howToPay = payLines.length
     ? ['How to pay:', ...payLines].join('\n')
     : 'If you need our payment details, reply to this note and we will send them through.';
+  // The reference the customer should quote is the invoice number.
+  // payment_reference on the invoice is a Stripe pi_ / cs_ id and is never copied.
+  const payBlock = invoiceRef
+    ? `${howToPay}\nPayment reference: ${invoiceRef}`
+    : howToPay;
 
   const signoff = business || 'us';
   const subject = sanitizeReminderSubject(
@@ -286,11 +298,18 @@ export function buildPolitePaymentReminder(input: PolitePaymentReminderInput): P
   return { subject, body: sanitizeReminderBody(body) };
 }
 
+function resolveAsOfKey(asOf: string | Date | null | undefined): string {
+  if (asOf instanceof Date) return reminderLocalCalendarKey(asOf);
+  const parsed = reminderCalendarKey(asOf ?? null);
+  return parsed ?? reminderLocalCalendarKey();
+}
+
 export function politeReminderFromInvoice(
   invoice: PoliteReminderInvoiceLike,
   options?: { asOf?: string | Date | null },
 ): PolitePaymentReminder {
-  const status = String(invoice.status ?? '').toLowerCase();
+  // Intentionally ignores notes, internal memos, client email, and
+  // payment_reference / paymentReference (Stripe pi_ / cs_ ids).
   return buildPolitePaymentReminder({
     customerName: firstDefined(invoice.clientName, invoice.client_name) ?? null,
     amountCents: invoice.total,
@@ -303,8 +322,6 @@ export function politeReminderFromInvoice(
     intlSwiftBic: firstDefined(invoice.intlSwiftBic, invoice.intl_swift_bic) ?? null,
     intlBankName: firstDefined(invoice.intlBankName, invoice.intl_bank_name) ?? null,
     paymentLinkUrl: firstDefined(invoice.paymentLinkUrl, invoice.payment_link_url) ?? null,
-    paymentReference: firstDefined(invoice.paymentReference, invoice.payment_reference) ?? null,
-    overdue: status === 'overdue',
     asOf: options?.asOf,
   });
 }

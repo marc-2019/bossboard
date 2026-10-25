@@ -58,7 +58,6 @@ interface Invoice {
   internal_memo?: string | null;
   internalMemo?: string | null;
   payment_link_url?: string | null;
-  payment_reference?: string | null;
   created_at: string;
 }
 

@@ -35,6 +35,7 @@ export {
   isUnpaidInvoiceStatus,
   politeReminderFromInvoice,
   reminderCalendarKey,
+  reminderLocalCalendarKey,
   sanitizeReminderBody,
   sanitizeReminderField,
   sanitizeReminderSubject,

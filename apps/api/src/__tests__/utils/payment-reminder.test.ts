@@ -4,6 +4,7 @@ import {
   formatPoliteReminderClipboard,
   isUnpaidInvoiceStatus,
   politeReminderFromInvoice,
+  sanitizeReminderField,
 } from '@bossboard/shared';
 
 const AS_OF = '2026-10-25';
@@ -19,7 +20,6 @@ describe('buildPolitePaymentReminder', () => {
       bankAccountName: 'Acme Plumbing Ltd',
       bankAccountNumber: '12-3456-7890123-00',
       paymentLinkUrl: 'https://pay.example.com/inv-0042',
-      paymentReference: 'INV-0042',
       asOf: AS_OF,
     });
 
@@ -34,16 +34,18 @@ describe('buildPolitePaymentReminder', () => {
     expect(body).not.toMatch(/internal memo/i);
   });
 
-  it('uses overdue wording when status is overdue or the due date has passed', () => {
-    const overdue = buildPolitePaymentReminder({
+  it('uses past-due wording only when the due date is before as-of', () => {
+    const future = buildPolitePaymentReminder({
       customerName: 'Sam',
       amountCents: 2500,
       invoiceNumber: 'INV-9',
       dueDate: '2026-11-02',
-      overdue: true,
       asOf: AS_OF,
     });
-    expect(overdue.body).toContain('Invoice INV-9 for NZ$25.00 was due on 2 Nov 2026 and is still unpaid.');
+    expect(future.body).toContain(
+      'Invoice INV-9 for NZ$25.00 is still outstanding (due 2 Nov 2026).',
+    );
+    expect(future.body).not.toContain('was due on');
 
     const pastDue = buildPolitePaymentReminder({
       customerName: 'Sam',
@@ -53,6 +55,7 @@ describe('buildPolitePaymentReminder', () => {
       asOf: AS_OF,
     });
     expect(pastDue.body).toContain('was due on 21 Mar 2026 and is still unpaid.');
+    expect(pastDue.body).not.toContain('still outstanding (due');
   });
 
   it('falls back politely when fields are missing', () => {
@@ -119,7 +122,6 @@ describe('buildPolitePaymentReminder', () => {
       businessName: evilBusiness,
       bankAccountName: 'Name\r\nBcc: bank@evil.example',
       bankAccountNumber: '12<script>',
-      paymentReference: 'REF\nBcc: ref@evil.example',
       paymentLinkUrl: 'javascript:alert(1)',
       asOf: AS_OF,
     });
@@ -133,7 +135,7 @@ describe('buildPolitePaymentReminder', () => {
       false,
     );
     expect(subject.split('\n')).toHaveLength(1);
-    expect(body).toContain('Hi Alice Bcc: attacker@evil.example Cc: other@evil.example,');
+    expect(body).toContain('Hi AliceBcc: attacker@evil.exampleCc: other@evil.example,');
     expect(body).not.toContain('hidden@evil.example');
     expect(body).not.toContain('javascript:');
     expect(body).not.toContain('Pay online:');
@@ -172,23 +174,79 @@ describe('buildPolitePaymentReminder', () => {
     expect(encodedBreak.body).not.toContain('%0A');
   });
 
-  it('ignores staff-only fields that are not part of the reminder input', () => {
-    const input = Object.assign(
-      {
-        customerName: 'Sam',
-        invoiceNumber: 'INV-2',
-        asOf: AS_OF,
-      },
-      {
-        internalMemo: 'SECRET-MEMO-9f3a',
-        notes: 'NOTE-LEAK-should-not-appear',
-        clientEmail: 'sam@example.com',
-      },
-    );
-    const rendered = JSON.stringify(buildPolitePaymentReminder(input));
+  it('drops enc:v1 blobs hidden by a leading space or control character', () => {
+    expect(sanitizeReminderField('  enc:v1:abcdef')).toBe('');
+    expect(sanitizeReminderField('\u0001enc:v1:abcdef')).toBe('');
+    expect(sanitizeReminderField(' \u0007enc:v1:supersecretciphertext')).toBe('');
+    expect(sanitizeReminderField('account enc:v1:tail')).toBe('');
+    expect(sanitizeReminderField('\u0085enc:v1:nextline')).toBe('');
+  });
+
+  it('strips U+0085 from the greeting so it cannot start a new line', () => {
+    const { body } = buildPolitePaymentReminder({
+      customerName: 'Pat\u0085Bcc: hidden@evil.example',
+      invoiceNumber: 'INV-1',
+      asOf: AS_OF,
+    });
+    expect(body).not.toContain('\u0085');
+    expect(body.split('\n').some((line) => /^bcc:/i.test(line.trim()))).toBe(false);
+    expect(body).toContain('Hi PatBcc: hidden@evil.example,');
+  });
+});
+
+describe('politeReminderFromInvoice staff fields and Stripe ids', () => {
+  it('does not copy notes, internal memos, or the customer email', () => {
+    const invoice = {
+      clientName: 'Sam',
+      invoiceNumber: 'INV-2',
+      status: 'sent',
+      notes: 'NOTE-LEAK-should-not-appear',
+      internalMemo: 'SECRET-MEMO-9f3a',
+      internal_memo: 'SECRET-MEMO-SNAKE',
+      clientEmail: 'sam@example.com',
+    };
+    const { subject, body } = politeReminderFromInvoice(invoice, { asOf: AS_OF });
+    const rendered = `${subject}\n${body}`;
+    expect(rendered).not.toContain('NOTE-LEAK-should-not-appear');
     expect(rendered).not.toContain('SECRET-MEMO-9f3a');
-    expect(rendered).not.toContain('NOTE-LEAK');
+    expect(rendered).not.toContain('SECRET-MEMO-SNAKE');
     expect(rendered).not.toContain('sam@example.com');
+  });
+
+  it('never includes a Stripe payment intent or checkout session id', () => {
+    const invoiceWithStripeIds = {
+      clientName: 'Sam',
+      invoiceNumber: 'INV-20',
+      status: 'overdue',
+      dueDate: '2026-12-01',
+      paymentReference: 'pi_3AbcSecretIntent',
+      payment_reference: 'cs_test_SessionSecret',
+      notes: 'please quote pi_3FromNotes and cs_test_FromNotes',
+    };
+    const fromInvoice = politeReminderFromInvoice(invoiceWithStripeIds, { asOf: AS_OF });
+    const fromInput = buildPolitePaymentReminder(
+      Object.assign(
+        {
+          customerName: 'Sam',
+          invoiceNumber: 'INV-20',
+          asOf: AS_OF,
+          dueDate: '2026-12-01',
+        },
+        {
+          paymentReference: 'pi_3FromInput',
+          payment_reference: 'cs_test_FromInput',
+        },
+      ),
+    );
+
+    for (const reminder of [fromInvoice, fromInput]) {
+      const text = `${reminder.subject}\n${reminder.body}`;
+      expect(text).not.toMatch(/pi_/);
+      expect(text).not.toMatch(/cs_/);
+    }
+    expect(fromInvoice.body).toContain('Payment reference: INV-20');
+    expect(fromInvoice.body).toContain('is still outstanding (due 1 Dec 2026)');
+    expect(fromInvoice.body).not.toContain('was due on');
   });
 });
 
@@ -215,7 +273,7 @@ describe('politeReminderFromInvoice', () => {
     expect(body).toContain('North Build');
   });
 
-  it('reads the mobile snake_case invoice and treats overdue status as overdue', () => {
+  it('keeps a future due date neutral even when status is overdue', () => {
     const { body } = politeReminderFromInvoice(
       {
         client_name: 'Aroha',
@@ -227,7 +285,8 @@ describe('politeReminderFromInvoice', () => {
       },
       { asOf: AS_OF },
     );
-    expect(body).toContain('Invoice INV-11 for NZ$5.00 was due on 1 Dec 2026 and is still unpaid.');
+    expect(body).toContain('Invoice INV-11 for NZ$5.00 is still outstanding (due 1 Dec 2026).');
+    expect(body).not.toContain('was due on');
   });
 });
 
@@ -237,7 +296,7 @@ describe('formatPoliteReminderClipboard and mailto', () => {
       'Hello\r\nBcc: attacker@evil.example',
       'Please pay <b>today</b>\r\nThanks',
     );
-    expect(text.startsWith('Subject: Hello Bcc: attacker@evil.example\n\n')).toBe(true);
+    expect(text.startsWith('Subject: HelloBcc: attacker@evil.example\n\n')).toBe(true);
     expect(text).not.toMatch(/[<>]/);
     expect(text).not.toMatch(/\r/);
     expect(text.split('\n').filter((line) => /^bcc:/i.test(line))).toHaveLength(0);

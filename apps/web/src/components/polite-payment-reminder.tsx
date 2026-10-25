@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   buildPoliteReminderMailto,
   formatPoliteReminderClipboard,
   isUnpaidInvoiceStatus,
   politeReminderFromInvoice,
+  reminderLocalCalendarKey,
   type PoliteReminderInvoiceLike,
 } from '@bossboard/shared';
 import { Copy, Mail, X } from 'lucide-react';
@@ -32,11 +33,17 @@ export function PolitePaymentReminder({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    subjectRef.current?.focus();
+  }, [open]);
 
   if (!isUnpaidInvoiceStatus(invoice.status)) return null;
 
   const openPreview = () => {
-    const draft = politeReminderFromInvoice(invoice);
+    const draft = politeReminderFromInvoice(invoice, { asOf: reminderLocalCalendarKey() });
     setSubject(draft.subject);
     setBody(draft.body);
     setNotice(null);
@@ -121,6 +128,7 @@ export function PolitePaymentReminder({
               Subject
             </label>
             <input
+              ref={subjectRef}
               id="polite-reminder-subject"
               data-testid="polite-reminder-subject"
               value={subject}

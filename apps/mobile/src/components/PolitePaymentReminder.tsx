@@ -22,6 +22,7 @@ import {
   formatPoliteReminderClipboard,
   isUnpaidInvoiceStatus,
   politeReminderFromInvoice,
+  reminderLocalCalendarKey,
   type PoliteReminderInvoiceLike,
 } from '@bossboard/shared';
 
@@ -39,7 +40,7 @@ export default function PolitePaymentReminder({ invoice }: { invoice: ReminderIn
   if (!isUnpaidInvoiceStatus(invoice.status)) return null;
 
   const openPreview = () => {
-    const draft = politeReminderFromInvoice(invoice);
+    const draft = politeReminderFromInvoice(invoice, { asOf: reminderLocalCalendarKey() });
     setSubject(draft.subject);
     setBody(draft.body);
     setNotice(null);
@@ -99,7 +100,13 @@ export default function PolitePaymentReminder({ invoice }: { invoice: ReminderIn
         <Text style={styles.buttonText}>Send polite reminder</Text>
       </TouchableOpacity>
 
-      <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
+      <Modal
+        visible={open}
+        animationType="slide"
+        transparent
+        accessibilityViewIsModal
+        onRequestClose={() => setOpen(false)}
+      >
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
             <Text style={styles.title}>Polite payment reminder</Text>
@@ -130,13 +137,28 @@ export default function PolitePaymentReminder({ invoice }: { invoice: ReminderIn
 
             {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
-            <TouchableOpacity style={styles.primary} onPress={() => void onCopy()}>
+            <TouchableOpacity
+              style={styles.primary}
+              onPress={() => void onCopy()}
+              accessibilityRole="button"
+              accessibilityLabel="Copy polite reminder"
+            >
               <Text style={styles.primaryText}>Copy polite reminder</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondary} onPress={onMailto}>
+            <TouchableOpacity
+              style={styles.secondary}
+              onPress={onMailto}
+              accessibilityRole="button"
+              accessibilityLabel="Open email draft"
+            >
               <Text style={styles.secondaryText}>Open email draft</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.close} onPress={() => setOpen(false)}>
+            <TouchableOpacity
+              style={styles.close}
+              onPress={() => setOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close polite reminder"
+            >
               <Text style={styles.closeText}>Close</Text>
             </TouchableOpacity>
           </View>
