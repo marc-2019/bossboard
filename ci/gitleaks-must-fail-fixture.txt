@@ -1,0 +1,3 @@
+# FAKE token for the gitleaks must-fail proof. Not a credential.
+# Shape only: ghp_ plus 36 alphanumeric characters.
+github_token=ghp_0123456789abcdefABCDEF0123456789abcd
