@@ -190,7 +190,6 @@ router.get('/:id/pdf', authenticate, attachSubscription, requireFeature('quotes'
       return;
     }
 
-    // Use the invoice PDF generator with quote data (same format)
     const pdfBuffer = await pdfService.generateQuotePDF(quote);
 
     res.setHeader('Content-Type', 'application/pdf');

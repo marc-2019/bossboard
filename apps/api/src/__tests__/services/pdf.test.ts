@@ -8,6 +8,9 @@
  * the Promise resolves, and all text written by the service is captured in
  * mockTextCalls for assertion.
  *
+ * Document-label tests are the exception: they render with the real pdfkit
+ * and read the page text back with pdf-parse (devDependency only).
+ *
  * Tested:
  *   - generateInvoicePDF(): returns non-empty Buffer starting with %PDF
  *   - generateQuotePDF():   returns non-empty Buffer starting with %PDF
@@ -24,8 +27,17 @@
 
 const mockTextCalls: string[] = [];
 
+/** When true, the pdfkit mock constructs the real PDFDocument so tests can extract text. */
+const mockUseRealPdfkit = { enabled: false };
+
 jest.mock('pdfkit', () => {
-  return jest.fn().mockImplementation(() => {
+  const actual = jest.requireActual<typeof import('pdfkit')>('pdfkit');
+  const RealPDFDocument = actual;
+
+  return jest.fn().mockImplementation((options?: ConstructorParameters<typeof actual>[0]) => {
+    if (mockUseRealPdfkit.enabled) {
+      return new RealPDFDocument(options);
+    }
     const handlers: Record<string, Array<(...args: unknown[]) => void>> = {};
 
     // Chainable helpers used in stroke/fill chains
@@ -81,9 +93,30 @@ jest.mock('pdfkit', () => {
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
 
+// Package index runs a debug self-test when it is the main module. The lib
+// entry is the same parser without that side effect. pdf-parse stays a devDependency.
+// The lib path ships no types; the runtime export matches the typed package default.
+// @ts-expect-error TS7016 — subpath has no declaration file
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { generateInvoicePDF, generateQuotePDF, generateSWMSPDF } from '../../services/pdf.js';
 import type { SWMSPdfInput } from '../../services/pdf.js';
 import type { Invoice, Quote, InvoiceLineItem } from '../../types/index.js';
+
+/**
+ * Page text from a real PDF.
+ *
+ * pdf-parse is a devDependency and is not used in production. Tests import
+ * `pdf-parse/lib/pdf-parse.js` so the package index does not run its debug
+ * self-test. Its bundled pdf.js reads the underlying ArrayBuffer. Node's
+ * buffer pool is larger than the PDF, which makes the xref parser fail, so
+ * the bytes are copied into an exact-sized Uint8Array first.
+ */
+async function extractPdfText(buf: Buffer): Promise<string> {
+  const data = new Uint8Array(buf.length);
+  data.set(buf);
+  const result = await pdfParse(data as Buffer);
+  return result.text;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -190,6 +223,7 @@ function makeQuote(overrides: Partial<Quote> = {}): Quote {
 
 beforeEach(() => {
   mockTextCalls.length = 0;
+  mockUseRealPdfkit.enabled = false;
 });
 
 // ===========================================================================
@@ -569,7 +603,7 @@ describe('generateQuotePDF', () => {
     expect(mockTextCalls).toContain('Big Build Ltd');
   });
 
-  it('formats validUntil as DD/MM/YYYY via the due-date field', async () => {
+  it('formats validUntil as DD/MM/YYYY', async () => {
     await generateQuotePDF(makeQuote({ validUntil: '2026-06-30' }));
     expect(mockTextCalls).toContain('30/06/2026');
   });
@@ -615,5 +649,69 @@ describe('generateQuotePDF', () => {
       lineItems: [makeLineItem({ description: 'Solar panel installation' })],
     }));
     expect(mockTextCalls).toContain('Solar panel installation');
+  });
+});
+
+// ===========================================================================
+// Document labels — real PDF text (pdf-parse, devDependency only)
+// ===========================================================================
+
+describe('PDF document labels (extracted text)', () => {
+  beforeEach(() => {
+    mockUseRealPdfkit.enabled = true;
+  });
+
+  afterEach(() => {
+    mockUseRealPdfkit.enabled = false;
+  });
+
+  it('quote PDF text uses QUOTE, Quote No and Valid Until, not invoice labels', async () => {
+    const buf = await generateQuotePDF(makeQuote());
+    const text = await extractPdfText(buf);
+
+    expect(text).toContain('QUOTE');
+    expect(text).toContain('Quote No');
+    expect(text).toContain('Valid Until');
+    expect(text).not.toContain('INVOICE');
+    expect(text).not.toContain('Invoice No');
+    expect(text).not.toContain('Due Date');
+  });
+
+  it('invoice PDF text still uses INVOICE, Invoice No and Due Date', async () => {
+    const buf = await generateInvoicePDF(makeInvoice());
+    const text = await extractPdfText(buf);
+
+    expect(text).toContain('INVOICE');
+    expect(text).toContain('Invoice No');
+    expect(text).toContain('Due Date');
+    expect(text).not.toContain('QUOTE');
+    expect(text).not.toContain('Quote No');
+    expect(text).not.toContain('Valid Until');
+  });
+
+  it('quote PDF with bank fields says Prepared For and omits Bill To and Payment Details', async () => {
+    const buf = await generateQuotePDF(makeQuote({
+      bankAccountName: 'Quote Tradie',
+      bankAccountNumber: '12-3456-7890123-00',
+      intlBankAccountName: 'Quote Intl',
+      intlIban: 'GB29NWBK60161331926819',
+    }));
+    const text = await extractPdfText(buf);
+
+    expect(text).toContain('Prepared For:');
+    expect(text).not.toContain('Bill To:');
+    expect(text).not.toContain('Payment Details:');
+  });
+
+  it('invoice PDF text contains Bill To and Payment Details when bank fields are set', async () => {
+    const buf = await generateInvoicePDF(makeInvoice({
+      bankAccountName: 'Test Tradie',
+      bankAccountNumber: '12-3456-7890123-00',
+    }));
+    const text = await extractPdfText(buf);
+
+    expect(text).toContain('Bill To:');
+    expect(text).toContain('Payment Details:');
+    expect(text).not.toContain('Prepared For:');
   });
 });

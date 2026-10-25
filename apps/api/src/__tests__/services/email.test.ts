@@ -8,6 +8,7 @@
  *   - sendVerificationEmail: correct subject, HTML contains code, attachment-free
  *   - sendPasswordResetEmail: correct subject includes code, HTML contains code
  *   - sendInvoiceEmail: correct subject, PDF attached with right filename, amounts formatted
+ *   - sendQuoteEmail: client line is "Prepared For:" in HTML and plaintext
  *   - sendTradeConfirmation: correct subject, optional fields omitted when absent
  *   - sendPortfolioAlert: urgent vs non-urgent subject, expired vs days-left label
  *   - sendPaymentFailedEmail: with/without userName greeting
@@ -53,12 +54,13 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendInvoiceEmail,
+  sendQuoteEmail,
   resolveInvoiceBcc,
   sendTradeConfirmation,
   sendPortfolioAlert,
   sendPaymentFailedEmail,
 } from '../../services/email.js';
-import type { Invoice } from '../../types/index.js';
+import type { Invoice, Quote } from '../../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -112,6 +114,44 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     stripePaymentIntentId: null,
     createdAt: new Date('2026-04-01'),
     updatedAt: new Date('2026-04-01'),
+    ...overrides,
+  };
+}
+
+/** Minimal valid Quote for testing */
+function makeQuote(overrides: Partial<Quote> = {}): Quote {
+  return {
+    id: 'quote-1',
+    userId: 'user-1',
+    quoteNumber: 'QTE-001',
+    clientName: 'Harbour Plumbing Ltd',
+    clientEmail: 'accounts@harbour.example',
+    clientPhone: null,
+    customerId: null,
+    jobDescription: 'Hot water cylinder replacement',
+    lineItems: [{ id: 'li-1', description: 'Cylinder install', amount: 50000 }],
+    subtotal: 50000,
+    gstAmount: 7500,
+    total: 57500,
+    includeGst: true,
+    status: 'draft',
+    validUntil: '2026-06-30',
+    convertedInvoiceId: null,
+    bankAccountName: null,
+    bankAccountNumber: null,
+    intlBankAccountName: null,
+    intlIban: null,
+    intlSwiftBic: null,
+    intlBankName: null,
+    intlBankAddress: null,
+    companyName: 'Test Trading Ltd',
+    companyAddress: null,
+    irdNumber: null,
+    gstNumber: null,
+    notes: null,
+    internalMemo: null,
+    createdAt: new Date('2026-04-10'),
+    updatedAt: new Date('2026-04-10'),
     ...overrides,
   };
 }
@@ -310,6 +350,43 @@ describe('sendInvoiceEmail', () => {
     });
     const call = mockEmailsSend.mock.calls[0][0];
     expect(call.bcc).toBeUndefined();
+  });
+
+  it('keeps the invoice client line as Bill To and does not use quote labels', async () => {
+    const invoice = makeInvoice({ clientName: 'Acme Corp' });
+    await sendInvoiceEmail(invoice, Buffer.from(''), 'client@acme.com', 'Bob Builder');
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.html).toContain('Bill To:');
+    expect(call.html).toContain('Acme Corp');
+    expect(call.html).not.toContain('Prepared For:');
+    expect(call.html).not.toContain('Quote for:');
+    expect(call.text).toContain('Bill To: Acme Corp');
+    expect(call.text).not.toContain('Prepared For:');
+    expect(call.text).not.toMatch(/(^|\n)For:/);
+  });
+});
+
+describe('sendQuoteEmail', () => {
+  it('labels the client Prepared For in HTML and plaintext', async () => {
+    const quote = makeQuote();
+    const pdf = Buffer.from('fake-pdf');
+
+    const result = await sendQuoteEmail(quote, pdf, 'accounts@harbour.example', 'Bob Builder');
+
+    expect(result).toEqual({ messageId: 'msg-123' });
+    const call = mockEmailsSend.mock.calls[0][0];
+    expect(call.subject).toBe('Quote QTE-001 from Bob Builder');
+    expect(call.attachments).toHaveLength(1);
+    expect(call.attachments[0].filename).toBe('Quote-QTE-001.pdf');
+
+    expect(call.html).toContain('Prepared For:');
+    expect(call.html).toContain('Harbour Plumbing Ltd');
+    expect(call.html).not.toContain('Quote for:');
+
+    expect(call.text).toContain('Prepared For: Harbour Plumbing Ltd');
+    expect(call.text).not.toContain('Quote for:');
+    // Bare "For:" client label. "Prepared For:" does not match a line-start "For:".
+    expect(call.text).not.toMatch(/(^|\n)For:/);
   });
 });
 
