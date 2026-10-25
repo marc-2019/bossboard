@@ -11,7 +11,7 @@ import { invoicesClient, recurringInvoicesClient, ApiError } from '@/lib/api-cli
 import { maybePromptReferralAfterInvoiceSend } from '@/lib/referral-share';
 import { PhotoUploader } from '@/components/ui/photo-uploader';
 import { PolitePaymentReminder } from '@/components/polite-payment-reminder';
-import type { Invoice } from '@bossboard/shared';
+import { formatCalendarDate, type Invoice } from '@bossboard/shared';
 import {
   ArrowLeft,
   Share2,
@@ -42,6 +42,12 @@ function formatDate(iso: string | Date | null) {
   if (!iso) return '—';
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   return Number.isNaN(d.getTime()) ? '—' : dateFmt.format(d);
+}
+
+/** Invoice due dates are calendar keys (`YYYY-MM-DD`), not timestamps. */
+function formatDueDate(iso: string | null) {
+  if (!iso) return '—';
+  return formatCalendarDate(iso, 'medium') || '—';
 }
 
 // Amounts are stored in cents on the API; divide before locale-formatting.
@@ -293,7 +299,7 @@ export default function InvoiceDetailPage() {
               <StatusBadge status={invoice.status} />
             </div>
             <p className="text-sm text-gray-600">
-              Issued {formatDate(invoice.createdAt)} · Due {formatDate(invoice.dueDate)}
+              Issued {formatDate(invoice.createdAt)} · Due {formatDueDate(invoice.dueDate)}
             </p>
           </div>
         </div>

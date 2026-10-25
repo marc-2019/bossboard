@@ -85,10 +85,12 @@ export function isUnpaidInvoiceStatus(status: string | null | undefined): boolea
 const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g;
 /**
  * Invisible / format characters that must not hide `enc:v1:` or split a field.
- * Includes the soft hyphen (U+00AD), Arabic letter mark (U+061C), and
- * Mongolian vowel separator (U+180E).
+ * Includes the soft hyphen (U+00AD), combining grapheme joiner (U+034F),
+ * Arabic letter mark (U+061C), Mongolian free variation selector (U+180B),
+ * Mongolian vowel separator (U+180E), inhibit symmetric swapping (U+206A),
+ * and variation selector-16 (U+FE0F).
  */
-const INVISIBLE_CHARS = /[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+const INVISIBLE_CHARS = /[\u00AD\u034F\u061C\u180B\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206A\uFE0F\uFEFF]/g;
 
 /**
  * Single-line field sanitiser.
@@ -217,26 +219,33 @@ function safePaymentUrl(value: string | null | undefined): string | null {
   return href;
 }
 
+const MAILBOX_RE = /^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
 /**
  * Single mailbox for a mailto `To` header. The address is inserted raw, so
  * `%` is not allowed: a client decodes `%0D%0A` / `%3A` into a new header.
  * Sync stores `client_email` as a free string, so this check is the gate
  * for that value too. Reject anything whose decode contains CR, LF, or
  * `:`, `,`, `;`.
+ *
+ * Validate the trimmed address before stripping controls or invisible
+ * characters. `user@example.com\u0000.attacker.com` (NUL or U+200B) would
+ * otherwise collapse into the different mailbox `user@example.com.attacker.com`.
  */
 function safeEmailAddress(value: string | null | undefined): string | null {
-  const s = sanitizeReminderField(value, 254);
-  if (!s || s.includes('%')) return null;
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw || raw.length > 254 || raw.includes('%')) return null;
+  if (!MAILBOX_RE.test(raw)) return null;
   let decoded: string;
   try {
-    decoded = decodeURIComponent(s);
+    decoded = decodeURIComponent(raw);
   } catch {
     return null;
   }
-  if (/[\r\n:;,]/u.test(s) || /[\r\n:;,]/u.test(decoded)) return null;
-  if (!/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(decoded)) return null;
-  if (!/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(s)) return null;
-  return s;
+  if (/[\r\n:;,]/u.test(raw) || /[\r\n:;,]/u.test(decoded)) return null;
+  if (!MAILBOX_RE.test(decoded)) return null;
+  return raw;
 }
 
 function capitalise(s: string): string {

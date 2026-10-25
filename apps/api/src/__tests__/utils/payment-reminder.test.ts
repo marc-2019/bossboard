@@ -201,6 +201,14 @@ describe('buildPolitePaymentReminder', () => {
     expect(body).not.toContain('\u180E');
   });
 
+  it('strips U+FE0F, U+034F, U+180B, and U+206A before the enc:v1 check', () => {
+    expect(sanitizeReminderField('enc:\uFE0Fv1:secret')).toBe('');
+    expect(sanitizeReminderField('en\u034Fc:v1:secret')).toBe('');
+    expect(sanitizeReminderField('enc:\u180Bv1:secret')).toBe('');
+    expect(sanitizeReminderField('\u206Aenc:v1:secret')).toBe('');
+    expect(sanitizeReminderField('Pa\uFE0F\u034F\u180B\u206At')).toBe('Pat');
+  });
+
   it('strips U+0085 from the greeting so it cannot start a new line', () => {
     const { body } = buildPolitePaymentReminder({
       customerName: 'Pat\u0085Bcc: hidden@evil.example',
@@ -447,6 +455,33 @@ describe('formatPoliteReminderClipboard and mailto', () => {
       body: 'Pay',
     });
     expect(plus.startsWith('mailto:user+tag@example.com?')).toBe(true);
+  });
+
+  it('rejects a mailbox that is only valid after NUL or ZWSP is stripped', () => {
+    // The joined form is a real mailbox. Stripping first would accept it.
+    const joined = buildPoliteReminderMailto({
+      to: 'user@example.com.attacker.com',
+      subject: 'Hi',
+      body: 'Pay',
+    });
+    expect(joined.startsWith('mailto:user@example.com.attacker.com?')).toBe(true);
+
+    for (const to of [
+      'user@example.com\u0000.attacker.com',
+      'user@example.com\u200B.attacker.com',
+    ]) {
+      const bad = buildPoliteReminderMailto({ to, subject: 'Hi', body: 'Pay' });
+      expect(bad.startsWith('mailto:?subject=')).toBe(true);
+      expect(bad).not.toContain('attacker');
+      expect(bad).not.toContain('user@example.com');
+    }
+
+    const spaced = buildPoliteReminderMailto({
+      to: '  client@example.com  ',
+      subject: 'Hi',
+      body: 'Pay',
+    });
+    expect(spaced.startsWith('mailto:client@example.com?')).toBe(true);
   });
 });
 

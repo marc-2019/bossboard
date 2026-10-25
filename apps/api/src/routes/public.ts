@@ -5,6 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import path from 'path';
+import { formatCalendarDate } from '@bossboard/shared';
 import { config } from '../config/index.js';
 import invoicesService from '../services/invoices.js';
 import documentsService, { DOCUMENT_DISCLAIMER } from '../services/documents.js';
@@ -156,6 +157,10 @@ function formatCurrency(cents: unknown): string {
 
 function formatDate(date: unknown): string {
   if (!date) return '';
+  // Due dates arrive as bare YYYY-MM-DD. Instants (paid_at) keep local formatting.
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+    return formatCalendarDate(date, 'long') || date.trim();
+  }
   try {
     return new Date(String(date)).toLocaleDateString('en-NZ', {
       year: 'numeric',
@@ -187,7 +192,7 @@ function renderErrorPage(title: string, message: string): string {
 </html>`;
 }
 
-function renderInvoicePage(
+export function renderInvoicePage(
   inv: Record<string, unknown>,
   paymentLinkUrl: string | null = null,
   documents: { id: string; title: string; docKind: string }[] = [],

@@ -332,10 +332,10 @@ export async function createInvoice(
  * node-pg parses oid 1082 as local midnight. JSON would then emit the UTC
  * instant, which is the previous day in Pacific/Auckland
  * (2026-10-25 local midnight is 2026-10-24T11:00Z). A global
- * `setTypeParser(1082)` is not used: PDF and email format a `YYYY-MM-DD`
- * string with `new Date(string)`, which is UTC midnight and shifts the day
- * west of UTC, and quotes, certs, and expenses share that parser. Invoice
- * due dates are normalised here, before the client or the reminder sees them.
+ * `setTypeParser(1082)` is not used: quotes, certs, and expenses share that
+ * parser. Invoice due dates are normalised here to a bare `YYYY-MM-DD`.
+ * PDF, email, and the public page format that key with `formatCalendarDate`
+ * so `new Date('YYYY-MM-DD')` (UTC midnight) cannot shift the day west of UTC.
  */
 function sqlDateToCalendarKey(value: unknown): string | null {
   if (value == null || value === '') return null;

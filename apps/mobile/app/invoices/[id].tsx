@@ -18,6 +18,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { formatCalendarDate } from '@bossboard/shared';
 import { invoicesApi, getAuthToken } from '../../src/services/api';
 import { maybePromptReferralAfterInvoiceSend } from '../../src/services/referralShare';
 import PhotoAttachments from '../../src/components/PhotoAttachments';
@@ -117,6 +118,11 @@ export default function InvoiceDetailScreen() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  }
+
+  function formatDueDate(dateString: string | null): string {
+    if (!dateString) return 'Not set';
+    return formatCalendarDate(dateString, 'long') || 'Not set';
   }
 
   function formatDate(dateString: string | null): string {
@@ -534,7 +540,7 @@ export default function InvoiceDetailScreen() {
         <Text style={styles.cardTitle}>Payment</Text>
         <View style={styles.paymentRow}>
           <Text style={styles.paymentLabel}>Due Date</Text>
-          <Text style={styles.paymentValue}>{formatDate(invoice.due_date)}</Text>
+          <Text style={styles.paymentValue}>{formatDueDate(invoice.due_date)}</Text>
         </View>
         {invoice.bank_account_name && (
           <View style={styles.paymentRow}>

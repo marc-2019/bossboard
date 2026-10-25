@@ -4,6 +4,7 @@
  */
 
 import { Resend } from 'resend';
+import { formatCalendarDate } from '@bossboard/shared';
 import { config } from '../config/index.js';
 import { Invoice, Quote } from '../types/index.js';
 
@@ -293,8 +294,11 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
       </tr>`)
     .join('');
 
-  const dueDateHtml = invoice.dueDate
-    ? `<p style="margin: 0 0 8px; color: #374151;"><strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</p>`
+  const dueLong = invoice.dueDate ? formatCalendarDate(invoice.dueDate, 'long') : '';
+  const dueDmy = invoice.dueDate ? formatCalendarDate(invoice.dueDate, 'dmy') : '';
+
+  const dueDateHtml = dueLong
+    ? `<p style="margin: 0 0 8px; color: #374151;"><strong>Due Date:</strong> ${dueLong}</p>`
     : '';
 
   const bankHtml = (invoice.bankAccountName || invoice.bankAccountNumber)
@@ -357,7 +361,7 @@ function invoiceTemplate(invoice: Invoice, senderName: string, customMessage?: s
     ...(customMessage?.trim() ? [customMessage.trim(), ''] : []),
     `Bill To: ${invoice.clientName}`,
     invoice.jobDescription ? `Job: ${invoice.jobDescription}` : '',
-    invoice.dueDate ? `Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-NZ')}` : '',
+    dueDmy ? `Due Date: ${dueDmy}` : '',
     '',
     '--- Line Items ---',
     ...invoice.lineItems.map(item => `  ${item.description}: ${formatCurrency(item.amount)}`),

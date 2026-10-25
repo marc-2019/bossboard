@@ -11,7 +11,14 @@ export { colors, getStatusColor, getCategoryColor } from './theme/colors.js';
 export type { ColorKey } from './theme/colors.js';
 
 // Utils
-export { formatCurrency, formatDate, formatDateTime, formatElapsedTime } from './utils/format.js';
+export {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatElapsedTime,
+  formatCalendarDate,
+} from './utils/format.js';
+export type { CalendarDateStyle } from './utils/format.js';
 export {
   sellAmountFromCostMargin,
   marginAmountCents,
