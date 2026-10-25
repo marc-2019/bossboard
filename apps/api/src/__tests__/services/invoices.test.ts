@@ -431,7 +431,14 @@ describe('getInvoiceByIdRaw', () => {
 
 describe('getInvoiceById', () => {
   it('returns snake_case formatted invoice for mobile clients', async () => {
-    mockDbQuery.mockResolvedValueOnce({ rows: [makeInvoiceRow()] });
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [
+        makeInvoiceRow({
+          payment_link_url: 'https://pay.example.com/inv-0001',
+          payment_reference: 'pi_3SecretIntent',
+        }),
+      ],
+    });
 
     const result = await getInvoiceById('inv-uuid-1', 'user-1');
 
@@ -440,6 +447,14 @@ describe('getInvoiceById', () => {
     expect(result!['invoice_number']).toBe('INV-0001');
     expect(result!['client_name']).toBe('Test Client');
     expect(result!['gst_amount']).toBe(1500);
+    expect(result!['payment_link_url']).toBe('https://pay.example.com/inv-0001');
+    expect(result).not.toHaveProperty('payment_reference');
+    expect(JSON.stringify(result)).not.toContain('pi_3SecretIntent');
+    // Ownership stays on the existing user_id predicate — no cross-user read.
+    expect(mockDbQuery).toHaveBeenCalledWith(
+      expect.stringContaining('user_id = $2'),
+      ['inv-uuid-1', 'user-1'],
+    );
   });
 
   it('returns null when invoice not found', async () => {
@@ -447,6 +462,19 @@ describe('getInvoiceById', () => {
 
     const result = await getInvoiceById('missing', 'user-1');
     expect(result).toBeNull();
+  });
+
+  it('keeps a SQL DATE on the local calendar day', async () => {
+    // node-pg DATE is local midnight. JSON of that Date is the previous UTC day
+    // in Pacific/Auckland. The mapper must emit YYYY-MM-DD from local parts.
+    const due = new Date(2026, 9, 25, 0, 0, 0, 0);
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeInvoiceRow({ due_date: due })],
+    });
+
+    const result = await getInvoiceById('inv-uuid-1', 'user-1');
+    expect(result!['due_date']).toBe('2026-10-25');
+    expect(typeof result!['due_date']).toBe('string');
   });
 });
 
@@ -466,6 +494,20 @@ describe('listInvoices', () => {
     expect(result.invoices).toHaveLength(2);
     // Results are in mobile snake_case format
     expect(result.invoices[0]['invoice_number']).toBe('INV-0001');
+  });
+
+  it('omits payment_link_url from the list payload', async () => {
+    const checkout = 'https://checkout.stripe.com/c/pay/cs_test_listsecret';
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ count: '1' }] })
+      .mockResolvedValueOnce({
+        rows: [makeInvoiceRow({ payment_link_url: checkout })],
+      });
+
+    const result = await listInvoices('user-1');
+
+    expect(result.invoices[0]).not.toHaveProperty('payment_link_url');
+    expect(JSON.stringify(result)).not.toContain('cs_test_listsecret');
   });
 
   it('applies status filter to query', async () => {
@@ -509,10 +551,26 @@ describe('updateInvoice', () => {
     const result = await updateInvoice('inv-uuid-1', 'user-1', { clientName: 'Updated Client' });
 
     expect(result).not.toBeNull();
+    expect(result).not.toHaveProperty('payment_link_url');
     expect(mockDbQuery).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE invoices'),
       expect.any(Array)
     );
+  });
+
+  it('omits payment_link_url from the update payload', async () => {
+    const checkout = 'https://checkout.stripe.com/c/pay/cs_test_updatesecret';
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [makeInvoiceRow()] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [makeInvoiceRow({ client_name: 'Updated Client', payment_link_url: checkout })],
+      });
+
+    const result = await updateInvoice('inv-uuid-1', 'user-1', { clientName: 'Updated Client' });
+
+    expect(result).not.toHaveProperty('payment_link_url');
+    expect(JSON.stringify(result)).not.toContain('cs_test_updatesecret');
   });
 
   it('throws INVOICE_NOT_EDITABLE when trying to update a sent invoice', async () => {
@@ -609,10 +667,23 @@ describe('markAsSent', () => {
 
     expect(result).not.toBeNull();
     expect(result!['status']).toBe('sent');
+    expect(result).not.toHaveProperty('payment_link_url');
     expect(mockDbQuery).toHaveBeenCalledWith(
       expect.stringContaining("status = 'sent'"),
       ['inv-uuid-1', 'user-1']
     );
+  });
+
+  it('omits a Checkout URL from the sent payload', async () => {
+    const checkout = 'https://checkout.stripe.com/c/pay/cs_test_sentsession';
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeInvoiceRow({ status: 'sent', payment_link_url: checkout })],
+    });
+
+    const result = await markAsSent('inv-uuid-1', 'user-1');
+
+    expect(result).not.toHaveProperty('payment_link_url');
+    expect(JSON.stringify(result)).not.toContain('cs_test_sentsession');
   });
 
   it('returns null when invoice not found or already in non-draft state', async () => {
@@ -637,11 +708,24 @@ describe('markAsPaid', () => {
     expect(result).not.toBeNull();
     expect(result!['status']).toBe('paid');
     expect(result!['paid_at']).not.toBeNull();
+    expect(result).not.toHaveProperty('payment_link_url');
     // Query should only target sent or overdue invoices
     expect(mockDbQuery).toHaveBeenCalledWith(
       expect.stringContaining("status IN ('sent', 'overdue')"),
       ['inv-uuid-1', 'user-1']
     );
+  });
+
+  it('omits a Checkout URL from the paid payload', async () => {
+    const checkout = 'https://checkout.stripe.com/c/pay/cs_test_paidsession';
+    mockDbQuery.mockResolvedValueOnce({
+      rows: [makeInvoiceRow({ status: 'paid', paid_at: new Date(), payment_link_url: checkout })],
+    });
+
+    const result = await markAsPaid('inv-uuid-1', 'user-1');
+
+    expect(result).not.toHaveProperty('payment_link_url');
+    expect(JSON.stringify(result)).not.toContain('cs_test_paidsession');
   });
 
   it('transitions an overdue invoice to paid status', async () => {

@@ -5,20 +5,15 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { invoicesClient, ApiError } from '@/lib/api-client';
-import type { Invoice } from '@bossboard/shared';
+import { formatCalendarDate, type Invoice } from '@bossboard/shared';
 import { FileText, ChevronRight, Plus } from 'lucide-react';
 
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
-const dateFmt = new Intl.DateTimeFormat('en-NZ', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-});
 
-function formatDate(iso: string | Date | null) {
+/** Invoice due dates are calendar keys (`YYYY-MM-DD`), not timestamps. */
+function formatDueDate(iso: string | null) {
   if (!iso) return '—';
-  const d = typeof iso === 'string' ? new Date(iso) : iso;
-  return Number.isNaN(d.getTime()) ? '—' : dateFmt.format(d);
+  return formatCalendarDate(iso, 'medium') || '—';
 }
 
 // Amounts are stored in cents on the API; divide before locale-formatting.
@@ -120,7 +115,7 @@ export default function InvoicesPage() {
                     <div className="text-sm font-semibold text-gray-900">
                       {formatCents(inv.total)}
                     </div>
-                    <div className="text-xs text-gray-500">Due {formatDate(inv.dueDate)}</div>
+                    <div className="text-xs text-gray-500">Due {formatDueDate(inv.dueDate)}</div>
                   </div>
                   <ChevronRight size={16} className="text-gray-400 shrink-0" />
                 </Link>

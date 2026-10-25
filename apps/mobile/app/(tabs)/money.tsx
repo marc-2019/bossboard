@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { formatCalendarDate } from '@bossboard/shared';
 import { invoicesApi } from '../../src/services/api';
 
 interface Invoice {
@@ -78,11 +79,7 @@ export default function MoneyScreen() {
 
   function formatDate(dateString: string | null): string {
     if (!dateString) return 'No due date';
-    return new Date(dateString).toLocaleDateString('en-NZ', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    return formatCalendarDate(dateString, 'short') || 'No due date';
   }
 
   function getStatusColor(status: string): string {

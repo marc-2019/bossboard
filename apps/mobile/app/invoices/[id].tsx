@@ -18,9 +18,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { formatCalendarDate } from '@bossboard/shared';
 import { invoicesApi, getAuthToken } from '../../src/services/api';
 import { maybePromptReferralAfterInvoiceSend } from '../../src/services/referralShare';
 import PhotoAttachments from '../../src/components/PhotoAttachments';
+import PolitePaymentReminder from '../../src/components/PolitePaymentReminder';
 import { safeGoBack } from '../../src/utils/navigation';
 
 interface Invoice {
@@ -56,7 +58,14 @@ interface Invoice {
   notes: string | null;
   internal_memo?: string | null;
   internalMemo?: string | null;
+  payment_link_url?: string | null;
   created_at: string;
+}
+
+/** Sent, paid, email, and share JSON omit the pay link. Keep the one from GET detail. */
+function keepLoadedPayLink(next: Invoice, prev: Invoice | null): Invoice {
+  if (next.payment_link_url || !prev?.payment_link_url) return next;
+  return { ...next, payment_link_url: prev.payment_link_url };
 }
 
 export default function InvoiceDetailScreen() {
@@ -111,6 +120,11 @@ export default function InvoiceDetailScreen() {
     });
   }
 
+  function formatDueDate(dateString: string | null): string {
+    if (!dateString) return 'Not set';
+    return formatCalendarDate(dateString, 'long') || 'Not set';
+  }
+
   function formatDate(dateString: string | null): string {
     if (!dateString) return 'Not set';
     return new Date(dateString).toLocaleDateString('en-NZ', {
@@ -159,7 +173,7 @@ export default function InvoiceDetailScreen() {
             try {
               const response = await invoicesApi.markAsSent(id);
               if (response.data.success) {
-                setInvoice(response.data.data.invoice);
+                setInvoice((prev) => keepLoadedPayLink(response.data.data.invoice, prev));
                 Alert.alert('Success', 'Invoice marked as sent', [
                   {
                     text: 'OK',
@@ -193,7 +207,7 @@ export default function InvoiceDetailScreen() {
             try {
               const response = await invoicesApi.markAsPaid(id);
               if (response.data.success) {
-                setInvoice(response.data.data.invoice);
+                setInvoice((prev) => keepLoadedPayLink(response.data.data.invoice, prev));
                 Alert.alert('Success', 'Invoice marked as paid');
               }
             } catch (error) {
@@ -301,7 +315,7 @@ export default function InvoiceDetailScreen() {
               const response = await invoicesApi.emailInvoice(id, recipientEmail);
               if (response.data.success) {
                 if (response.data.data?.invoice) {
-                  setInvoice(response.data.data.invoice);
+                  setInvoice((prev) => keepLoadedPayLink(response.data.data.invoice, prev));
                 }
                 const bcc = response.data.data?.bccEmail as string | null | undefined;
                 const successMsg = bcc
@@ -526,7 +540,7 @@ export default function InvoiceDetailScreen() {
         <Text style={styles.cardTitle}>Payment</Text>
         <View style={styles.paymentRow}>
           <Text style={styles.paymentLabel}>Due Date</Text>
-          <Text style={styles.paymentValue}>{formatDate(invoice.due_date)}</Text>
+          <Text style={styles.paymentValue}>{formatDueDate(invoice.due_date)}</Text>
         </View>
         {invoice.bank_account_name && (
           <View style={styles.paymentRow}>
@@ -622,6 +636,10 @@ export default function InvoiceDetailScreen() {
               <Text style={styles.secondaryButtonText}>Edit Invoice</Text>
             </TouchableOpacity>
           </>
+        )}
+
+        {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+          <PolitePaymentReminder invoice={invoice} />
         )}
 
         {(invoice.status === 'sent' || invoice.status === 'overdue') && (

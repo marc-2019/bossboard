@@ -11,7 +11,14 @@ export { colors, getStatusColor, getCategoryColor } from './theme/colors.js';
 export type { ColorKey } from './theme/colors.js';
 
 // Utils
-export { formatCurrency, formatDate, formatDateTime, formatElapsedTime } from './utils/format.js';
+export {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatElapsedTime,
+  formatCalendarDate,
+} from './utils/format.js';
+export type { CalendarDateStyle } from './utils/format.js';
 export {
   sellAmountFromCostMargin,
   marginAmountCents,
@@ -28,3 +35,20 @@ export {
   INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
   INVOICE_NOTES_RULES,
 } from './utils/invoice-notes.js';
+export {
+  buildPolitePaymentReminder,
+  buildPoliteReminderMailto,
+  formatPoliteReminderClipboard,
+  isUnpaidInvoiceStatus,
+  politeReminderFromInvoice,
+  reminderCalendarKey,
+  reminderLocalCalendarKey,
+  sanitizeReminderBody,
+  sanitizeReminderField,
+  sanitizeReminderSubject,
+} from './utils/payment-reminder.js';
+export type {
+  PolitePaymentReminder,
+  PolitePaymentReminderInput,
+  PoliteReminderInvoiceLike,
+} from './utils/payment-reminder.js';

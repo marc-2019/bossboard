@@ -18,6 +18,15 @@ import {
   INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
 } from '../types/index.js';
 
+/** Pay link is invoice-detail only. Email and share responses drop it. */
+function omitPaymentLink(
+  invoice: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!invoice) return invoice;
+  const { payment_link_url: _paymentLinkUrl, ...rest } = invoice;
+  return rest;
+}
+
 /** Block customer-facing notes that look like internal/test scaffolding. */
 function rejectInternalNotes(
   res: Response,
@@ -402,8 +411,10 @@ router.post('/:id/email', authenticate, attachSubscription, requireFeature('emai
       await invoicesService.markAsSent(id, req.user!.userId);
     }
 
-    // Fetch updated invoice to return
-    const updatedInvoice = await invoicesService.getInvoiceById(id, req.user!.userId);
+    // Fetch updated invoice to return. The pay link stays on GET detail only.
+    const updatedInvoice = omitPaymentLink(
+      await invoicesService.getInvoiceById(id, req.user!.userId),
+    );
 
     const message = bccEmail
       ? `Invoice emailed to ${recipientEmail} (BCC ${bccEmail})`
@@ -484,8 +495,11 @@ router.post('/:id/share', authenticate, async (req: Request, res: Response, next
     const baseUrl = process.env.API_BASE_URL || `http://localhost:${config.port}`;
     const shareUrl = `${baseUrl}/api/v1/public/invoices/${token}`;
 
-    // Refresh invoice so clients see draft → sent after share handoff
-    const invoice = await invoicesService.getInvoiceById(id, req.user!.userId);
+    // Refresh invoice so clients see draft → sent after share handoff.
+    // Pay link stays on GET detail; the open screen already has it.
+    const invoice = omitPaymentLink(
+      await invoicesService.getInvoiceById(id, req.user!.userId),
+    );
 
     res.json({
       success: true,

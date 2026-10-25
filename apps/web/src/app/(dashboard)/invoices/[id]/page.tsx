@@ -10,7 +10,8 @@ import { StatusBadge } from '@/components/ui/badge';
 import { invoicesClient, recurringInvoicesClient, ApiError } from '@/lib/api-client';
 import { maybePromptReferralAfterInvoiceSend } from '@/lib/referral-share';
 import { PhotoUploader } from '@/components/ui/photo-uploader';
-import type { Invoice } from '@bossboard/shared';
+import { PolitePaymentReminder } from '@/components/polite-payment-reminder';
+import { formatCalendarDate, type Invoice } from '@bossboard/shared';
 import {
   ArrowLeft,
   Share2,
@@ -24,6 +25,12 @@ import {
   Repeat,
 } from 'lucide-react';
 
+/** Sent, paid, email, and share JSON omit the pay link. Keep the one from GET detail. */
+function keepLoadedPayLink(next: Invoice, prev: Invoice | null): Invoice {
+  if (next.paymentLinkUrl || !prev?.paymentLinkUrl) return next;
+  return { ...next, paymentLinkUrl: prev.paymentLinkUrl };
+}
+
 const nzd = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
 const dateFmt = new Intl.DateTimeFormat('en-NZ', {
   day: '2-digit',
@@ -35,6 +42,12 @@ function formatDate(iso: string | Date | null) {
   if (!iso) return '—';
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   return Number.isNaN(d.getTime()) ? '—' : dateFmt.format(d);
+}
+
+/** Invoice due dates are calendar keys (`YYYY-MM-DD`), not timestamps. */
+function formatDueDate(iso: string | null) {
+  if (!iso) return '—';
+  return formatCalendarDate(iso, 'medium') || '—';
 }
 
 // Amounts are stored in cents on the API; divide before locale-formatting.
@@ -103,7 +116,7 @@ export default function InvoiceDetailPage() {
     setError(null);
     try {
       const data = await fn();
-      setInvoice(data.invoice);
+      setInvoice((prev) => keepLoadedPayLink(data.invoice, prev));
       setActionMessage(successMsg);
       if (opts?.promptReferral) {
         void maybePromptReferralAfterInvoiceSend();
@@ -183,7 +196,7 @@ export default function InvoiceDetailPage() {
         recipientEmail: recipient.trim(),
         customMessage: customMessage.trim() || undefined,
       });
-      setInvoice(data.invoice);
+      setInvoice((prev) => keepLoadedPayLink(data.invoice, prev));
       const bccNote =
         data.bccEmail && typeof data.bccEmail === 'string'
           ? ` A copy was BCC’d to ${data.bccEmail}.`
@@ -221,8 +234,9 @@ export default function InvoiceDetailPage() {
       const data = await invoicesClient.share(id);
       setShareUrl(data.shareUrl);
       // API auto-marks draft → sent on first client share
-      if (data.invoice) {
-        setInvoice(data.invoice);
+      const sharedInvoice = data.invoice;
+      if (sharedInvoice) {
+        setInvoice((prev) => keepLoadedPayLink(sharedInvoice, prev));
       } else if (invoice?.status === 'draft') {
         setInvoice({ ...invoice, status: 'sent' });
       }
@@ -285,7 +299,7 @@ export default function InvoiceDetailPage() {
               <StatusBadge status={invoice.status} />
             </div>
             <p className="text-sm text-gray-600">
-              Issued {formatDate(invoice.createdAt)} · Due {formatDate(invoice.dueDate)}
+              Issued {formatDate(invoice.createdAt)} · Due {formatDueDate(invoice.dueDate)}
             </p>
           </div>
         </div>
@@ -386,6 +400,20 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
         </div>
+
+        {isSent && (
+          <PolitePaymentReminder
+            invoice={invoice}
+            onUseInEmail={(message) => {
+              setCustomMessage(message);
+              setEmailFormOpen(true);
+              setError(null);
+              setActionMessage(
+                'Reminder added to the email form. Nothing is sent until you click Send email.',
+              );
+            }}
+          />
+        )}
 
         {actionMessage && (
           <div className="mt-3 p-3 rounded-lg bg-success-light text-success text-sm">

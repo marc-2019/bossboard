@@ -4,6 +4,7 @@
  */
 
 import PDFDocument from 'pdfkit';
+import { formatCalendarDate } from '@bossboard/shared';
 import { config } from '../config/index.js';
 import { Invoice, InvoiceLineItem, Quote } from '../types/index.js';
 import { customerFacingInvoiceStatus } from '../utils/invoiceCustomerFacing.js';
@@ -14,9 +15,16 @@ function formatCurrency(cents: number): string {
   return `$${dollars.toFixed(2)}`;
 }
 
-/** Format date string to DD/MM/YYYY (NZ format) */
+/**
+ * DD/MM/YYYY.
+ * A bare `YYYY-MM-DD` is a calendar date (invoice due date / quote valid-until).
+ * A Date or timestamp stays on local getters (`created_at`, `signed_at`).
+ */
 function formatDate(dateStr: string | Date | null): string {
   if (!dateStr) return '';
+  if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+    return formatCalendarDate(dateStr, 'dmy') || dateStr.trim();
+  }
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return String(dateStr);
   const day = String(d.getDate()).padStart(2, '0');
