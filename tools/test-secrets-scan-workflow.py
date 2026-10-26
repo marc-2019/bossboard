@@ -1217,6 +1217,305 @@ def case_global_bytes() -> tuple[Repo, dict[str, str]]:
     return prepare_secret_file("notes.bin", blob, hidden=False)
 
 
+def xxh32(data: bytes, seed: int = 0) -> int:
+    p1, p2, p3, p4, p5 = 2654435761, 2246822519, 3266489917, 668265263, 374761393
+
+    def u32(value: int) -> int:
+        return value & 0xFFFFFFFF
+
+    def rotl(value: int, bits: int) -> int:
+        value = u32(value)
+        return u32((value << bits) | (value >> (32 - bits)))
+
+    length = len(data)
+    index = 0
+    if length >= 16:
+        accs = [u32(seed + p1 + p2), u32(seed + p2), u32(seed), u32(seed - p1)]
+        while index + 16 <= length:
+            for slot in range(4):
+                lane = int.from_bytes(data[index : index + 4], "little")
+                index += 4
+                accs[slot] = u32(rotl(u32(accs[slot] + u32(lane * p2)), 13) * p1)
+        acc = u32(rotl(accs[0], 1) + rotl(accs[1], 7) + rotl(accs[2], 12) + rotl(accs[3], 18))
+    else:
+        acc = u32(seed + p5)
+    acc = u32(acc + length)
+    while index + 4 <= length:
+        lane = int.from_bytes(data[index : index + 4], "little")
+        index += 4
+        acc = u32(rotl(u32(acc + u32(lane * p3)), 17) * p4)
+    while index < length:
+        acc = u32(rotl(u32(acc + data[index] * p5), 11) * p1)
+        index += 1
+    acc ^= acc >> 15
+    acc = u32(acc * p2)
+    acc ^= acc >> 13
+    acc = u32(acc * p3)
+    acc ^= acc >> 16
+    return acc
+
+
+def lz4_hidden_token_frame() -> bytes:
+    """Framed lz4 whose block rebuilds the token only after decompression."""
+    token = token_bytes()
+    if token[4:12] != token[12:20]:
+        raise SystemExit("lz4 fixture needs a repeated token prefix")
+    prefix = token[:12]
+    block = bytes([0xC4]) + prefix + b"\x08\x00" + b"\x04\x08\x00" + b"\x04\x08\x00" + bytes([0x40]) + token[36:]
+    flg, bd = 0x60, 0x40
+    desc = bytes([flg, bd])
+    frame = (
+        b"\x04\x22\x4d\x18"
+        + desc
+        + bytes([(xxh32(desc) >> 8) & 0xFF])
+        + len(block).to_bytes(4, "little")
+        + block
+        + b"\x00\x00\x00\x00"
+    )
+    if token in frame or frame[:4] != b"\x04\x22\x4d\x18":
+        raise SystemExit("lz4 fixture is not a hidden frame")
+    return frame
+
+
+def ustar_typed(payload: bytes, typeflag: bytes) -> bytes:
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w") as archive:
+        info = tarfile.TarInfo("notes.bin")
+        info.size = len(payload)
+        archive.addfile(info, io.BytesIO(payload))
+    raw = bytearray(bio.getvalue())
+    raw[156:157] = typeflag
+    header = bytearray(raw[:512])
+    header[148:156] = b"        "
+    checksum = sum(header)
+    raw[148:156] = f"{checksum:06o}".encode() + b"\x00 "
+    return bytes(raw)
+
+
+def odc_archive(name: bytes, body: bytes) -> bytes:
+    def one(entry: bytes, payload: bytes) -> bytes:
+        entry_b = entry + b"\x00"
+
+        def field(value: int, width: int) -> bytes:
+            return oct(value)[2:].encode().rjust(width, b"0")
+
+        header = b"".join(
+            [
+                b"070707",
+                field(1, 6),
+                field(1, 6),
+                field(0o100644, 6),
+                field(0, 6),
+                field(0, 6),
+                field(1, 6),
+                field(0, 6),
+                field(0, 11),
+                field(len(entry_b), 6),
+                field(len(payload), 11),
+            ]
+        )
+        if len(header) != 76:
+            raise SystemExit("odc header is the wrong size")
+        return header + entry_b + payload
+
+    return one(name, body) + one(b"TRAILER!!!", b"")
+
+
+def ar_archive(name: str, payload: bytes) -> bytes:
+    header = b"".join(
+        [
+            (name + "/").encode().ljust(16),
+            b"0".ljust(12),
+            b"0".ljust(6),
+            b"0".ljust(6),
+            b"100644".ljust(8),
+            str(len(payload)).encode().ljust(10),
+            b"`\n",
+        ]
+    )
+    if len(header) != 60:
+        raise SystemExit("ar header is the wrong size")
+    pad = b"\n" if len(payload) % 2 else b""
+    return b"!<arch>\n" + header + payload + pad
+
+
+def b64url_gzip_token() -> bytes:
+    for extra in range(256):
+        raw = gzip.compress(bytes([extra]) + token_bytes())
+        encoded = base64.urlsafe_b64encode(raw)
+        if (b"-" in encoded or b"_" in encoded) and token_bytes() not in encoded:
+            return encoded
+    raise SystemExit("base64url fixture did not need the url alphabet")
+
+
+# brotli(token) for the synthetic token. Raw brotli has no magic.
+BROTLI_TOKEN = bytes.fromhex("1b2700f8e5c9217207242849a0056f4b2a51880a07aad90f13d7ce2b80c4")
+
+
+def case_overwrite_plain() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    repo.commit({"notes.txt": token_bytes() + b"\n"}, "add notes")
+    repo.base = repo.rev()
+    repo.commit({"notes.txt": b"hello\n"}, "replace notes")
+    return repo, repo.push_env()
+
+
+def case_overwrite_gzip() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    repo.commit({"notes.bin": require_hidden(gzip.compress(token_bytes()))}, "add notes")
+    repo.base = repo.rev()
+    repo.commit({"notes.bin": b"hello\n"}, "replace notes")
+    return repo, repo.push_env()
+
+
+def case_replace_symlink() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    repo.commit({"notes.txt": token_bytes() + b"\n"}, "add notes")
+    repo.base = repo.rev()
+    path = Path(repo.dir) / "notes.txt"
+    path.unlink()
+    path.symlink_to("README")
+    run_git(["-C", repo.dir, "add", "--", "notes.txt"])
+    run_git(["-C", repo.dir, "commit", "-q", "-m", "replace with symlink"])
+    return repo, repo.push_env()
+
+
+def case_replace_gitlink() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    repo.commit({"notes.txt": token_bytes() + b"\n"}, "add notes")
+    repo.base = repo.rev()
+    link = repo.rev()
+    run_git(["-C", repo.dir, "update-index", "--cacheinfo", f"160000,{link},notes.txt"])
+    run_git(["-C", repo.dir, "commit", "-q", "-m", "replace with gitlink"])
+    shown = run_git(["-C", repo.dir, "diff-tree", "-r", "--root", "HEAD"])
+    if "160000" not in shown:
+        raise SystemExit("gitlink replace fixture has no mode 160000")
+    return repo, repo.push_env()
+
+
+def case_tar_type_z() -> tuple[Repo, dict[str, str]]:
+    blob = ustar_typed(gzip.compress(token_bytes()), b"Z")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_lz4_frame() -> tuple[Repo, dict[str, str]]:
+    return prepare_secret_file("notes.bin", lz4_hidden_token_frame())
+
+
+def case_brotli_raw() -> tuple[Repo, dict[str, str]]:
+    if token_bytes() in BROTLI_TOKEN or b"\x1f\x8b" in BROTLI_TOKEN:
+        raise SystemExit("brotli fixture is not hidden")
+    return prepare_secret_file("notes.bin", BROTLI_TOKEN)
+
+
+def case_cpio_nul_zlib() -> tuple[Repo, dict[str, str]]:
+    blob = newc_cpio("secret.bin", b"\x00" * 8 + zlib.compress(token_bytes()))
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_odc_nul_zlib() -> tuple[Repo, dict[str, str]]:
+    blob = odc_archive(b"n", b"\x00" * 4 + zlib.compress(token_bytes()))
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_ustar_nul_lzma() -> tuple[Repo, dict[str, str]]:
+    payload = b"\x00" * 8 + lzma.compress(token_bytes(), format=lzma.FORMAT_ALONE)
+    blob = ustar_typed(payload, b"0")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_ar_nul_zlib() -> tuple[Repo, dict[str, str]]:
+    blob = ar_archive("n", b"\x00" * 8 + zlib.compress(token_bytes()))
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_b64_b64_gzip() -> tuple[Repo, dict[str, str]]:
+    inner = base64.b64encode(gzip.compress(token_bytes()))
+    return prepare_secret_file("notes.bin", require_hidden(base64.b64encode(inner)))
+
+
+def case_b64url_gzip() -> tuple[Repo, dict[str, str]]:
+    return prepare_secret_file("notes.bin", require_hidden(b64url_gzip_token()))
+
+
+def case_hex_gzip() -> tuple[Repo, dict[str, str]]:
+    return prepare_secret_file("notes.bin", require_hidden(gzip.compress(token_bytes()).hex().encode()))
+
+
+def case_b64_wrap16() -> tuple[Repo, dict[str, str]]:
+    encoded = base64.b64encode(gzip.compress(token_bytes()))
+    wrapped = b"\n".join(encoded[i : i + 16] for i in range(0, len(encoded), 16)) + b"\n"
+    return prepare_secret_file("notes.bin", require_hidden(wrapped))
+
+
+def case_b64_zlib_short() -> tuple[Repo, dict[str, str]]:
+    encoded = base64.b64encode(zlib.compress(token_bytes()))
+    if len(encoded) >= 40:
+        raise SystemExit("short base64 fixture is not under the old floor")
+    return prepare_secret_file("notes.bin", require_hidden(encoded))
+
+
+def case_utf16_token() -> tuple[Repo, dict[str, str]]:
+    blob = token_bytes().decode().encode("utf-16-le")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def mktag(repo: Repo, object_sha: str, objtype: str, name: str, message: bytes) -> str:
+    tagger = b"Tester <dev@bossboard.test> 1000000000 +0000"
+    body = (
+        b"object " + object_sha.encode() + b"\n"
+        b"type " + objtype.encode() + b"\n"
+        b"tag " + name.encode() + b"\n"
+        b"tagger " + tagger + b"\n\n" + message
+    )
+    return run_git(["-C", repo.dir, "mktag"], data=body)
+
+
+def tag_push_env(repo: Repo, tag_sha: str, name: str) -> dict[str, str]:
+    repo.ensure_origin()
+    run_git(["-C", repo.dir, "update-ref", f"refs/tags/{name}", tag_sha])
+    run_git(["-C", repo.dir, "push", "-q", "origin", "HEAD:refs/heads/main"])
+    run_git(["-C", repo.dir, "push", "-q", "origin", "tag", name])
+    repo.track("main")
+    run_git(["-C", repo.dir, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"])
+    return repo.push_env(
+        BASE_SHA=ZERO_SHA,
+        GITHUB_REF=f"refs/tags/{name}",
+        GITHUB_REF_NAME=name,
+        GITHUB_REF_TYPE="tag",
+    )
+
+
+def case_tag_chain() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    inner = mktag(repo, repo.rev(), "commit", "inner-tag", token_bytes() + b"\n")
+    outer = mktag(repo, inner, "tag", "outer-tag", b"outer\n")
+    return repo, tag_push_env(repo, outer, "outer-tag")
+
+
+def case_tag_message_gzip() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    message = require_hidden(gzip.compress(token_bytes()))
+    tag_sha = mktag(repo, repo.rev(), "commit", "gzip-msg", message)
+    return repo, tag_push_env(repo, tag_sha, "gzip-msg")
+
+
+def case_commit_header() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    tree = run_git(["-C", repo.dir, "rev-parse", "HEAD^{tree}"])
+    parent = repo.rev()
+    body = (
+        f"tree {tree}\nparent {parent}\n"
+        "author Tester <dev@bossboard.test> 1000000000 +0000\n"
+        "committer Tester <dev@bossboard.test> 1000000000 +0000\n"
+        f"x-secret {token_text()}\n\nempty\n"
+    ).encode()
+    sha = run_git(["-C", repo.dir, "hash-object", "-t", "commit", "-w", "--stdin"], data=body)
+    run_git(["-C", repo.dir, "update-ref", "HEAD", sha])
+    repo.base = parent
+    return repo, repo.push_env()
+
+
 def case_issuer_plus_token() -> tuple[Repo, dict[str, str]]:
     repo = Repo()
     repo.commit(
@@ -1325,6 +1624,26 @@ CASES = [
     ("deleted-gitlink-secret", 2, case_deleted_gitlink_secret, 90, 0),
     ("global-members", 1, case_global_members, 180, 0),
     ("global-bytes", 1, case_global_bytes, 180, 0),
+    ("overwrite-plain", 2, case_overwrite_plain, 90, 0),
+    ("overwrite-gzip", 2, case_overwrite_gzip, 90, 0),
+    ("replace-symlink", 2, case_replace_symlink, 90, 0),
+    ("replace-gitlink", 2, case_replace_gitlink, 90, 0),
+    ("tar-type-z", 2, case_tar_type_z, 90, 0),
+    ("lz4-frame", 1, case_lz4_frame, 90, 0),
+    ("brotli-raw", 0, case_brotli_raw, 90, 0),
+    ("cpio-nul-zlib", 2, case_cpio_nul_zlib, 90, 0),
+    ("odc-nul-zlib", 2, case_odc_nul_zlib, 90, 0),
+    ("ustar-nul-lzma", 2, case_ustar_nul_lzma, 90, 0),
+    ("ar-nul-zlib", 2, case_ar_nul_zlib, 90, 0),
+    ("b64-b64-gzip", 2, case_b64_b64_gzip, 90, 0),
+    ("b64url-gzip", 2, case_b64url_gzip, 90, 0),
+    ("hex-gzip", 2, case_hex_gzip, 90, 0),
+    ("b64-wrap-16", 2, case_b64_wrap16, 90, 0),
+    ("b64-zlib-short", 2, case_b64_zlib_short, 90, 0),
+    ("utf16-token", 2, case_utf16_token, 90, 0),
+    ("tag-chain", 2, case_tag_chain, 90, 0),
+    ("tag-message-gzip", 2, case_tag_message_gzip, 90, 0),
+    ("commit-extra-header", 2, case_commit_header, 90, 0),
 ]
 
 
@@ -1381,6 +1700,8 @@ def main() -> int:
             note = "missing over-cap marker"
         if name.startswith("global-") and "global archive cap" not in output:
             note = "missing global-cap marker"
+        if name == "lz4-frame" and "unsupported archive" not in output:
+            note = "missing lz4 marker"
         if name in {"clean-branch-on-main", "clean-lightweight-tag"} and (
             "feature-clean-tip" in output or "clean-tag-v1" in output
         ):
