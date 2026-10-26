@@ -7,6 +7,7 @@ contain a contiguous token, and the harness must not print one.
 
 from __future__ import annotations
 
+import base64
 import bz2
 import gzip
 import io
@@ -942,6 +943,280 @@ def case_over_cap_suffix() -> tuple[Repo, dict[str, str]]:
     return prepare_secret_file("notes.bin", require_hidden(blob))
 
 
+def gzip_with_extra(extra: bytes, payload: bytes) -> bytes:
+    comp = zlib.compress(payload)[2:-4]
+    crc = zlib.crc32(payload) & 0xFFFFFFFF
+    header = bytes([0x1F, 0x8B, 0x08, 0x04, 0, 0, 0, 0, 0, 255])
+    return (
+        header
+        + len(extra).to_bytes(2, "little")
+        + extra
+        + comp
+        + crc.to_bytes(4, "little")
+        + (len(payload) & 0xFFFFFFFF).to_bytes(4, "little")
+    )
+
+
+def case_tar_pad() -> tuple[Repo, dict[str, str]]:
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        info = tarfile.TarInfo("hello.txt")
+        info.size = 6
+        archive.addfile(info, io.BytesIO(b"hello\n"))
+    raw = bytearray(bio.getvalue())
+    with tarfile.open(fileobj=io.BytesIO(bytes(raw)), mode="r:") as archive:
+        member = archive.getmembers()[0]
+    pad = gzip.compress(token_bytes())
+    start = member.offset_data + member.size
+    if start + len(pad) > member.offset_data + 512:
+        raise SystemExit("tar padding fixture does not fit in one block")
+    raw[start : start + len(pad)] = pad
+    return prepare_secret_file("notes.bin", require_hidden(bytes(raw)))
+
+
+def case_zip_file_comment() -> tuple[Repo, dict[str, str]]:
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_STORED) as archive:
+        info = zipfile.ZipInfo("hello.txt")
+        info.compress_type = zipfile.ZIP_STORED
+        info.comment = gzip.compress(token_bytes())
+        archive.writestr(info, b"hello\n")
+    blob = bio.getvalue()
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        if archive.infolist()[0].comment[:2] != b"\x1f\x8b":
+            raise SystemExit("zip file-comment fixture lost the gzip comment")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_zip_local_extra() -> tuple[Repo, dict[str, str]]:
+    payload = gzip.compress(token_bytes())
+    extra = b"\x99\x99" + len(payload).to_bytes(2, "little") + payload
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_STORED) as archive:
+        info = zipfile.ZipInfo("hello.txt")
+        info.compress_type = zipfile.ZIP_STORED
+        info.extra = extra
+        archive.writestr(info, b"hello\n")
+    blob = bio.getvalue()
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        info = archive.infolist()[0]
+        archive.fp.seek(info.header_offset)
+        local = archive.fp.read(30)
+        name_len = int.from_bytes(local[26:28], "little")
+        extra_len = int.from_bytes(local[28:30], "little")
+        archive.fp.seek(info.header_offset + 30 + name_len)
+        local_extra = archive.fp.read(extra_len)
+        if payload not in local_extra or payload not in info.extra:
+            raise SystemExit("zip extra fixture is not in the local and central headers")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_gzip_fextra() -> tuple[Repo, dict[str, str]]:
+    blob = gzip_with_extra(gzip.compress(token_bytes()), b"hello\n")
+    if gzip.decompress(blob) != b"hello\n":
+        raise SystemExit("gzip FEXTRA fixture does not inflate")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def hash_blob(repo: Repo, data: bytes) -> str:
+    return run_git(["-C", repo.dir, "hash-object", "-w", "--stdin"], data=data)
+
+
+def mktree(repo: Repo, entries: list[tuple[str, str, str, str]]) -> str:
+    chunks = [f"{mode} {kind} {sha}\t{path}\0".encode() for mode, kind, sha, path in entries]
+    return run_git(["-C", repo.dir, "mktree", "-z"], data=b"".join(chunks))
+
+
+def commit_tree(repo: Repo, tree: str, message: str) -> None:
+    parent = repo.rev()
+    sha = run_git(["-C", repo.dir, "commit-tree", tree, "-p", parent, "-m", message])
+    run_git(["-C", repo.dir, "update-ref", "HEAD", sha])
+
+
+def case_path_backslash() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    sha = hash_blob(repo, require_hidden(gzip.compress(token_bytes())))
+    tree = mktree(repo, [("100644", "blob", sha, "foo\\..\\secret.bin")])
+    commit_tree(repo, tree, "add odd path")
+    return repo, repo.push_env()
+
+
+def case_path_dotdot() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    sha = hash_blob(repo, require_hidden(gzip.compress(token_bytes())))
+    inner = mktree(repo, [("100644", "blob", sha, "..")])
+    tree = mktree(repo, [("040000", "tree", inner, "foo")])
+    commit_tree(repo, tree, "add dotdot path")
+    return repo, repo.push_env()
+
+
+def case_zlib_raw() -> tuple[Repo, dict[str, str]]:
+    return prepare_secret_file("notes.bin", require_hidden(zlib.compress(token_bytes())))
+
+
+def case_zlib_stored_zip() -> tuple[Repo, dict[str, str]]:
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr("secret.bin", zlib.compress(token_bytes()))
+    return prepare_secret_file("notes.bin", require_hidden(bio.getvalue()))
+
+
+def newc_cpio(name: str, payload: bytes) -> bytes:
+    def one(name_b: bytes, body: bytes) -> bytes:
+        def field(value: int) -> bytes:
+            return f"{value:08X}".encode()
+
+        header = b"".join(
+            [
+                b"070701",
+                field(1),
+                field(0o100644),
+                field(0),
+                field(0),
+                field(1),
+                field(0),
+                field(len(body)),
+                field(0),
+                field(0),
+                field(0),
+                field(0),
+                field(len(name_b)),
+                field(0),
+            ]
+        )
+        if len(header) != 110:
+            raise SystemExit("cpio header is the wrong size")
+        name_end = 110 + len(name_b)
+        data_off = (name_end + 3) & ~3
+        data_end = data_off + len(body)
+        pad_end = (data_end + 3) & ~3
+        return (
+            header
+            + name_b
+            + b"\x00" * (data_off - name_end)
+            + body
+            + b"\x00" * (pad_end - data_end)
+        )
+
+    return one(name.encode() + b"\x00", payload) + one(b"TRAILER!!!\x00", b"")
+
+
+def case_zlib_cpio() -> tuple[Repo, dict[str, str]]:
+    blob = newc_cpio("secret.bin", zlib.compress(token_bytes()))
+    if not blob.startswith(b"070701"):
+        raise SystemExit("cpio fixture magic is wrong")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_lzma_alone() -> tuple[Repo, dict[str, str]]:
+    blob = lzma.compress(token_bytes(), format=lzma.FORMAT_ALONE)
+    if not blob.startswith(b"\x5d\x00\x00\x80\x00"):
+        raise SystemExit("lzma-alone fixture header changed")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_b64_gzip() -> tuple[Repo, dict[str, str]]:
+    blob = base64.b64encode(gzip.compress(token_bytes()))
+    if len(blob) < 40 or len(blob) % 4:
+        raise SystemExit("base64 fixture is the wrong shape")
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_tag_gzip_blob() -> tuple[Repo, dict[str, str]]:
+    return annotated_blob_tag(require_hidden(gzip.compress(token_bytes())), "annot-gzip-blob")
+
+
+def case_deleted_secret() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    repo.commit({"notes.txt": token_bytes() + b"\n"}, "add notes")
+    repo.base = repo.rev()
+    (Path(repo.dir) / "notes.txt").unlink()
+    run_git(["-C", repo.dir, "add", "-u"])
+    run_git(["-C", repo.dir, "commit", "-q", "-m", "remove notes"])
+    return repo, repo.push_env()
+
+
+def _commit_gitlink(repo: Repo) -> None:
+    """Stage a mode-160000 entry whose target is a commit, not a blob."""
+    link = repo.rev()
+    run_git(
+        [
+            "-C",
+            repo.dir,
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            f"160000,{link},vendor/lib",
+        ]
+    )
+    run_git(["-C", repo.dir, "commit", "-q", "-m", "add gitlink"])
+
+
+def _delete_gitlink(repo: Repo) -> None:
+    run_git(["-C", repo.dir, "rm", "--cached", "-q", "--", "vendor/lib"])
+
+
+def case_deleted_gitlink() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    _commit_gitlink(repo)
+    repo.base = repo.rev()
+    _delete_gitlink(repo)
+    run_git(["-C", repo.dir, "commit", "-q", "-m", "remove gitlink"])
+    shown = run_git(
+        ["-C", repo.dir, "diff-tree", "-r", "--root", "--diff-filter=D", "HEAD"]
+    )
+    if "160000" not in shown:
+        raise SystemExit("deleted gitlink fixture has no mode 160000")
+    return repo, repo.push_env()
+
+
+def case_deleted_gitlink_secret() -> tuple[Repo, dict[str, str]]:
+    repo = Repo()
+    repo.commit({"notes.txt": token_bytes() + b"\n"}, "add notes")
+    _commit_gitlink(repo)
+    repo.base = repo.rev()
+    _delete_gitlink(repo)
+    (Path(repo.dir) / "notes.txt").unlink()
+    run_git(["-C", repo.dir, "add", "-u"])
+    run_git(["-C", repo.dir, "commit", "-q", "-m", "remove notes and gitlink"])
+    shown = run_git(
+        ["-C", repo.dir, "diff-tree", "-r", "--root", "--diff-filter=D", "HEAD"]
+    )
+    if "160000" not in shown:
+        raise SystemExit("deleted gitlink fixture has no mode 160000")
+    return repo, repo.push_env()
+
+
+def case_global_members() -> tuple[Repo, dict[str, str]]:
+    inners = []
+    for i in range(100):
+        bio = io.BytesIO()
+        with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_STORED) as archive:
+            for j in range(100):
+                archive.writestr(f"{j}.txt", b"a")
+        inners.append(bio.getvalue())
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_STORED) as archive:
+        for i, raw in enumerate(inners):
+            archive.writestr(f"{i}.zip", raw)
+    blob = bio.getvalue()
+    if len(blob) >= MAX_ARCHIVE:
+        raise SystemExit("global member fixture is larger than the file cap")
+    return prepare_secret_file("notes.bin", blob, hidden=False)
+
+
+def case_global_bytes() -> tuple[Repo, dict[str, str]]:
+    part = gzip.compress(b"\x00" * (20 * 1024 * 1024), compresslevel=1)
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr("a.bin", part)
+        archive.writestr("b.bin", part)
+    blob = bio.getvalue()
+    if len(blob) >= MAX_ARCHIVE:
+        raise SystemExit("global byte fixture is larger than the file cap")
+    return prepare_secret_file("notes.bin", blob, hidden=False)
+
+
 def case_issuer_plus_token() -> tuple[Repo, dict[str, str]]:
     repo = Repo()
     repo.commit(
@@ -1033,6 +1308,23 @@ CASES = [
     ("tar-link-gz", 2, case_tar_link, 90, 0),
     ("tar-pax-gz", 2, case_tar_pax, 90, 0),
     ("over-cap-suffix", 1, case_over_cap_suffix, 180, 0),
+    ("tar-pad-gz", 2, case_tar_pad, 90, 0),
+    ("zip-file-comment", 2, case_zip_file_comment, 90, 0),
+    ("zip-local-extra", 2, case_zip_local_extra, 90, 0),
+    ("gzip-fextra", 2, case_gzip_fextra, 90, 0),
+    ("path-backslash", 2, case_path_backslash, 90, 0),
+    ("path-dotdot", 2, case_path_dotdot, 90, 0),
+    ("zlib-raw", 2, case_zlib_raw, 90, 0),
+    ("zlib-stored-zip", 2, case_zlib_stored_zip, 90, 0),
+    ("zlib-cpio", 2, case_zlib_cpio, 90, 0),
+    ("lzma-alone", 2, case_lzma_alone, 90, 0),
+    ("b64-gzip", 2, case_b64_gzip, 90, 0),
+    ("tag-gzip-blob", 2, case_tag_gzip_blob, 90, 0),
+    ("deleted-secret", 2, case_deleted_secret, 90, 0),
+    ("deleted-gitlink", 0, case_deleted_gitlink, 90, 0),
+    ("deleted-gitlink-secret", 2, case_deleted_gitlink_secret, 90, 0),
+    ("global-members", 1, case_global_members, 180, 0),
+    ("global-bytes", 1, case_global_bytes, 180, 0),
 ]
 
 
@@ -1087,6 +1379,8 @@ def main() -> int:
             note = "missing declared-size marker"
         if name == "over-cap-suffix" and "compressed blob exceeds cap" not in output:
             note = "missing over-cap marker"
+        if name.startswith("global-") and "global archive cap" not in output:
+            note = "missing global-cap marker"
         if name in {"clean-branch-on-main", "clean-lightweight-tag"} and (
             "feature-clean-tip" in output or "clean-tag-v1" in output
         ):
