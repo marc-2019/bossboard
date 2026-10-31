@@ -30,6 +30,8 @@ OLD_REV = "14834983cc8178b04fd2d69a3b7cbfa4ae419c40"
 # Head that still drops a preimage when its staged path collides, and
 # still skips nonempty ar symbol-table members.
 PREV_REV = "ef9ba3facc681b39f035cbfcb22ccc745570b510"
+# Head that still drops archive header fields once the archive is gzip-wrapped.
+HEADER_REV = "79d1aef8d432950467ba4036834e527f301a3e80"
 JWT_COMMIT = "9d2a49ebf8b5eaeba177a5c477ad123cf748f1d2"
 JWT_FP = f"{JWT_COMMIT}:.claude/settings.local.json:jwt:25"
 ZERO_SHA = "0" * 40
@@ -1585,6 +1587,118 @@ def case_ar_special_counted() -> tuple[Repo, dict[str, str]]:
     return prepare_secret_file("notes.bin", ar_archive_raw(members), hidden=False)
 
 
+def gzip_wrap(raw: bytes) -> bytes:
+    if token_bytes() not in raw:
+        raise SystemExit("header fixture does not contain the token")
+    return require_hidden(gzip.compress(raw))
+
+
+def header_file(raw: bytes, wrap: bool) -> tuple[Repo, dict[str, str]]:
+    blob = gzip_wrap(raw) if wrap else raw
+    if not wrap and token_bytes() not in blob:
+        raise SystemExit("bare header fixture lost the token")
+    return prepare_secret_file("notes.bin", blob, hidden=wrap)
+
+
+def ar_header_token() -> bytes:
+    token = token_bytes()
+    name = b"n\x00" + token[:14]
+    meta = token[14:] + b" " * (32 - (len(token) - 14))
+    body = b"hello\n"
+    header = name + meta + str(len(body)).encode().ljust(10) + b"`\n"
+    if len(name) != 16 or len(meta) != 32 or len(header) != 60:
+        raise SystemExit("ar header fixture is the wrong size")
+    if token not in header or token in header.split(b"\x00", 1)[0]:
+        raise SystemExit("ar header fixture does not split the token past the NUL")
+    pad = b"\n" if len(body) % 2 else b""
+    return b"!<arch>\n" + header + body + pad
+
+
+def ustar_ident_token() -> bytes:
+    token = token_text()
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        info = tarfile.TarInfo("notes.txt")
+        info.uname = token[:32]
+        info.gname = token[32:]
+        info.size = 6
+        archive.addfile(info, io.BytesIO(b"hello\n"))
+    raw = bio.getvalue()
+    if token_bytes() not in raw[:512] or raw[257:262] != b"ustar":
+        raise SystemExit("ustar ident fixture is not in the header")
+    if b"pax_global_header" in raw:
+        raise SystemExit("ustar ident fixture was rewritten as pax")
+    return raw
+
+
+def newc_header_token() -> bytes:
+    raw = bytearray(newc_cpio("hello.txt", b"hello\n"))
+    token = token_bytes()
+    raw[6 : 6 + len(token)] = token
+    if token not in bytes(raw[:110]):
+        raise SystemExit("newc header fixture lost the token")
+    # filesize and namesize stay the original hex fields.
+    if raw[54:62] == token[:8] or raw[94:102] == token[:8]:
+        raise SystemExit("newc header fixture overwrote a size field")
+    return bytes(raw)
+
+
+def odc_header_token() -> bytes:
+    raw = bytearray(odc_archive(b"hello.txt", b"hello\n"))
+    token = token_bytes()
+    raw[6 : 6 + len(token)] = token
+    if token not in bytes(raw[:76]):
+        raise SystemExit("odc header fixture lost the token")
+    return bytes(raw)
+
+
+def zip_name_token() -> bytes:
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(token_text(), b"hello\n")
+    raw = bio.getvalue()
+    if token_bytes() not in raw:
+        raise SystemExit("zip name fixture lost the token")
+    return raw
+
+
+def gnu_longname_token() -> bytes:
+    name = token_text() + ("n" * 80)
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w", format=tarfile.GNU_FORMAT) as archive:
+        info = tarfile.TarInfo(name)
+        info.size = 6
+        archive.addfile(info, io.BytesIO(b"hello\n"))
+    raw = bio.getvalue()
+    if token_bytes() not in raw or len(name) <= 100:
+        raise SystemExit("gnu long-name fixture is not a long name")
+    return raw
+
+
+def case_ar_header(wrap: bool) -> tuple[Repo, dict[str, str]]:
+    return header_file(ar_header_token(), wrap)
+
+
+def case_ustar_ident(wrap: bool) -> tuple[Repo, dict[str, str]]:
+    return header_file(ustar_ident_token(), wrap)
+
+
+def case_newc_header(wrap: bool) -> tuple[Repo, dict[str, str]]:
+    return header_file(newc_header_token(), wrap)
+
+
+def case_odc_header(wrap: bool) -> tuple[Repo, dict[str, str]]:
+    return header_file(odc_header_token(), wrap)
+
+
+def case_zip_name(wrap: bool) -> tuple[Repo, dict[str, str]]:
+    return header_file(zip_name_token(), wrap)
+
+
+def case_gnu_longname() -> tuple[Repo, dict[str, str]]:
+    return header_file(gnu_longname_token(), True)
+
+
 def case_issuer_plus_token() -> tuple[Repo, dict[str, str]]:
     repo = Repo()
     repo.commit(
@@ -1719,6 +1833,17 @@ CASES = [
     ("ar-special-sym64", 2, lambda: case_ar_special(b"/SYM64/"), 90, None),
     ("ar-special-empty", 0, case_ar_special_empty, 90, None),
     ("ar-special-counted", 1, case_ar_special_counted, 120, None),
+    ("ar-header-gzip", 2, lambda: case_ar_header(True), 90, None),
+    ("ar-header-bare", 2, lambda: case_ar_header(False), 90, None),
+    ("ustar-ident-gzip", 2, lambda: case_ustar_ident(True), 90, None),
+    ("ustar-ident-bare", 2, lambda: case_ustar_ident(False), 90, None),
+    ("cpio-newc-header-gzip", 2, lambda: case_newc_header(True), 90, None),
+    ("cpio-newc-header-bare", 2, lambda: case_newc_header(False), 90, None),
+    ("cpio-odc-header-gzip", 2, lambda: case_odc_header(True), 90, None),
+    ("cpio-odc-header-bare", 2, lambda: case_odc_header(False), 90, None),
+    ("zip-name-gzip", 2, lambda: case_zip_name(True), 90, None),
+    ("zip-name-bare", 2, lambda: case_zip_name(False), 90, None),
+    ("tar-gnu-longname-gzip", 2, case_gnu_longname, 90, None),
 ]
 
 
@@ -1730,6 +1855,22 @@ PREV_EXPECT = {
     "ar-special-sym64": 0,
     "ar-special-empty": 0,
     "ar-special-counted": 0,
+}
+
+# Compared with HEADER_REV (79d1aef8). Gzip-wrapped headers were missed.
+# Bare archives already contain the token, so both heads exit 2.
+HEADER_EXPECT = {
+    "ar-header-gzip": 0,
+    "ar-header-bare": 2,
+    "ustar-ident-gzip": 0,
+    "ustar-ident-bare": 2,
+    "cpio-newc-header-gzip": 0,
+    "cpio-newc-header-bare": 2,
+    "cpio-odc-header-gzip": 0,
+    "cpio-odc-header-bare": 2,
+    "zip-name-gzip": 0,
+    "zip-name-bare": 2,
+    "tar-gnu-longname-gzip": 2,
 }
 
 
@@ -1768,9 +1909,12 @@ def main() -> int:
     old_script = extract_run(old_text)
     prev_text = run_git(["-C", str(ROOT), "show", f"{PREV_REV}:.github/workflows/secrets-scan.yml"])
     prev_script = extract_run(prev_text)
+    header_text = run_git(["-C", str(ROOT), "show", f"{HEADER_REV}:.github/workflows/secrets-scan.yml"])
+    header_script = extract_run(header_text)
     subprocess.run(["bash", "-n"], input=new_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=old_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=prev_script.encode(), check=True)
+    subprocess.run(["bash", "-n"], input=header_script.encode(), check=True)
     selected = [item for item in os.environ.get("CASES", "").split(",") if item]
     failed = 0
     print("case\texit\texpected\told\tseconds\tnote")
@@ -1816,6 +1960,15 @@ def main() -> int:
                 note = (note + " " if note else "") + f"prev exit {prev} expected {prev_expected}"
             if token_text() in prev_out:
                 raise SystemExit("token appeared in previous-head scan output after redact")
+        header_expected = HEADER_EXPECT.get(name)
+        if header_expected is not None and (not selected or any(item in name for item in selected)):
+            prev, prev_out, _header_elapsed = run_case(name, header_script, setup, timeout)
+            old_code = str(prev)
+            if prev != header_expected:
+                ok = False
+                note = (note + " " if note else "") + f"header-rev exit {prev} expected {header_expected}"
+            if token_text() in prev_out:
+                raise SystemExit("token appeared in header-rev scan output after redact")
         if not ok:
             failed += 1
             detail = status_lines(output)
