@@ -27,6 +27,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "secrets-scan.yml"
 OLD_REV = "14834983cc8178b04fd2d69a3b7cbfa4ae419c40"
+# Head that still drops a preimage when its staged path collides, and
+# still skips nonempty ar symbol-table members.
+PREV_REV = "ef9ba3facc681b39f035cbfcb22ccc745570b510"
 JWT_COMMIT = "9d2a49ebf8b5eaeba177a5c477ad123cf748f1d2"
 JWT_FP = f"{JWT_COMMIT}:.claude/settings.local.json:jwt:25"
 ZERO_SHA = "0" * 40
@@ -1321,6 +1324,31 @@ def odc_archive(name: bytes, body: bytes) -> bytes:
     return one(name, body) + one(b"TRAILER!!!", b"")
 
 
+def ar_archive_raw(members: list[tuple[bytes, bytes]]) -> bytes:
+    out = [b"!<arch>\n"]
+    for name, payload in members:
+        if len(name) > 16:
+            raise SystemExit("ar name is longer than the header field")
+        header = b"".join(
+            [
+                name.ljust(16),
+                b"0".ljust(12),
+                b"0".ljust(6),
+                b"0".ljust(6),
+                b"100644".ljust(8),
+                str(len(payload)).encode().ljust(10),
+                b"`\n",
+            ]
+        )
+        if len(header) != 60:
+            raise SystemExit("ar header is the wrong size")
+        out.append(header)
+        out.append(payload)
+        if len(payload) % 2:
+            out.append(b"\n")
+    return b"".join(out)
+
+
 def ar_archive(name: str, payload: bytes) -> bytes:
     header = b"".join(
         [
@@ -1516,6 +1544,47 @@ def case_commit_header() -> tuple[Repo, dict[str, str]]:
     return repo, repo.push_env()
 
 
+def case_preimage_collision() -> tuple[Repo, dict[str, str]]:
+    """Preimage of foo and an added file at preimage/foo must both survive.
+
+    The secret is gzip, so the patch does not contain the token. The two
+    clean files are different bytes, so identical-sha dedup does not skip
+    the second write.
+    """
+    repo = Repo()
+    repo.commit({"foo": require_hidden(gzip.compress(token_bytes()))}, "add secret")
+    repo.base = repo.rev()
+    repo.commit(
+        {"foo": b"clean-one\n", "preimage/foo": b"clean-two\n"},
+        "replace and collide",
+    )
+    return repo, repo.push_env()
+
+
+def case_ar_special(name: bytes) -> tuple[Repo, dict[str, str]]:
+    body = gzip.compress(token_bytes())
+    blob = ar_archive_raw([(name, body), (b"hello.txt/", b"hello\n")])
+    return prepare_secret_file("notes.bin", require_hidden(blob))
+
+
+def case_ar_special_empty() -> tuple[Repo, dict[str, str]]:
+    blob = ar_archive_raw(
+        [
+            (b"/", b""),
+            (b"//", b""),
+            (b"/SYM64/", b""),
+            (b"hello.txt/", b"hello\n"),
+        ]
+    )
+    return prepare_secret_file("notes.bin", blob, hidden=False)
+
+
+def case_ar_special_counted() -> tuple[Repo, dict[str, str]]:
+    members = [(f"m{i}.txt/".encode(), b"a") for i in range(2000)]
+    members.append((b"/", b"x"))
+    return prepare_secret_file("notes.bin", ar_archive_raw(members), hidden=False)
+
+
 def case_issuer_plus_token() -> tuple[Repo, dict[str, str]]:
     repo = Repo()
     repo.commit(
@@ -1644,7 +1713,24 @@ CASES = [
     ("tag-chain", 2, case_tag_chain, 90, 0),
     ("tag-message-gzip", 2, case_tag_message_gzip, 90, 0),
     ("commit-extra-header", 2, case_commit_header, 90, 0),
+    ("preimage-collision", 2, case_preimage_collision, 90, None),
+    ("ar-special-slash", 2, lambda: case_ar_special(b"/"), 90, None),
+    ("ar-special-longname", 2, lambda: case_ar_special(b"//"), 90, None),
+    ("ar-special-sym64", 2, lambda: case_ar_special(b"/SYM64/"), 90, None),
+    ("ar-special-empty", 0, case_ar_special_empty, 90, None),
+    ("ar-special-counted", 1, case_ar_special_counted, 120, None),
 ]
+
+
+# Compared with PREV_REV, not OLD_REV. Old exit 0 means the secret was missed.
+PREV_EXPECT = {
+    "preimage-collision": 0,
+    "ar-special-slash": 0,
+    "ar-special-longname": 0,
+    "ar-special-sym64": 0,
+    "ar-special-empty": 0,
+    "ar-special-counted": 0,
+}
 
 
 def run_case(name: str, script: str, setup, timeout: int) -> tuple[int, str, float]:
@@ -1680,8 +1766,11 @@ def main() -> int:
     new_script = extract_run(WORKFLOW.read_text())
     old_text = run_git(["-C", str(ROOT), "show", f"{OLD_REV}:.github/workflows/secrets-scan.yml"])
     old_script = extract_run(old_text)
+    prev_text = run_git(["-C", str(ROOT), "show", f"{PREV_REV}:.github/workflows/secrets-scan.yml"])
+    prev_script = extract_run(prev_text)
     subprocess.run(["bash", "-n"], input=new_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=old_script.encode(), check=True)
+    subprocess.run(["bash", "-n"], input=prev_script.encode(), check=True)
     selected = [item for item in os.environ.get("CASES", "").split(",") if item]
     failed = 0
     print("case\texit\texpected\told\tseconds\tnote")
@@ -1702,6 +1791,8 @@ def main() -> int:
             note = "missing global-cap marker"
         if name == "lz4-frame" and "unsupported archive" not in output:
             note = "missing lz4 marker"
+        if name == "ar-special-counted" and "declared size" not in output:
+            note = "missing member-cap marker"
         if name in {"clean-branch-on-main", "clean-lightweight-tag"} and (
             "feature-clean-tip" in output or "clean-tag-v1" in output
         ):
@@ -1716,6 +1807,15 @@ def main() -> int:
                 note = (note + " " if note else "") + f"old exit {old} expected {old_expected}"
             if token_text() in old_out:
                 raise SystemExit("token appeared in old scan output after redact")
+        prev_expected = PREV_EXPECT.get(name)
+        if prev_expected is not None and (not selected or any(item in name for item in selected)):
+            prev, prev_out, _prev_elapsed = run_case(name, prev_script, setup, timeout)
+            old_code = str(prev)
+            if prev != prev_expected:
+                ok = False
+                note = (note + " " if note else "") + f"prev exit {prev} expected {prev_expected}"
+            if token_text() in prev_out:
+                raise SystemExit("token appeared in previous-head scan output after redact")
         if not ok:
             failed += 1
             detail = status_lines(output)
