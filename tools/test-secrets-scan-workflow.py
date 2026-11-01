@@ -13,6 +13,7 @@ import gzip
 import io
 import lzma
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -32,6 +33,11 @@ OLD_REV = "14834983cc8178b04fd2d69a3b7cbfa4ae419c40"
 PREV_REV = "ef9ba3facc681b39f035cbfcb22ccc745570b510"
 # Head that still drops archive header fields once the archive is gzip-wrapped.
 HEADER_REV = "79d1aef8d432950467ba4036834e527f301a3e80"
+# Head that still drops cpio name bytes after the first NUL, GNU long-name /
+# long-link / pax data past that NUL, a zip data descriptor, and a token
+# split across a ustar header and a body, once gzip/bzip2/xz wraps the
+# archive. It also skips the encoding walker on those bytes.
+WHOLE_REV = "2665c6813636b23c5a2f68e40a4a6d42d29bafe1"
 JWT_COMMIT = "9d2a49ebf8b5eaeba177a5c477ad123cf748f1d2"
 JWT_FP = f"{JWT_COMMIT}:.claude/settings.local.json:jwt:25"
 ZERO_SHA = "0" * 40
@@ -1708,6 +1714,301 @@ def case_issuer_plus_token() -> tuple[Repo, dict[str, str]]:
     return repo, repo.push_env()
 
 
+_B64_SPAN = re.compile(
+    rb"(?:[A-Za-z0-9+/]{4}){4,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?"
+)
+
+
+def encoded_payload() -> bytes:
+    payload = base64.b64encode(gzip.compress(token_bytes()))
+    if len(payload) < 16 or len(payload) % 4 or token_bytes() in payload:
+        raise SystemExit("encoded payload is the wrong shape")
+    return payload
+
+
+def hole_payload(encoded: bool) -> bytes:
+    return encoded_payload() if encoded else token_bytes()
+
+
+def assert_b64_span(raw: bytes, payload: bytes) -> None:
+    spans = [match.group(0) for match in _B64_SPAN.finditer(raw)]
+    if payload not in spans:
+        raise SystemExit("encoded fixture is not a standalone base64 span")
+
+
+def assert_tar_hides(raw: bytes, payload: bytes) -> None:
+    try:
+        with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
+            for member in archive.getmembers():
+                if payload in member.name.encode("utf-8", "surrogateescape"):
+                    raise SystemExit("payload is the tar member name")
+                if payload in member.linkname.encode("utf-8", "surrogateescape"):
+                    raise SystemExit("payload is the tar link target")
+                for key, value in member.pax_headers.items():
+                    if payload in str(key).encode() or payload in str(value).encode():
+                        raise SystemExit("payload is a parsed pax record")
+                if not member.isreg() or member.size <= 0:
+                    continue
+                body = archive.extractfile(member).read()
+                if payload in body:
+                    raise SystemExit("payload is entirely inside the member body")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        raise SystemExit(f"tar fixture did not open: {type(exc).__name__}") from None
+
+
+def gnu_long_block(payload: bytes, kind: str) -> bytes:
+    label = "n" * 120
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w", format=tarfile.GNU_FORMAT) as archive:
+        if kind == "name":
+            info = tarfile.TarInfo(label)
+            info.size = 6
+            archive.addfile(info, io.BytesIO(b"hello\n"))
+        elif kind == "link":
+            info = tarfile.TarInfo("short")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "l" * 120
+            archive.addfile(info)
+        else:
+            raise SystemExit("unknown long block")
+    raw = bytearray(bio.getvalue())
+    size = int(bytes(raw[124:135]).split(b"\x00", 1)[0], 8)
+    off = 512 + size
+    if raw[off - 1] != 0:
+        raise SystemExit("long block does not end on NUL")
+    if off + len(payload) > 1024 or bytes(raw[off : off + len(payload)]).strip(b"\x00"):
+        raise SystemExit("long block padding cannot hold the payload")
+    raw[off : off + len(payload)] = payload
+    planted = bytes(raw)
+    if payload not in planted[512:1024] or payload in planted[:512]:
+        raise SystemExit("long block payload is not confined to the data block")
+    assert_tar_hides(planted, payload)
+    return planted
+
+
+def pax_pad_block(payload: bytes) -> bytes:
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w", format=tarfile.PAX_FORMAT) as archive:
+        info = tarfile.TarInfo("hello.txt")
+        info.size = 6
+        info.pax_headers = {"path": "hello.txt"}
+        archive.addfile(info, io.BytesIO(b"hello\n"))
+    raw = bytearray(bio.getvalue())
+    size = int(bytes(raw[124:135]).split(b"\x00", 1)[0], 8)
+    # Keep one NUL between the pax record and the payload.
+    off = 512 + size + 1
+    if raw[512 + size - 1] != ord(b"\n") or raw[off - 1] != 0:
+        raise SystemExit("pax record is not followed by NUL")
+    if off + len(payload) > 1024 or bytes(raw[off : off + len(payload)]).strip(b"\x00"):
+        raise SystemExit("pax padding cannot hold the payload")
+    raw[off : off + len(payload)] = payload
+    planted = bytes(raw)
+    if payload not in planted[512:1024] or payload in planted[:512]:
+        raise SystemExit("pax payload is not confined to the data block")
+    assert_tar_hides(planted, payload)
+    return planted
+
+
+def tar_header_body_split(payload: bytes) -> bytes:
+    # Twenty payload bytes stay in the ustar header. The rest is the body.
+    # Offset 491 is NUL, so the rewritten copy keeps the payload on one line.
+    head = 20
+    if len(payload) <= head:
+        raise SystemExit("split payload is too short")
+    body = payload[head:]
+    bio = io.BytesIO()
+    with tarfile.open(fileobj=bio, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        info = tarfile.TarInfo("hello.txt")
+        info.size = len(body)
+        archive.addfile(info, io.BytesIO(b"\x00" * len(body)))
+    raw = bytearray(bio.getvalue())
+    if raw[491] != 0 or bytes(raw[492:512]).strip(b"\x00"):
+        raise SystemExit("ustar prefix padding is not empty")
+    raw[492:512] = payload[:head]
+    raw[512 : 512 + len(body)] = body
+    header = bytearray(raw[:512])
+    header[148:156] = b"        "
+    checksum = sum(header)
+    raw[148:156] = f"{checksum:06o}".encode() + b"\x00 "
+    planted = bytes(raw)
+    if payload not in planted or payload in planted[:512] or payload in planted[512:1024]:
+        raise SystemExit("split fixture does not cross the header and the body")
+    assert_tar_hides(planted, payload)
+    return planted
+
+
+def _newc_member(name_b: bytes, body: bytes) -> bytes:
+    def field(value: int) -> bytes:
+        return f"{value:08X}".encode()
+
+    header = b"".join(
+        [
+            b"070701",
+            field(1),
+            field(0o100644),
+            field(0),
+            field(0),
+            field(1),
+            field(0),
+            field(len(body)),
+            field(0),
+            field(0),
+            field(0),
+            field(0),
+            field(len(name_b)),
+            field(0),
+        ]
+    )
+    if len(header) != 110:
+        raise SystemExit("cpio header is the wrong size")
+    name_end = 110 + len(name_b)
+    data_off = (name_end + 3) & ~3
+    data_end = data_off + len(body)
+    pad_end = (data_end + 3) & ~3
+    return (
+        header
+        + name_b
+        + b"\x00" * (data_off - name_end)
+        + body
+        + b"\x00" * (pad_end - data_end)
+    )
+
+
+def newc_name_after_nul(payload: bytes) -> bytes:
+    name_b = b"a\x00" + payload + b"\x00"
+    raw = _newc_member(name_b, b"hello\n") + _newc_member(b"TRAILER!!!\x00", b"")
+    namesize = int(raw[94:102], 16)
+    region = raw[110 : 110 + namesize]
+    if region.split(b"\x00", 1)[0] != b"a" or payload not in region.split(b"\x00", 1)[1]:
+        raise SystemExit("newc payload is not after the first NUL in the name")
+    if payload in raw[:110]:
+        raise SystemExit("newc payload landed in the fixed header")
+    return raw
+
+
+def _odc_member(entry_b: bytes, body: bytes) -> bytes:
+    def field(value: int, width: int) -> bytes:
+        return oct(value)[2:].encode().rjust(width, b"0")
+
+    header = b"".join(
+        [
+            b"070707",
+            field(1, 6),
+            field(1, 6),
+            field(0o100644, 6),
+            field(0, 6),
+            field(0, 6),
+            field(1, 6),
+            field(0, 6),
+            field(0, 11),
+            field(len(entry_b), 6),
+            field(len(body), 11),
+        ]
+    )
+    if len(header) != 76:
+        raise SystemExit("odc header is the wrong size")
+    return header + entry_b + body
+
+
+def odc_name_after_nul(payload: bytes) -> bytes:
+    entry = b"a\x00" + payload + b"\x00"
+    raw = _odc_member(entry, b"hello\n") + _odc_member(b"TRAILER!!!\x00", b"")
+    namesize = int(raw[59:65], 8)
+    region = raw[76 : 76 + namesize]
+    if region.split(b"\x00", 1)[0] != b"a" or payload not in region.split(b"\x00", 1)[1]:
+        raise SystemExit("odc payload is not after the first NUL in the name")
+    if payload in raw[:76]:
+        raise SystemExit("odc payload landed in the fixed header")
+    return raw
+
+
+def zip_descriptor_tail(payload: bytes) -> bytes:
+    # Bit 3 is set and both sizes are 12 bytes short, so the tail sits in
+    # the data-descriptor slot. The name ends in '.' so a base64 span does
+    # not run into the filename.
+    if len(payload) <= 12:
+        raise SystemExit("descriptor payload is shorter than the descriptor")
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr("a.", payload)
+    data = bytearray(bio.getvalue())
+    short = len(payload) - 12
+
+    def patch(sig: bytes, flag_at: int, size_at: int) -> None:
+        idx = data.find(sig)
+        if idx < 0:
+            raise SystemExit("descriptor fixture is missing a header")
+        flag = int.from_bytes(data[idx + flag_at : idx + flag_at + 2], "little") | 0x8
+        data[idx + flag_at : idx + flag_at + 2] = flag.to_bytes(2, "little")
+        data[idx + size_at : idx + size_at + 4] = short.to_bytes(4, "little")
+        data[idx + size_at + 4 : idx + size_at + 8] = short.to_bytes(4, "little")
+
+    patch(b"PK\x03\x04", 6, 18)
+    patch(b"PK\x01\x02", 8, 20)
+    blob = bytes(data)
+    if payload not in blob:
+        raise SystemExit("descriptor fixture lost the payload")
+    try:
+        with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+            info = archive.infolist()[0]
+            if not info.flag_bits & 0x8 or info.compress_size != short or info.file_size != short:
+                raise SystemExit("descriptor fixture sizes were not shortened")
+            archive.fp.seek(info.header_offset)
+            local = archive.fp.read(30)
+            name_len = int.from_bytes(local[26:28], "little")
+            extra_len = int.from_bytes(local[28:30], "little")
+            data_at = info.header_offset + 30 + name_len + extra_len
+            body = blob[data_at : data_at + info.compress_size]
+            tail = blob[data_at + short : data_at + short + 12]
+            if payload in body or tail != payload[-12:]:
+                raise SystemExit("descriptor tail is not the last 12 payload bytes")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        raise SystemExit(f"descriptor fixture did not open: {type(exc).__name__}") from None
+    return blob
+
+
+def hole_file(raw: bytes, wrap: bool, encoded: bool) -> tuple[Repo, dict[str, str]]:
+    payload = hole_payload(encoded)
+    if encoded:
+        if payload not in raw or token_bytes() in raw:
+            raise SystemExit("encoded archive fixture is invalid")
+        assert_b64_span(raw, payload)
+        blob = gzip.compress(raw) if wrap else raw
+        if token_bytes() in blob:
+            raise SystemExit("encoded fixture exposed the token")
+        return prepare_secret_file("notes.bin", blob, hidden=True)
+    return header_file(raw, wrap)
+
+
+def case_hole(kind: str, wrap: bool, encoded: bool) -> tuple[Repo, dict[str, str]]:
+    payload = hole_payload(encoded)
+    if kind == "newc":
+        raw = newc_name_after_nul(payload)
+    elif kind == "odc":
+        raw = odc_name_after_nul(payload)
+    elif kind == "longname":
+        raw = gnu_long_block(payload, "name")
+    elif kind == "longlink":
+        raw = gnu_long_block(payload, "link")
+    elif kind == "pax":
+        raw = pax_pad_block(payload)
+    elif kind == "descriptor":
+        raw = zip_descriptor_tail(payload)
+    elif kind == "split":
+        raw = tar_header_body_split(payload)
+    else:
+        raise SystemExit("unknown hole")
+    return hole_file(raw, wrap, encoded)
+
+
+def bind_hole(kind: str, wrap: bool, encoded: bool):
+    return lambda: case_hole(kind, wrap, encoded)
+
+
 CASES = [
     ("clean-push", 0, case_clean_push, 90, None),
     ("clean-zip", 0, case_clean_zip, 90, None),
@@ -1847,6 +2148,25 @@ CASES = [
 ]
 
 
+# Gzip-wrapped holes missed at WHOLE_REV, plus the base64 form of each.
+# Bare plaintext still contains the token. Bare base64 does not, so history
+# mode cannot report it; WHOLE_EXPECT records the measured old exit.
+HOLE_CASES = [
+    ("cpio-name-nul", "newc"),
+    ("cpio-odc-name-nul", "odc"),
+    ("tar-longname-pad", "longname"),
+    ("tar-longlink-pad", "longlink"),
+    ("tar-pax-pad", "pax"),
+    ("zip-descriptor", "descriptor"),
+    ("tar-header-body", "split"),
+]
+for _stem, _kind in HOLE_CASES:
+    CASES.append((_stem + "-gzip", 2, bind_hole(_kind, True, False), 90, None))
+    CASES.append((_stem + "-bare", 2, bind_hole(_kind, False, False), 90, None))
+    CASES.append(("b64-" + _stem + "-gzip", 2, bind_hole(_kind, True, True), 90, None))
+    CASES.append(("b64-" + _stem + "-bare", 2, bind_hole(_kind, False, True), 90, None))
+
+
 # Compared with PREV_REV, not OLD_REV. Old exit 0 means the secret was missed.
 PREV_EXPECT = {
     "preimage-collision": 0,
@@ -1872,6 +2192,17 @@ HEADER_EXPECT = {
     "zip-name-bare": 2,
     "tar-gnu-longname-gzip": 2,
 }
+
+# Compared with WHOLE_REV (2665c681). Plaintext gzip exits 0 there because
+# the token is past the first NUL or split across two slices. Bare plaintext
+# exits 2 because history --text still sees the token. Base64 variants do
+# not contain the token, wrapped or bare, so both exit 0 on that head.
+WHOLE_EXPECT = {}
+for _stem, _kind in HOLE_CASES:
+    WHOLE_EXPECT[_stem + "-gzip"] = 0
+    WHOLE_EXPECT[_stem + "-bare"] = 2
+    WHOLE_EXPECT["b64-" + _stem + "-gzip"] = 0
+    WHOLE_EXPECT["b64-" + _stem + "-bare"] = 0
 
 
 def run_case(name: str, script: str, setup, timeout: int) -> tuple[int, str, float]:
@@ -1911,10 +2242,13 @@ def main() -> int:
     prev_script = extract_run(prev_text)
     header_text = run_git(["-C", str(ROOT), "show", f"{HEADER_REV}:.github/workflows/secrets-scan.yml"])
     header_script = extract_run(header_text)
+    whole_text = run_git(["-C", str(ROOT), "show", f"{WHOLE_REV}:.github/workflows/secrets-scan.yml"])
+    whole_script = extract_run(whole_text)
     subprocess.run(["bash", "-n"], input=new_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=old_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=prev_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=header_script.encode(), check=True)
+    subprocess.run(["bash", "-n"], input=whole_script.encode(), check=True)
     selected = [item for item in os.environ.get("CASES", "").split(",") if item]
     failed = 0
     print("case\texit\texpected\told\tseconds\tnote")
@@ -1969,6 +2303,15 @@ def main() -> int:
                 note = (note + " " if note else "") + f"header-rev exit {prev} expected {header_expected}"
             if token_text() in prev_out:
                 raise SystemExit("token appeared in header-rev scan output after redact")
+        whole_expected = WHOLE_EXPECT.get(name)
+        if whole_expected is not None and (not selected or any(item in name for item in selected)):
+            prev, prev_out, _whole_elapsed = run_case(name, whole_script, setup, timeout)
+            old_code = str(prev)
+            if prev != whole_expected:
+                ok = False
+                note = (note + " " if note else "") + f"whole-rev exit {prev} expected {whole_expected}"
+            if token_text() in prev_out:
+                raise SystemExit("token appeared in whole-rev scan output after redact")
         if not ok:
             failed += 1
             detail = status_lines(output)
