@@ -6,8 +6,8 @@ contain a contiguous token, and the harness must not print one.
 
 Accepted limits, with the workflow: raw brotli, git notes, gitlinks, and
 refused 7z, rar, zstd, and framed lz4. Also a hex span over 1000000
-characters, four leading base64-alphabet bytes or one NUL inside a base64
-span, and UTF-16 after the first NUL in a cpio name or in GNU long-name
+characters, one to five leading base64-alphabet bytes (a longer prefix
+too) or one NUL inside a base64 span, and UTF-16 after the first NUL in a cpio name or in GNU long-name
 padding inside a gzip-wrapped archive.
 """
 
@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import bz2
 import gzip
+import hashlib
 import io
 import lzma
 import os
@@ -47,6 +48,9 @@ WHOLE_REV = "2665c6813636b23c5a2f68e40a4a6d42d29bafe1"
 # Head where base64(gzip(token)) inside 8 nested zips still exits 0.
 # The encoding walker returned at the depth cap instead of failing closed.
 DEPTH_REV = "a4bd9354bf4b6cb54ebbd973a0d1e2fcfae568db"
+# Head where a second encoding layer at the depth cap still exits 0.
+# walk_encodings failed closed only when the immediate decode was a container.
+LAYER_REV = "681c3c55a890345bebb346f20ee2c938ac0a5fc1"
 JWT_COMMIT = "9d2a49ebf8b5eaeba177a5c477ad123cf748f1d2"
 JWT_FP = f"{JWT_COMMIT}:.claude/settings.local.json:jwt:25"
 ZERO_SHA = "0" * 40
@@ -553,8 +557,92 @@ def case_b64_nested_8() -> tuple[Repo, dict[str, str]]:
 
 
 def case_nested_8_clean() -> tuple[Repo, dict[str, str]]:
-    """Eight nested zips of ordinary text. That is at the depth cap."""
-    return prepare_secret_file("notes.bin", nest_zip(8, b"hello\n", "hello.txt"), hidden=False)
+    """Eight nested zips of ordinary prose. The leaf is long enough to be walked."""
+    prose = b"The quick brown fox jumps over the lazy dog near the river.\n"
+    if len(prose) < 16:
+        raise SystemExit("clean nest leaf is shorter than the walker minimum")
+    return prepare_secret_file("notes.bin", nest_zip(8, prose, "hello.txt"), hidden=False)
+
+
+def _gzip_token() -> bytes:
+    raw = gzip.compress(token_bytes())
+    if token_bytes() in raw:
+        raise SystemExit("gzip wrapper exposed the token")
+    return raw
+
+
+def stacked_encoding(kind: str) -> bytes:
+    """1, 2, or 3 encoding layers around gzip(token). No archive wrapper."""
+    gz = _gzip_token()
+    if kind == "b64":
+        payload = base64.b64encode(gz)
+    elif kind == "b64b64":
+        payload = base64.b64encode(base64.b64encode(gz))
+    elif kind == "b64b64b64":
+        payload = base64.b64encode(base64.b64encode(base64.b64encode(gz)))
+    elif kind == "hexb64":
+        payload = base64.b64encode(gz).hex().encode()
+    elif kind == "b64hex":
+        payload = base64.b64encode(gz.hex().encode())
+    else:
+        raise SystemExit("unknown encoding stack")
+    if token_bytes() in payload or len(payload) < 16:
+        raise SystemExit("encoding stack fixture is the wrong shape")
+    return payload
+
+
+def case_enc_zip(kind: str, layers: int) -> tuple[Repo, dict[str, str]]:
+    return prepare_secret_file(
+        "notes.bin",
+        require_hidden(nest_zip(layers, stacked_encoding(kind), "note.txt")),
+    )
+
+
+def case_enc_bare(kind: str) -> tuple[Repo, dict[str, str]]:
+    return prepare_secret_file("notes.bin", require_hidden(stacked_encoding(kind)))
+
+
+def case_nested_8_leaf(leaf: bytes, name: str = "leaf.bin") -> tuple[Repo, dict[str, str]]:
+    if len(leaf) < 16:
+        raise SystemExit("deep leaf is shorter than the walker minimum")
+    if token_bytes() in leaf:
+        raise SystemExit("deep leaf contains the token")
+    return prepare_secret_file("notes.bin", nest_zip(8, leaf, name), hidden=False)
+
+
+def case_nested_8_png() -> tuple[Repo, dict[str, str]]:
+    return case_nested_8_leaf(tiny_png(), "leaf.png")
+
+
+def case_nested_8_b64_prose() -> tuple[Repo, dict[str, str]]:
+    prose = b"Notes from a site visit. Nothing secret is stored here.\n"
+    return case_nested_8_leaf(base64.b64encode(prose), "leaf.b64")
+
+
+def case_nested_8_sha256() -> tuple[Repo, dict[str, str]]:
+    line = b"sha256 " + hashlib.sha256(b"site visit notes").hexdigest().encode() + b"\n"
+    return case_nested_8_leaf(line, "leaf.txt")
+
+
+def case_nested_8_src8k() -> tuple[Repo, dict[str, str]]:
+    line = b"function visitSite(name) { return name.trim().toLowerCase(); }\n"
+    leaf = (line * (8192 // len(line) + 1))[:8192]
+    if len(leaf) != 8192:
+        raise SystemExit("source slice is not 8KB")
+    return case_nested_8_leaf(leaf, "leaf.js")
+
+
+def case_nested_8_longtext() -> tuple[Repo, dict[str, str]]:
+    leaf = b"Ordinary notes about a site visit. No secrets here. " * 8
+    return case_nested_8_leaf(leaf, "leaf.txt")
+
+
+def bind_enc_zip(kind: str, layers: int):
+    return lambda: case_enc_zip(kind, layers)
+
+
+def bind_enc_bare(kind: str):
+    return lambda: case_enc_bare(kind)
 
 
 def case_ignore_dir_zip() -> tuple[Repo, dict[str, str]]:
@@ -2194,6 +2282,20 @@ for _stem, _kind in HOLE_CASES:
     CASES.append(("b64-" + _stem + "-gzip", 2, bind_hole(_kind, True, True), 90, None))
     CASES.append(("b64-" + _stem + "-bare", 2, bind_hole(_kind, False, True), 90, None))
 
+# Two encoding layers inside 6/7/8/9 zips, plus 1/2/3 layers with no archive.
+# 7 and 8 exited 0 before the cap also covered a dropped inner layer.
+for _kind in ("b64b64", "hexb64", "b64hex"):
+    for _layers in (6, 7, 8, 9):
+        CASES.append((f"enc-{_kind}-z{_layers}", 1, bind_enc_zip(_kind, _layers), 90, None))
+CASES.append(("enc-b64-bare", 2, bind_enc_bare("b64"), 90, None))
+CASES.append(("enc-b64b64-bare", 2, bind_enc_bare("b64b64"), 90, None))
+CASES.append(("enc-b64b64b64-bare", 2, bind_enc_bare("b64b64b64"), 90, None))
+CASES.append(("nested-8-png", 0, case_nested_8_png, 90, None))
+CASES.append(("nested-8-b64-prose", 0, case_nested_8_b64_prose, 90, None))
+CASES.append(("nested-8-sha256", 0, case_nested_8_sha256, 90, None))
+CASES.append(("nested-8-src8k", 0, case_nested_8_src8k, 120, None))
+CASES.append(("nested-8-longtext", 0, case_nested_8_longtext, 90, None))
+
 
 # Compared with PREV_REV, not OLD_REV. Old exit 0 means the secret was missed.
 PREV_EXPECT = {
@@ -2239,6 +2341,28 @@ DEPTH_EXPECT = {
     "nested-8-clean": 0,
 }
 
+# Compared with LAYER_REV (681c3c5). Seven and eight zips around a second
+# encoding layer exited 0. Six already failed the depth cap. Nine fails
+# because the ninth zip itself is past the cap. Bare layers still report
+# the leak. Clean deep leaves stay 0.
+LAYER_EXPECT = {}
+for _kind in ("b64b64", "hexb64", "b64hex"):
+    LAYER_EXPECT[f"enc-{_kind}-z6"] = 1
+    LAYER_EXPECT[f"enc-{_kind}-z7"] = 0
+    LAYER_EXPECT[f"enc-{_kind}-z8"] = 0
+    LAYER_EXPECT[f"enc-{_kind}-z9"] = 1
+LAYER_EXPECT["enc-b64-bare"] = 2
+LAYER_EXPECT["enc-b64b64-bare"] = 2
+LAYER_EXPECT["enc-b64b64b64-bare"] = 2
+for _name in (
+    "nested-8-png",
+    "nested-8-b64-prose",
+    "nested-8-sha256",
+    "nested-8-src8k",
+    "nested-8-longtext",
+):
+    LAYER_EXPECT[_name] = 0
+
 
 def run_case(name: str, script: str, setup, timeout: int) -> tuple[int, str, float]:
     repo, env = setup()
@@ -2281,12 +2405,15 @@ def main() -> int:
     whole_script = extract_run(whole_text)
     depth_text = run_git(["-C", str(ROOT), "show", f"{DEPTH_REV}:.github/workflows/secrets-scan.yml"])
     depth_script = extract_run(depth_text)
+    layer_text = run_git(["-C", str(ROOT), "show", f"{LAYER_REV}:.github/workflows/secrets-scan.yml"])
+    layer_script = extract_run(layer_text)
     subprocess.run(["bash", "-n"], input=new_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=old_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=prev_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=header_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=whole_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=depth_script.encode(), check=True)
+    subprocess.run(["bash", "-n"], input=layer_script.encode(), check=True)
     selected = [item for item in os.environ.get("CASES", "").split(",") if item]
     failed = 0
     print("case\texit\texpected\told\tseconds\tnote")
@@ -2298,6 +2425,8 @@ def main() -> int:
         if name == "zeros-gz-33mib" and "decompress cap" not in output:
             note = "missing decompress-cap marker"
         if name in {"nested-9", "b64-nested-8"} and "Archive nesting exceeds" not in output:
+            note = "missing depth marker"
+        if name.startswith("enc-") and expected == 1 and "Archive nesting exceeds" not in output:
             note = "missing depth marker"
         if name.startswith("lying-") and "declared size" not in output:
             note = "missing declared-size marker"
@@ -2359,6 +2488,15 @@ def main() -> int:
                 note = (note + " " if note else "") + f"depth-rev exit {prev} expected {depth_expected}"
             if token_text() in prev_out:
                 raise SystemExit("token appeared in depth-rev scan output after redact")
+        layer_expected = LAYER_EXPECT.get(name)
+        if layer_expected is not None and (not selected or any(item in name for item in selected)):
+            prev, prev_out, _layer_elapsed = run_case(name, layer_script, setup, timeout)
+            old_code = str(prev)
+            if prev != layer_expected:
+                ok = False
+                note = (note + " " if note else "") + f"layer-rev exit {prev} expected {layer_expected}"
+            if token_text() in prev_out:
+                raise SystemExit("token appeared in layer-rev scan output after redact")
         if not ok:
             failed += 1
             detail = status_lines(output)
