@@ -109,5 +109,51 @@ test.describe('Authentication Pages', () => {
       await page.getByRole('link', { name: 'Sign in' }).click();
       await expect(page).toHaveURL(/\/login/);
     });
+
+    test('renders homepage Privacy and Terms links near Create account without changing the form', async ({ page }) => {
+      await page.goto('/register');
+
+      const privacy = page.getByRole('link', { name: 'Privacy' });
+      await expect(privacy).toBeVisible();
+      await expect(privacy).toHaveAttribute('href', 'https://api.instilligent.com/legal/privacy');
+      await expect(privacy).toHaveAttribute('target', '_blank');
+      await expect(privacy).toHaveAttribute('rel', 'noopener noreferrer');
+
+      const terms = page.getByRole('link', { name: 'Terms' });
+      await expect(terms).toBeVisible();
+      await expect(terms).toHaveAttribute('href', 'https://api.instilligent.com/legal/terms');
+      await expect(terms).toHaveAttribute('target', '_blank');
+      await expect(terms).toHaveAttribute('rel', 'noopener noreferrer');
+
+      const submit = page.getByRole('button', { name: 'Create account' });
+      await expect(submit).toBeVisible();
+      await expect(submit).toBeEnabled();
+      await expect(submit).toHaveAttribute('type', 'submit');
+
+      const submitBox = await submit.boundingBox();
+      const privacyBox = await privacy.boundingBox();
+      const termsBox = await terms.boundingBox();
+      expect(submitBox).not.toBeNull();
+      expect(privacyBox).not.toBeNull();
+      expect(termsBox).not.toBeNull();
+      const gapBelowButton = privacyBox!.y - (submitBox!.y + submitBox!.height);
+      expect(gapBelowButton).toBeGreaterThanOrEqual(0);
+      expect(gapBelowButton).toBeLessThan(80);
+      expect(Math.abs(privacyBox!.y - termsBox!.y)).toBeLessThan(8);
+
+      await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
+      await expect(page.getByLabel('Name')).toBeVisible();
+      await expect(page.getByLabel('Name')).not.toHaveAttribute('required', '');
+      await expect(page.getByLabel('Email')).toHaveAttribute('type', 'email');
+      await expect(page.getByLabel('Email')).toHaveAttribute('required', '');
+      await expect(page.getByLabel('Email')).toHaveAttribute('placeholder', 'you@example.com');
+      await expect(page.getByLabel('Password')).toHaveAttribute('type', 'password');
+      await expect(page.getByLabel('Password')).toHaveAttribute('required', '');
+      await expect(page.getByLabel('Password')).toHaveAttribute('minlength', '8');
+      await expect(page.getByLabel('Password')).toHaveAttribute('placeholder', 'Min. 8 characters');
+      await expect(page.getByLabel('Friend code (optional)')).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+      await expect(page.getByRole('checkbox')).toHaveCount(0);
+    });
   });
 });

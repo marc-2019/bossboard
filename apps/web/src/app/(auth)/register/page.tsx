@@ -133,6 +133,25 @@ export default function RegisterPage() {
         </Button>
       </form>
 
+      <div className="mt-3 flex items-center justify-center gap-4 text-sm">
+        <a
+          href="https://api.instilligent.com/legal/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent font-medium hover:underline"
+        >
+          Privacy
+        </a>
+        <a
+          href="https://api.instilligent.com/legal/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent font-medium hover:underline"
+        >
+          Terms
+        </a>
+      </div>
+
       <p className="mt-4 text-sm text-center text-gray-500">
         Already have an account?{' '}
         <Link href="/login" className="text-accent font-medium hover:underline">
