@@ -138,7 +138,7 @@ export default function RegisterPage() {
           href="https://api.instilligent.com/legal/privacy"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent font-medium hover:underline"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-[#C35229] hover:underline"
         >
           Privacy
         </a>
@@ -146,7 +146,7 @@ export default function RegisterPage() {
           href="https://api.instilligent.com/legal/terms"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent font-medium hover:underline"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-[#C35229] hover:underline"
         >
           Terms
         </a>

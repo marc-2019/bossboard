@@ -1,4 +1,62 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
+
+function linearize(channel: number): number {
+  const s = channel / 255;
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+}
+
+function contrastRatio(fg: [number, number, number], bg: [number, number, number]): number {
+  const lum = (rgb: [number, number, number]) =>
+    0.2126 * linearize(rgb[0]) + 0.7152 * linearize(rgb[1]) + 0.0722 * linearize(rgb[2]);
+  const lighter = Math.max(lum(fg), lum(bg));
+  const darker = Math.min(lum(fg), lum(bg));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+async function paintedColors(locator: Locator): Promise<{
+  fg: [number, number, number];
+  bg: [number, number, number];
+}> {
+  return locator.evaluate((el) => {
+    const parse = (value: string) => {
+      const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (!match) return null;
+      return {
+        rgb: [Number(match[1]), Number(match[2]), Number(match[3])] as [number, number, number],
+        alpha: match[4] === undefined ? 1 : Number(match[4]),
+      };
+    };
+    const fg = parse(getComputedStyle(el).color);
+    let node: Element | null = el;
+    let bg: [number, number, number] | null = null;
+    while (node) {
+      const parsed = parse(getComputedStyle(node).backgroundColor);
+      if (parsed && parsed.alpha > 0) {
+        bg = parsed.rgb;
+        break;
+      }
+      node = node.parentElement;
+    }
+    if (!fg || !bg) throw new Error('missing painted colors');
+    return { fg: fg.rgb, bg };
+  });
+}
+
+/** Answer the auth POST in the browser. Do not call route.continue() or route.fetch(). */
+async function stubAuthPost(page: Page, path: '/api/auth/login' | '/api/auth/register') {
+  await page.route(`**${path}`, async (route) => {
+    expect(route.request().method()).toBe('POST');
+    await route.fulfill({
+      status: 502,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: false,
+        error: 'PROXY_ERROR',
+        message: 'Failed to connect to API',
+      }),
+    });
+  });
+}
 
 test.describe('Authentication Pages', () => {
   test.describe('Login Page', () => {
@@ -36,14 +94,15 @@ test.describe('Authentication Pages', () => {
     });
 
     test('shows error when submitting with API down', async ({ page }) => {
+      await stubAuthPost(page, '/api/auth/login');
       await page.goto('/login');
 
       await page.getByLabel('Email').fill('test@example.com');
       await page.getByLabel('Password').fill('testpassword123');
       await page.getByRole('button', { name: 'Sign in' }).click();
 
-      // Should show error since Express API is not running
-      await expect(page.getByText(/Failed to connect to API|Login failed|fetch failed/i)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('Failed to connect to API')).toBeVisible();
+      await expect(page).toHaveURL(/\/login/);
     });
 
     test('navigates to register page via link', async ({ page }) => {
@@ -94,6 +153,7 @@ test.describe('Authentication Pages', () => {
     });
 
     test('shows error when submitting with API down', async ({ page }) => {
+      await stubAuthPost(page, '/api/auth/register');
       await page.goto('/register');
 
       await page.getByLabel('Name').fill('Test User');
@@ -101,7 +161,8 @@ test.describe('Authentication Pages', () => {
       await page.getByLabel('Password').fill('testpassword123');
       await page.getByRole('button', { name: 'Create account' }).click();
 
-      await expect(page.getByText(/Failed to connect to API|Registration failed|fetch failed/i)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('Failed to connect to API')).toBeVisible();
+      await expect(page).toHaveURL(/\/register/);
     });
 
     test('navigates to login page via link', async ({ page }) => {
@@ -113,13 +174,13 @@ test.describe('Authentication Pages', () => {
     test('renders homepage Privacy and Terms links near Create account without changing the form', async ({ page }) => {
       await page.goto('/register');
 
-      const privacy = page.getByRole('link', { name: 'Privacy' });
+      const privacy = page.getByRole('link', { name: 'Privacy', exact: true });
       await expect(privacy).toBeVisible();
       await expect(privacy).toHaveAttribute('href', 'https://api.instilligent.com/legal/privacy');
       await expect(privacy).toHaveAttribute('target', '_blank');
       await expect(privacy).toHaveAttribute('rel', 'noopener noreferrer');
 
-      const terms = page.getByRole('link', { name: 'Terms' });
+      const terms = page.getByRole('link', { name: 'Terms', exact: true });
       await expect(terms).toBeVisible();
       await expect(terms).toHaveAttribute('href', 'https://api.instilligent.com/legal/terms');
       await expect(terms).toHaveAttribute('target', '_blank');
@@ -140,6 +201,18 @@ test.describe('Authentication Pages', () => {
       expect(gapBelowButton).toBeGreaterThanOrEqual(0);
       expect(gapBelowButton).toBeLessThan(80);
       expect(Math.abs(privacyBox!.y - termsBox!.y)).toBeLessThan(8);
+      expect(privacyBox!.height).toBeGreaterThanOrEqual(44);
+      expect(privacyBox!.width).toBeGreaterThanOrEqual(44);
+      expect(termsBox!.height).toBeGreaterThanOrEqual(44);
+      expect(termsBox!.width).toBeGreaterThanOrEqual(44);
+
+      for (const link of [privacy, terms]) {
+        const { fg, bg } = await paintedColors(link);
+        const ratio = contrastRatio(fg, bg);
+        console.log(`legal-link contrast ${ratio.toFixed(4)} fg=${fg.join(',')} bg=${bg.join(',')}`);
+        expect(bg).toEqual([255, 255, 255]);
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+      }
 
       await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
       await expect(page.getByLabel('Name')).toBeVisible();
