@@ -317,7 +317,7 @@ test.describe('Authentication Pages', () => {
           expect(ratio).toBeGreaterThanOrEqual(4.5);
 
           await link.evaluate((el, oldClass) => {
-            el.className = oldClass;
+            el.setAttribute('class', oldClass);
           }, OLD_LEGAL_LINK_CLASS);
 
           const oldBox = await link.boundingBox();
