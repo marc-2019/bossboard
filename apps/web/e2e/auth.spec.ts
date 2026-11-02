@@ -42,6 +42,45 @@ async function paintedColors(locator: Locator): Promise<{
   });
 }
 
+const OLD_LEGAL_LINK_CLASS = 'text-accent font-medium hover:underline';
+
+function captureRed(run: () => void): string {
+  try {
+    run();
+    return '';
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
+}
+
+function requestLabel(method: string, url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${method} ${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return `${method} ${url.split('?')[0]}`;
+  }
+}
+
+/** Abort every non-GET so it cannot reach a host. A finished non-GET fails the test. */
+async function abortNonGet(page: Page): Promise<{ completedNonGet: string[]; abortedNonGet: string[] }> {
+  const completedNonGet: string[] = [];
+  const abortedNonGet: string[] = [];
+  page.on('requestfinished', (req) => {
+    if (req.method() !== 'GET') completedNonGet.push(requestLabel(req.method(), req.url()));
+  });
+  await page.route('**/*', async (route) => {
+    const req = route.request();
+    if (req.method() !== 'GET') {
+      abortedNonGet.push(requestLabel(req.method(), req.url()));
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  });
+  return { completedNonGet, abortedNonGet };
+}
+
 /** Answer the auth POST in the browser. Do not call route.continue() or route.fetch(). */
 async function stubAuthPost(page: Page, path: '/api/auth/login' | '/api/auth/register') {
   await page.route(`**${path}`, async (route) => {
@@ -227,6 +266,95 @@ test.describe('Authentication Pages', () => {
       await expect(page.getByLabel('Friend code (optional)')).toBeVisible();
       await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
       await expect(page.getByRole('checkbox')).toHaveCount(0);
+    });
+
+    test('legal-link contrast is at least 4.5:1 at 390 and 1280 and fails on the old colour', async ({ page }) => {
+      const { completedNonGet, abortedNonGet } = await abortNonGet(page);
+      const viewports = [
+        { width: 390, height: 844 },
+        { width: 1280, height: 800 },
+      ];
+
+      for (const viewport of viewports) {
+        await page.setViewportSize(viewport);
+        await page.goto('/register', { waitUntil: 'domcontentloaded' });
+
+        expect(page.viewportSize()).toEqual(viewport);
+        const inner = await page.evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }));
+        expect(inner.width).toBe(viewport.width);
+        expect(inner.height).toBe(viewport.height);
+
+        const privacy = page.getByRole('link', { name: 'Privacy', exact: true });
+        const terms = page.getByRole('link', { name: 'Terms', exact: true });
+        const submit = page.getByRole('button', { name: 'Create account' });
+        await expect(privacy).toBeVisible();
+        await expect(terms).toBeVisible();
+
+        const submitBox = await submit.boundingBox();
+        expect(submitBox).not.toBeNull();
+
+        for (const [name, link] of [
+          ['Privacy', privacy],
+          ['Terms', terms],
+        ] as const) {
+          const box = await link.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.x).toBeGreaterThanOrEqual(0);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1);
+          expect(box!.y).toBeGreaterThanOrEqual(submitBox!.y + submitBox!.height);
+          expect(box!.height).toBeGreaterThanOrEqual(44);
+          expect(box!.width).toBeGreaterThanOrEqual(44);
+
+          const { fg, bg } = await paintedColors(link);
+          const ratio = contrastRatio(fg, bg);
+          console.log(
+            `${name} @ ${viewport.width}x${viewport.height} contrast ${ratio.toFixed(4)} fg=${fg.join(',')} bg=${bg.join(',')} box=${box!.width.toFixed(1)}x${box!.height.toFixed(1)}`,
+          );
+          expect(bg).toEqual([255, 255, 255]);
+          expect(ratio).toBeGreaterThanOrEqual(4.5);
+
+          await link.evaluate((el, oldClass) => {
+            el.className = oldClass;
+          }, OLD_LEGAL_LINK_CLASS);
+
+          const oldBox = await link.boundingBox();
+          const oldPaint = await paintedColors(link);
+          const oldRatio = contrastRatio(oldPaint.fg, oldPaint.bg);
+          expect(oldPaint.fg).toEqual([255, 107, 53]);
+          expect(oldBox).not.toBeNull();
+
+          const redContrast = captureRed(() => {
+            expect(oldRatio).toBeGreaterThanOrEqual(4.5);
+          });
+          const redHeight = captureRed(() => {
+            expect(oldBox!.height).toBeGreaterThanOrEqual(44);
+          });
+          const redWidth =
+            oldBox!.width < 44
+              ? captureRed(() => {
+                  expect(oldBox!.width).toBeGreaterThanOrEqual(44);
+                })
+              : '';
+          console.log(
+            `RED old style ${name} @ ${viewport.width} ratio ${oldRatio.toFixed(4)} box=${oldBox!.width.toFixed(1)}x${oldBox!.height.toFixed(1)}\n${redContrast}\n${redHeight}${redWidth ? `\n${redWidth}` : ''}`,
+          );
+          expect(redContrast).not.toBe('');
+          expect(oldRatio).toBeLessThan(4.5);
+          expect(redHeight).not.toBe('');
+          expect(oldBox!.height).toBeLessThan(44);
+          if (name === 'Terms') {
+            expect(redWidth).not.toBe('');
+            expect(oldBox!.width).toBeLessThan(44);
+          }
+        }
+      }
+
+      console.log(`aborted non-GET (${abortedNonGet.length}): ${abortedNonGet.join(' | ') || '(none)'}`);
+      expect(completedNonGet).toEqual([]);
+      expect(abortedNonGet.every((line) => !line.startsWith('GET '))).toBe(true);
     });
   });
 });
