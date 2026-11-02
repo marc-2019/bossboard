@@ -3,6 +3,12 @@
 
 Synthetic github-pat fixtures are assembled at runtime. This file must not
 contain a contiguous token, and the harness must not print one.
+
+Accepted limits, with the workflow: raw brotli, git notes, gitlinks, and
+refused 7z, rar, zstd, and framed lz4. Also a hex span over 1000000
+characters, four leading base64-alphabet bytes or one NUL inside a base64
+span, and UTF-16 after the first NUL in a cpio name or in GNU long-name
+padding inside a gzip-wrapped archive.
 """
 
 from __future__ import annotations
@@ -38,6 +44,9 @@ HEADER_REV = "79d1aef8d432950467ba4036834e527f301a3e80"
 # split across a ustar header and a body, once gzip/bzip2/xz wraps the
 # archive. It also skips the encoding walker on those bytes.
 WHOLE_REV = "2665c6813636b23c5a2f68e40a4a6d42d29bafe1"
+# Head where base64(gzip(token)) inside 8 nested zips still exits 0.
+# The encoding walker returned at the depth cap instead of failing closed.
+DEPTH_REV = "a4bd9354bf4b6cb54ebbd973a0d1e2fcfae568db"
 JWT_COMMIT = "9d2a49ebf8b5eaeba177a5c477ad123cf748f1d2"
 JWT_FP = f"{JWT_COMMIT}:.claude/settings.local.json:jwt:25"
 ZERO_SHA = "0" * 40
@@ -529,6 +538,23 @@ def case_nested_4() -> tuple[Repo, dict[str, str]]:
 
 def case_nested_9() -> tuple[Repo, dict[str, str]]:
     return prepare_secret_file("notes.zip", require_hidden(nest_zip(9, token_bytes())))
+
+
+def case_b64_nested_8() -> tuple[Repo, dict[str, str]]:
+    """base64(gzip(token)) as the member of 8 nested zips.
+
+    The member is not an archive, so it is extracted one level past the cap.
+    The old walker returned there and the job stayed green.
+    """
+    payload = base64.b64encode(gzip.compress(token_bytes()))
+    if token_bytes() in payload or len(payload) < 16:
+        raise SystemExit("nested base64 fixture is the wrong shape")
+    return prepare_secret_file("notes.bin", require_hidden(nest_zip(8, payload, "note.b64")))
+
+
+def case_nested_8_clean() -> tuple[Repo, dict[str, str]]:
+    """Eight nested zips of ordinary text. That is at the depth cap."""
+    return prepare_secret_file("notes.bin", nest_zip(8, b"hello\n", "hello.txt"), hidden=False)
 
 
 def case_ignore_dir_zip() -> tuple[Repo, dict[str, str]]:
@@ -2050,7 +2076,9 @@ CASES = [
     ("members-2001", 1, case_too_many_members, 120, None),
     ("members-2000", 0, case_member_boundary, 120, None),
     ("nested-4", 2, case_nested_4, 90, None),
+    ("nested-8-clean", 0, case_nested_8_clean, 90, None),
     ("nested-9", 1, case_nested_9, 90, None),
+    ("b64-nested-8", 1, case_b64_nested_8, 90, None),
     ("ignore-dir-zip", 2, case_ignore_dir_zip, 90, None),
     ("raw-png", 2, case_raw_png, 90, None),
     ("raw-pdf", 2, case_raw_pdf, 90, None),
@@ -2204,6 +2232,13 @@ for _stem, _kind in HOLE_CASES:
     WHOLE_EXPECT["b64-" + _stem + "-gzip"] = 0
     WHOLE_EXPECT["b64-" + _stem + "-bare"] = 0
 
+# Compared with DEPTH_REV (a4bd935). Eight zips around base64(gzip(token))
+# exited 0. A clean eight-zip nest stays 0 on both heads.
+DEPTH_EXPECT = {
+    "b64-nested-8": 0,
+    "nested-8-clean": 0,
+}
+
 
 def run_case(name: str, script: str, setup, timeout: int) -> tuple[int, str, float]:
     repo, env = setup()
@@ -2244,11 +2279,14 @@ def main() -> int:
     header_script = extract_run(header_text)
     whole_text = run_git(["-C", str(ROOT), "show", f"{WHOLE_REV}:.github/workflows/secrets-scan.yml"])
     whole_script = extract_run(whole_text)
+    depth_text = run_git(["-C", str(ROOT), "show", f"{DEPTH_REV}:.github/workflows/secrets-scan.yml"])
+    depth_script = extract_run(depth_text)
     subprocess.run(["bash", "-n"], input=new_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=old_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=prev_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=header_script.encode(), check=True)
     subprocess.run(["bash", "-n"], input=whole_script.encode(), check=True)
+    subprocess.run(["bash", "-n"], input=depth_script.encode(), check=True)
     selected = [item for item in os.environ.get("CASES", "").split(",") if item]
     failed = 0
     print("case\texit\texpected\told\tseconds\tnote")
@@ -2259,7 +2297,7 @@ def main() -> int:
         note = ""
         if name == "zeros-gz-33mib" and "decompress cap" not in output:
             note = "missing decompress-cap marker"
-        if name == "nested-9" and "Archive nesting exceeds" not in output:
+        if name in {"nested-9", "b64-nested-8"} and "Archive nesting exceeds" not in output:
             note = "missing depth marker"
         if name.startswith("lying-") and "declared size" not in output:
             note = "missing declared-size marker"
@@ -2312,6 +2350,15 @@ def main() -> int:
                 note = (note + " " if note else "") + f"whole-rev exit {prev} expected {whole_expected}"
             if token_text() in prev_out:
                 raise SystemExit("token appeared in whole-rev scan output after redact")
+        depth_expected = DEPTH_EXPECT.get(name)
+        if depth_expected is not None and (not selected or any(item in name for item in selected)):
+            prev, prev_out, _depth_elapsed = run_case(name, depth_script, setup, timeout)
+            old_code = str(prev)
+            if prev != depth_expected:
+                ok = False
+                note = (note + " " if note else "") + f"depth-rev exit {prev} expected {depth_expected}"
+            if token_text() in prev_out:
+                raise SystemExit("token appeared in depth-rev scan output after redact")
         if not ok:
             failed += 1
             detail = status_lines(output)
