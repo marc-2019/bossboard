@@ -16,6 +16,7 @@ import {
   normalizePricedLineItem,
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
+import { assertCustomerFacingInvoiceNotes } from './customer-notes-guard.js';
 import { getBankDetailsForInvoice } from './business-profile.js';
 import {
   decryptForDisplay,
@@ -175,6 +176,9 @@ export async function createInvoice(
   userId: string,
   input: InvoiceCreateInput
 ): Promise<Invoice> {
+  // Generate and every other caller hit this write. Internal text stays off notes.
+  assertCustomerFacingInvoiceNotes(input.notes);
+
   const invoiceNumber = await getNextInvoiceNumber(userId);
   const invoiceId = uuidv4();
 
@@ -652,6 +656,10 @@ export async function updateInvoice(
 
   if (existing.rows[0].status !== 'draft') {
     throw createError('Can only edit draft invoices', 400, 'INVOICE_NOT_EDITABLE');
+  }
+
+  if (updates.notes !== undefined) {
+    assertCustomerFacingInvoiceNotes(updates.notes);
   }
 
   const current = transformInvoice(existing.rows[0]);

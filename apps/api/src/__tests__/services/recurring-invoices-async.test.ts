@@ -54,6 +54,7 @@ import {
   deleteRecurringInvoice,
   generateInvoiceFromRecurring,
 } from '../../services/recurring-invoices.js';
+import { looksLikeInternalInvoiceNotes } from '../../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -309,11 +310,65 @@ describe('createRecurringInvoice', () => {
     // is_auto_generate is param index 6 (0-based)
     expect(insertCall![1][5]).toBe(false);
   });
+
+  it('must not store internal text in customer notes', async () => {
+    await expect(
+      createRecurringInvoice('user-1', {
+        customerId: 'cust-1',
+        name: 'Leaky template',
+        notes: 'Deskera 0000092 — review before send',
+        lineItems: [
+          { productServiceId: 'ps-1', unitPrice: 100, quantity: 1, type: 'fixed' as const },
+        ],
+      })
+    ).rejects.toMatchObject({ code: 'NOTES_NOT_CUSTOMER_READY' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects an internal memo longer than 2000 characters before opening a transaction', async () => {
+    await expect(
+      createRecurringInvoice('user-1', {
+        customerId: 'cust-1',
+        name: 'Example template',
+        internalMemo: 'x'.repeat(2001),
+        lineItems: [
+          { productServiceId: 'ps-1', unitPrice: 100, quantity: 1, type: 'fixed' as const },
+        ],
+      })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'INTERNAL_MEMO_TOO_LONG' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
 
 describe('updateRecurringInvoice', () => {
+  it('must not write internal text into customer notes', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [{ id: 'ri-1' }] });
+
+    await expect(
+      updateRecurringInvoice('ri-1', 'user-1', {
+        notes: 'system test — do not send',
+      })
+    ).rejects.toMatchObject({ code: 'NOTES_NOT_CUSTOMER_READY' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects an internal memo longer than 2000 characters before writing', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [{ id: 'ri-1' }] });
+
+    await expect(
+      updateRecurringInvoice('ri-1', 'user-1', {
+        internalMemo: 'x'.repeat(2001),
+      })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'INTERNAL_MEMO_TOO_LONG' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
+
   it('returns null when the recurring invoice does not belong to the user', async () => {
     mockDbQuery.mockResolvedValueOnce({ rows: [] }); // ownership check → not found
 
@@ -536,6 +591,77 @@ describe('generateInvoiceFromRecurring', () => {
         lineItems: [{ description: 'Premium Service', amount: 100 }],
       })
     );
+  });
+
+  it('must not copy internal template notes onto customer invoice notes', async () => {
+    const internal = 'Deskera 0000092 — review before send. system test.';
+    const recRow = makeRecurringRow({ notes: internal, internal_memo: null });
+    const liRow = makeLineItemRow();
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-internal', notes: null, internalMemo: internal });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1');
+
+    expect(mockCreateInvoice).toHaveBeenCalledTimes(1);
+    const payload = mockCreateInvoice.mock.calls[0][1] as { notes?: string; internalMemo?: string };
+    expect(payload.notes).toBeUndefined();
+    expect(looksLikeInternalInvoiceNotes(payload.notes)).toBe(false);
+    expect(payload.internalMemo).toBe(internal);
+    expect(looksLikeInternalInvoiceNotes(payload.internalMemo)).toBe(true);
+  });
+
+  it('must not leak a second internal phrase when the template memo is already set', async () => {
+    const templateMemo = 'Retainer seed note';
+    const internalNotes = 'do not send — draft for review before send';
+    const recRow = makeRecurringRow({
+      notes: internalNotes,
+      internal_memo: templateMemo,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [makeLineItemRow()] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-both' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1');
+
+    const payload = mockCreateInvoice.mock.calls[0][1] as { notes?: string; internalMemo?: string };
+    expect(payload.notes).toBeUndefined();
+    expect(looksLikeInternalInvoiceNotes(payload.notes)).toBe(false);
+    expect(payload.internalMemo).toContain(templateMemo);
+    expect(payload.internalMemo).toContain(internalNotes);
+    expect(JSON.stringify(payload)).not.toMatch(/"notes":/);
+  });
+
+  it('keeps customer-facing template notes on the invoice and copies the staff memo separately', async () => {
+    const customerNotes = 'Thanks — payment within 7 days.';
+    const templateMemo = 'Deskera 0000092 seed note';
+    const recRow = makeRecurringRow({
+      notes: customerNotes,
+      internal_memo: templateMemo,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [makeLineItemRow()] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    mockCreateInvoice.mockResolvedValue({ id: 'inv-clean' });
+
+    await generateInvoiceFromRecurring('ri-1', 'user-1');
+
+    const payload = mockCreateInvoice.mock.calls[0][1] as { notes?: string; internalMemo?: string };
+    expect(payload.notes).toBe(customerNotes);
+    expect(looksLikeInternalInvoiceNotes(payload.notes)).toBe(false);
+    expect(payload.internalMemo).toBe(templateMemo);
+    expect(payload.notes).not.toContain('Deskera');
   });
 
   it('line-id full amount: quantity 4 override 350 is 350 and is not multiplied', async () => {

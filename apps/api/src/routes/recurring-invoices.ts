@@ -7,14 +7,38 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import recurringInvoicesService from '../services/recurring-invoices.js';
 import { authenticate } from '../middleware/auth.js';
+import {
+  INTERNAL_MEMO_MAX_LENGTH,
+  INTERNAL_MEMO_TOO_LONG_MESSAGE,
+  INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+  looksLikeInternalInvoiceNotes,
+} from '../types/index.js';
 
 const router = Router();
+
+/** Block customer-facing template notes that look like internal scaffolding. */
+function rejectInternalNotes(
+  res: Response,
+  notes: string | null | undefined,
+): boolean {
+  if (!looksLikeInternalInvoiceNotes(notes)) return false;
+  res.status(400).json({
+    success: false,
+    error: 'NOTES_NOT_CUSTOMER_READY',
+    message: INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE,
+  });
+  return true;
+}
 
 // =============================================================================
 // VALIDATION SCHEMAS
 // =============================================================================
 
 const productTypes = ['fixed', 'variable'] as const;
+
+const internalMemoSchema = z
+  .string()
+  .max(INTERNAL_MEMO_MAX_LENGTH, INTERNAL_MEMO_TOO_LONG_MESSAGE);
 
 const lineItemSchema = z.object({
   productServiceId: z.string().uuid(),
@@ -31,6 +55,8 @@ const createSchema = z.object({
   includeGst: z.boolean().optional(),
   paymentTerms: z.number().int().min(1).max(365).optional(),
   notes: z.string().optional(),
+  /** Staff-only — copied to invoices.internal_memo on generate, never customer notes */
+  internalMemo: internalMemoSchema.optional(),
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
 });
 
@@ -40,6 +66,7 @@ const updateSchema = z.object({
   includeGst: z.boolean().optional(),
   paymentTerms: z.number().int().min(1).max(365).optional(),
   notes: z.string().optional().nullable(),
+  internalMemo: internalMemoSchema.nullable().optional(),
   isActive: z.boolean().optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
 });
@@ -58,6 +85,7 @@ const fromInvoiceSchema = z.object({
   includeGst: z.boolean().optional(),
   paymentTerms: z.number().int().min(1).max(365).optional(),
   notes: z.string().optional(),
+  internalMemo: internalMemoSchema.optional(),
 });
 
 /**
@@ -78,6 +106,8 @@ router.post(
         });
         return;
       }
+
+      if (rejectInternalNotes(res, validation.data.notes)) return;
 
       const invoiceId = req.params.invoiceId as string;
       const recurring = await recurringInvoicesService.createRecurringFromInvoice(
@@ -122,6 +152,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next: NextFun
       });
       return;
     }
+
+    if (rejectInternalNotes(res, validation.data.notes)) return;
 
     const recurring = await recurringInvoicesService.createRecurringInvoice(
       req.user!.userId,
@@ -227,6 +259,8 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next: NextF
       });
       return;
     }
+
+    if (rejectInternalNotes(res, validation.data.notes)) return;
 
     const id = req.params.id as string;
     const recurring = await recurringInvoicesService.updateRecurringInvoice(

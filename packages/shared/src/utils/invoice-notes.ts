@@ -11,6 +11,12 @@ export const INVOICE_NOTES_CUSTOMER_FACING_HINT =
 export const INVOICE_NOTES_INTERNAL_BLOCKED_MESSAGE =
   'Invoice notes go to the customer (PDF & email). Remove internal/test wording (e.g. “system test”, “review before send”, “Deskera”) or clear notes before saving/sending.';
 
+/** Staff-only memo cap. Matches recurring_invoices.internal_memo in migration 028. */
+export const INTERNAL_MEMO_MAX_LENGTH = 2000;
+
+export const INTERNAL_MEMO_TOO_LONG_MESSAGE =
+  `Internal memo must be at most ${INTERNAL_MEMO_MAX_LENGTH} characters`;
+
 /** Phrases that almost never belong on a client invoice. */
 const INTERNAL_NOTE_PATTERNS: RegExp[] = [
   /\bsystem\s*test\b/i,
@@ -38,6 +44,34 @@ export function looksLikeInternalInvoiceNotes(
   const t = (notes || '').trim();
   if (!t) return false;
   return INTERNAL_NOTE_PATTERNS.some((re) => re.test(t));
+}
+
+/**
+ * Split template/invoice text into customer notes vs staff-only memo.
+ * Internal scaffolding is moved onto the memo and dropped from notes.
+ * Customer-facing copy is left on notes. An existing memo is kept.
+ */
+export function partitionCustomerAndInternalNotes(
+  notes: string | null | undefined,
+  internalMemo?: string | null,
+): { notes?: string; internalMemo?: string } {
+  const memoParts: string[] = [];
+  const existing = (internalMemo ?? '').trim();
+  if (existing) memoParts.push(existing);
+
+  const raw = (notes ?? '').trim();
+  if (!raw) {
+    return memoParts.length ? { internalMemo: memoParts.join('\n\n') } : {};
+  }
+
+  if (looksLikeInternalInvoiceNotes(raw)) {
+    if (!memoParts.some((part) => part === raw)) memoParts.push(raw);
+    return { internalMemo: memoParts.join('\n\n') };
+  }
+
+  return memoParts.length
+    ? { notes: raw, internalMemo: memoParts.join('\n\n') }
+    : { notes: raw };
 }
 
 /** Soft guidance for product UI / docs. */
