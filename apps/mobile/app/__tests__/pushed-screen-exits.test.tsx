@@ -46,6 +46,7 @@ jest.mock('react-native', () => {
       );
     },
     TouchableOpacity: host('TouchableOpacity'),
+    Pressable: host('Pressable'),
     TextInput: host('TextInput'),
     ActivityIndicator: host('ActivityIndicator'),
     KeyboardAvoidingView: host('KeyboardAvoidingView'),
@@ -53,6 +54,7 @@ jest.mock('react-native', () => {
     Switch: host('Switch'),
     Modal: host('Modal'),
     Alert: { alert: jest.fn() },
+    Keyboard: { dismiss: jest.fn() },
     Linking: { openURL: jest.fn() },
   };
 });
