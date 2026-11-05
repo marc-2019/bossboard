@@ -54,6 +54,7 @@ import {
   deleteRecurringInvoice,
   generateInvoiceFromRecurring,
 } from '../../services/recurring-invoices.js';
+import { MAX_INVOICE_LINE_AMOUNT_CENTS } from '../../services/invoice-integer-cap.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -241,8 +242,10 @@ describe('createRecurringInvoice', () => {
       undefined, // COMMIT
     ]);
 
-    // getRecurringInvoiceById calls db.query (not the client) twice
+    // Ownership checks, then getRecurringInvoiceById (two queries).
     mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'cust-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'ps-1' }] })
       .mockResolvedValueOnce({ rows: [makeRecurringRow()] })
       .mockResolvedValueOnce({ rows: [makeLineItemRow()] });
 
@@ -261,6 +264,10 @@ describe('createRecurringInvoice', () => {
   });
 
   it('rolls back the transaction on error', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'cust-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'ps-1' }] });
+
     const { clientQuery } = makeClient([
       undefined, // BEGIN
     ]);
@@ -289,6 +296,8 @@ describe('createRecurringInvoice', () => {
     ]);
 
     mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'cust-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'ps-1' }, { id: 'ps-2' }] })
       .mockResolvedValueOnce({ rows: [makeRecurringRow({ is_auto_generate: false })] })
       .mockResolvedValueOnce({ rows: [] });
 
@@ -308,6 +317,40 @@ describe('createRecurringInvoice', () => {
     expect(insertCall).toBeDefined();
     // is_auto_generate is param index 6 (0-based)
     expect(insertCall![1][5]).toBe(false);
+  });
+
+  it('rejects a customer the user does not own before opening a transaction', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      createRecurringInvoice('user-1', {
+        customerId: 'cust-other',
+        name: 'Cross tenant',
+        lineItems: [
+          { productServiceId: 'ps-1', unitPrice: 100, quantity: 1, type: 'fixed' as const },
+        ],
+      })
+    ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND', message: 'Customer not found' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects a product the user does not own before opening a transaction', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'cust-1' }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      createRecurringInvoice('user-1', {
+        customerId: 'cust-1',
+        name: 'Cross tenant product',
+        lineItems: [
+          { productServiceId: 'ps-other', unitPrice: 100, quantity: 1, type: 'fixed' as const },
+        ],
+      })
+    ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND', message: 'Product not found' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
   });
 });
 
@@ -344,7 +387,9 @@ describe('updateRecurringInvoice', () => {
   });
 
   it('replaces line items and recomputes is_auto_generate when lineItems provided', async () => {
-    mockDbQuery.mockResolvedValueOnce({ rows: [{ id: 'ri-1' }] }); // ownership check
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'ri-1' }] }) // template ownership
+      .mockResolvedValueOnce({ rows: [{ id: 'ps-new' }] }); // product ownership
 
     const { clientQuery } = makeClient([
       undefined, // BEGIN
@@ -384,6 +429,22 @@ describe('updateRecurringInvoice', () => {
 
     expect(clientQuery).toHaveBeenCalledWith('ROLLBACK');
   });
+
+  it('rejects another tenant product before replacing line items', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'ri-1' }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      updateRecurringInvoice('ri-1', 'user-1', {
+        lineItems: [
+          { productServiceId: 'ps-other', unitPrice: 200, quantity: 1, type: 'fixed' as const },
+        ],
+      })
+    ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND', message: 'Product not found' });
+
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -421,12 +482,16 @@ describe('deleteRecurringInvoice', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateInvoiceFromRecurring', () => {
-  it('throws when the recurring invoice is not found', async () => {
+  it('returns 404 when the recurring invoice is not found', async () => {
     mockDbQuery.mockResolvedValueOnce({ rows: [] }); // not found
 
     await expect(
       generateInvoiceFromRecurring('ri-missing', 'user-1')
-    ).rejects.toThrow('Recurring invoice not found');
+    ).rejects.toMatchObject({
+      message: 'Recurring invoice not found',
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
   });
 
   it('calls createInvoice with correct data from fixed line items', async () => {
@@ -685,5 +750,28 @@ describe('generateInvoiceFromRecurring', () => {
         ],
       })
     );
+  });
+
+  it('rejects a product-id amount times quantity that exceeds the integer cap', async () => {
+    const recRow = makeRecurringRow();
+    const liRow = makeLineItemRow({
+      id: 'li-1',
+      product_service_id: 'ps-1',
+      type: 'variable',
+      unit_price: 10,
+      quantity: 2,
+    });
+
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [recRow] })
+      .mockResolvedValueOnce({ rows: [liRow] });
+
+    await expect(
+      generateInvoiceFromRecurring('ri-1', 'user-1', {
+        'ps-1': Math.floor(MAX_INVOICE_LINE_AMOUNT_CENTS / 2) + 1,
+      })
+    ).rejects.toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' });
+
+    expect(mockCreateInvoice).not.toHaveBeenCalled();
   });
 });

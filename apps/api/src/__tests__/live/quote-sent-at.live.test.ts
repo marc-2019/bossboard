@@ -171,7 +171,14 @@ beforeAll(async () => {
       `Live quote sent_at proofs require a reachable Postgres (DATABASE_URL). ${String(err)}`
     );
   }
-  await applyPendingMigrations();
+  const lockClient = await pool.connect();
+  try {
+    await lockClient.query('SELECT pg_advisory_lock(1010101010)');
+    await applyPendingMigrations();
+  } finally {
+    await lockClient.query('SELECT pg_advisory_unlock(1010101010)');
+    lockClient.release();
+  }
   quotesApp = express();
   quotesApp.use(express.json());
   quotesApp.use('/api/v1/quotes', quoteRoutes);

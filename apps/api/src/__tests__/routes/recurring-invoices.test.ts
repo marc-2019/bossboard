@@ -4,6 +4,7 @@
 
 import request from 'supertest';
 import express, { Express } from 'express';
+import { MAX_INVOICE_LINE_AMOUNT_CENTS } from '../../services/invoice-integer-cap.js';
 
 // Mock service functions
 const mockCreateRecurringInvoice = jest.fn();
@@ -186,6 +187,48 @@ describe('Recurring Invoice Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('VALIDATION_ERROR');
+    });
+
+    it('should reject a unit price above the invoice total cap', async () => {
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices')
+        .send({
+          ...validRecurringInvoice,
+          lineItems: [{ ...validLineItem, unitPrice: MAX_INVOICE_LINE_AMOUNT_CENTS + 1, quantity: 1 }],
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(mockCreateRecurringInvoice).not.toHaveBeenCalled();
+    });
+
+    it('should reject a line whose unit price times quantity exceeds the invoice total cap', async () => {
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices')
+        .send({
+          ...validRecurringInvoice,
+          lineItems: [{ ...validLineItem, unitPrice: 1_000_000, quantity: 2_000 }],
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toBe('Line total exceeds the maximum');
+      expect(mockCreateRecurringInvoice).not.toHaveBeenCalled();
+    });
+
+    it('should reject line items whose combined total exceeds the invoice total cap', async () => {
+      const capped = { ...validLineItem, unitPrice: MAX_INVOICE_LINE_AMOUNT_CENTS, quantity: 1 };
+      const response = await request(app)
+        .post('/api/v1/recurring-invoices')
+        .send({
+          ...validRecurringInvoice,
+          lineItems: [capped, { ...capped, productServiceId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901' }],
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toBe('Total exceeds the maximum');
+      expect(mockCreateRecurringInvoice).not.toHaveBeenCalled();
     });
 
     it('should reject line item with invalid type', async () => {

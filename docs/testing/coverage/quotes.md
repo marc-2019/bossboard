@@ -18,6 +18,8 @@
 
 Legend: "partial" = some ACs land on this surface; remaining ACs are intentionally elsewhere.
 
+F-QUO-01 journey Quote create and update reject a customer id the caller does not own, with the same 404 as a missing customer: `apps/api/src/__tests__/live/customer-ownership.live.test.ts`.
+
 ---
 
 ## Files added

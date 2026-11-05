@@ -72,6 +72,16 @@ function calculateTotals(
   return { subtotal, gstAmount, total };
 }
 
+async function assertOwnedCustomer(userId: string, customerId: string): Promise<void> {
+  const result = await db.query(
+    'SELECT id FROM customers WHERE id = $1 AND user_id = $2',
+    [customerId, userId]
+  );
+  if (result.rows.length === 0) {
+    throw createError('Customer not found', 404, 'NOT_FOUND');
+  }
+}
+
 /**
  * Create a new quote
  * Auto-populates bank details and company info from business profile if not provided
@@ -80,6 +90,10 @@ export async function createQuote(
   userId: string,
   input: QuoteCreateInput
 ): Promise<Quote> {
+  if (input.customerId) {
+    await assertOwnedCustomer(userId, input.customerId);
+  }
+
   const quoteNumber = await getNextQuoteNumber(userId);
   const quoteId = uuidv4();
 
@@ -370,6 +384,10 @@ export async function updateQuote(
 
   if (existing.rows[0].status !== 'draft') {
     throw createError('Can only edit draft quotes', 400, 'QUOTE_NOT_EDITABLE');
+  }
+
+  if (typeof updates.customerId === 'string') {
+    await assertOwnedCustomer(userId, updates.customerId);
   }
 
   const fields: string[] = [];

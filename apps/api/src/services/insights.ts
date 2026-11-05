@@ -132,13 +132,13 @@ async function getTopCustomers(userId: string): Promise<TopCustomer[]> {
   }>(
     `SELECT
       i.customer_id,
-      COALESCE(c.name, i.customer_name, 'Unknown') as customer_name,
+      COALESCE(c.name, i.client_name, 'Unknown') as customer_name,
       SUM(i.total) as revenue,
       COUNT(*) as invoice_count
      FROM invoices i
-     LEFT JOIN customers c ON c.id = i.customer_id
+     LEFT JOIN customers c ON c.id = i.customer_id AND c.user_id = $1
      WHERE i.user_id = $1 AND i.status = 'paid'
-     GROUP BY i.customer_id, c.name, i.customer_name
+     GROUP BY i.customer_id, c.name, i.client_name
      ORDER BY revenue DESC
      LIMIT 5`,
     [userId]
