@@ -2119,6 +2119,115 @@ def case_hole(kind: str, wrap: bool, encoded: bool) -> tuple[Repo, dict[str, str
     return hole_file(raw, wrap, encoded)
 
 
+MISSING_BEFORE = "b" * 40
+
+
+def _feature_ahead_of(remote_name: str, files: dict[str, bytes], message: str) -> tuple[Repo, dict[str, str]]:
+    """Push a feature tip whose github.event.before is not in the clone."""
+    repo = Repo()
+    clean = repo.rev()
+    repo.ensure_origin()
+    run_git(["-C", repo.dir, "push", "-q", "origin", f"HEAD:refs/heads/{remote_name}"])
+    repo.track(remote_name, clean)
+    repo.commit(files, message)
+    run_git(["-C", repo.dir, "checkout", "-q", "-b", "feature"])
+    run_git(["-C", repo.dir, "push", "-q", "origin", "HEAD:refs/heads/feature"])
+    repo.track("feature")
+    env = repo.push_env(
+        BASE_SHA=MISSING_BEFORE,
+        GITHUB_REF="refs/heads/feature",
+        GITHUB_REF_NAME="feature",
+    )
+    return repo, env
+
+
+def case_missing_before_secret() -> tuple[Repo, dict[str, str]]:
+    return _feature_ahead_of("develop", {"secret.txt": token_bytes() + b"\n"}, "add note")
+
+
+def case_missing_before_clean() -> tuple[Repo, dict[str, str]]:
+    return _feature_ahead_of("develop", {"README": b"hello again\n"}, "docs")
+
+
+def case_missing_before_pr() -> tuple[Repo, dict[str, str]]:
+    repo, env = case_missing_before_secret()
+    env["EVENT"] = "pull_request"
+    env["HEAD_SHA"] = repo.rev()
+    env["GITHUB_REF"] = "refs/pull/7/merge"
+    env["GITHUB_REF_NAME"] = "7/merge"
+    env["GITHUB_REF_TYPE"] = "branch"
+    return repo, env
+
+
+def case_missing_before_no_base() -> tuple[Repo, dict[str, str]]:
+    """No develop/main/master remote. The tip itself must still be scanned."""
+    repo = Repo()
+    repo.commit({"secret.txt": token_bytes() + b"\n"}, "add note")
+    repo.ensure_origin()
+    run_git(["-C", repo.dir, "checkout", "-q", "-b", "feature"])
+    run_git(["-C", repo.dir, "push", "-q", "origin", "HEAD:refs/heads/feature"])
+    repo.track("feature")
+    env = repo.push_env(
+        BASE_SHA=MISSING_BEFORE,
+        GITHUB_REF="refs/heads/feature",
+        GITHUB_REF_NAME="feature",
+    )
+    return repo, env
+
+
+def case_missing_before_pushed_develop() -> tuple[Repo, dict[str, str]]:
+    """checkout has already moved origin/develop to the new tip.
+
+    The fallback must not use that ref as the merge-base. master still
+    points at the parent, so the secret commit is in the scanned range.
+    """
+    repo = Repo()
+    clean = repo.rev()
+    repo.ensure_origin()
+    run_git(["-C", repo.dir, "push", "-q", "origin", "HEAD:refs/heads/master"])
+    repo.track("master", clean)
+    repo.commit({"secret.txt": token_bytes() + b"\n"}, "add note")
+    run_git(["-C", repo.dir, "push", "-q", "origin", "HEAD:refs/heads/develop"])
+    repo.track("develop")
+    env = repo.push_env(
+        BASE_SHA=MISSING_BEFORE,
+        GITHUB_REF="refs/heads/develop",
+        GITHUB_REF_NAME="develop",
+    )
+    return repo, env
+
+
+def case_missing_before_already_on_develop() -> tuple[Repo, dict[str, str]]:
+    """The new tip is already on develop. An empty fallback must not pass."""
+    repo = Repo()
+    repo.ensure_origin()
+    run_git(["-C", repo.dir, "push", "-q", "origin", "HEAD:refs/heads/develop"])
+    repo.track("develop")
+    run_git(["-C", repo.dir, "checkout", "-q", "-b", "feature"])
+    run_git(["-C", repo.dir, "push", "-q", "origin", "HEAD:refs/heads/feature"])
+    repo.track("feature")
+    env = repo.push_env(
+        BASE_SHA=MISSING_BEFORE,
+        GITHUB_REF="refs/heads/feature",
+        GITHUB_REF_NAME="feature",
+    )
+    return repo, env
+
+
+def case_resolvable_before_keeps_range() -> tuple[Repo, dict[str, str]]:
+    """A resolvable before stays on that range.
+
+    The parent commit contains a token and is not part of before..HEAD.
+    Widening to the whole tip would report it.
+    """
+    repo = Repo()
+    repo.commit({"secret.txt": token_bytes() + b"\n"}, "add note")
+    parent = repo.rev()
+    repo.commit({"README": b"hello again\n"}, "docs")
+    env = repo.push_env(BASE_SHA=parent)
+    return repo, env
+
+
 def bind_hole(kind: str, wrap: bool, encoded: bool):
     return lambda: case_hole(kind, wrap, encoded)
 
@@ -2185,6 +2294,13 @@ CASES = [
     ("tag-name", 2, case_tag_name, 90, None),
     ("clean-branch-on-main", 0, case_clean_branch_on_main, 90, None),
     ("two-new-refs", 2, case_two_new_refs, 90, None),
+    ("missing-before-secret", 2, case_missing_before_secret, 90, None),
+    ("missing-before-clean", 0, case_missing_before_clean, 90, None),
+    ("missing-before-pr", 2, case_missing_before_pr, 90, None),
+    ("missing-before-no-base", 2, case_missing_before_no_base, 90, None),
+    ("missing-before-pushed-develop", 2, case_missing_before_pushed_develop, 90, None),
+    ("missing-before-already-on-develop", 1, case_missing_before_already_on_develop, 90, None),
+    ("resolvable-before-keeps-range", 0, case_resolvable_before_keeps_range, 90, None),
     ("clean-lightweight-tag", 0, case_clean_tag, 90, None),
     ("tagger-name", 2, case_tagger_name, 90, None),
     ("annotated-blob-tag", 2, case_blob_tag, 90, None),
@@ -2442,6 +2558,23 @@ def main() -> int:
             "feature-clean-tip" in output or "clean-tag-v1" in output
         ):
             note = "ref name was echoed"
+        if name in {
+            "missing-before-secret",
+            "missing-before-clean",
+            "missing-before-pr",
+            "missing-before-pushed-develop",
+        } and "merge-base fallback" not in output:
+            note = "missing merge-base fallback marker"
+        if name == "missing-before-clean" and "commits)" not in output:
+            note = "clean fallback did not record a range"
+        if name == "missing-before-no-base" and "fallback secret scan" not in output:
+            note = "missing unresolved-before fallback marker"
+        if name == "missing-before-already-on-develop" and "refusing to pass" not in output:
+            note = "empty fallback was not fail-closed"
+        if name == "resolvable-before-keeps-range" and (
+            "merge-base fallback" in output or "cannot be resolved" in output
+        ):
+            note = "resolvable before was widened"
         ok = code == expected and not note
         old_code = ""
         if old_expected is not None and (not selected or any(item in name for item in selected)):
