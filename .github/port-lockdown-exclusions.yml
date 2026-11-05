@@ -1,0 +1,11 @@
+# Compose port-lockdown exclusions (SPEC_db-port-lockdown-family).
+# Each entry skips one unbound host publish in --repo mode. Add an entry only with a reason.
+exclusions:
+  # Production nginx is the public entry point and must listen on all interfaces for 80/443.
+  # It is not a DB port. API, postgres and redis in that file use `expose`, not host publishes.
+  - file: docker-compose.production.yml
+    service: bossboard-nginx
+    publish: "80:80"
+  - file: docker-compose.production.yml
+    service: bossboard-nginx
+    publish: "443:443"

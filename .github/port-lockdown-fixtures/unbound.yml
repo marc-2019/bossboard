@@ -1,0 +1,8 @@
+# Must-fail fixture for the compose port-lockdown check.
+# The postgres publish has no 127.0.0.1 host IP, so the checker must reject this file.
+# Not a real stack: never run docker compose against it.
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
