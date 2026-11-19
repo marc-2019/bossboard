@@ -83,6 +83,54 @@ describe('Product Routes', () => {
       );
     });
 
+    it('passes unitCostIsAnnual through to the service', async () => {
+      mockCreateProduct.mockResolvedValue({ id: 'prod-annual', name: 'Hosting', unitPrice: 12000 });
+
+      const response = await request(app)
+        .post('/api/v1/products')
+        .send({
+          name: 'Hosting',
+          unitPrice: 12000,
+          unitCost: 120000,
+          unitCostIsAnnual: true,
+          defaultMarginPercent: 20,
+        });
+
+      expect(response.status).toBe(201);
+      expect(mockCreateProduct).toHaveBeenCalledWith(
+        'test-user-id',
+        expect.objectContaining({
+          unitCost: 120000,
+          unitCostIsAnnual: true,
+          defaultMarginPercent: 20,
+        }),
+      );
+    });
+
+    it('passes unitCostIsAnnual on update', async () => {
+      mockUpdateProduct.mockResolvedValue({ id: 'prod-1', name: 'Hosting', unitPrice: 12000 });
+
+      const response = await request(app)
+        .put('/api/v1/products/prod-1')
+        .send({
+          unitPrice: 12000,
+          unitCost: 120000,
+          unitCostIsAnnual: true,
+          defaultMarginPercent: 20,
+        });
+
+      expect(response.status).toBe(200);
+      expect(mockUpdateProduct).toHaveBeenCalledWith(
+        'prod-1',
+        'test-user-id',
+        expect.objectContaining({
+          unitCostIsAnnual: true,
+          unitCost: 120000,
+          defaultMarginPercent: 20,
+        }),
+      );
+    });
+
     it('should create with only required fields (name and unitPrice)', async () => {
       const mockCreated = { id: 'prod-2', name: 'Labour', unitPrice: 10000 };
       mockCreateProduct.mockResolvedValue(mockCreated);

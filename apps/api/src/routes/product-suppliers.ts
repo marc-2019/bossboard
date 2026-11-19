@@ -56,20 +56,20 @@ function rejectUnresolvedTax(
   if (costRequired && !taxTouched) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'priceIncludesGst or sourceTaxFlag is required',
+      message: 'Tick whether the price includes GST.',
     });
   }
   if (!costRequired) {
     if (value.costCents !== undefined && !taxTouched) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'costCents and priceIncludesGst or sourceTaxFlag must be sent together',
+        message: 'Enter the cost and say whether it includes GST. Send both together.',
       });
     }
     if (taxTouched && value.costCents === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'costCents and priceIncludesGst or sourceTaxFlag must be sent together',
+        message: 'Enter the cost and say whether it includes GST. Send both together.',
       });
     }
   }
@@ -79,8 +79,8 @@ function rejectUnresolvedTax(
       code: z.ZodIssueCode.custom,
       message:
         source === 'manual'
-          ? 'Unknown GST treatment cannot be saved for manual entry'
-          : 'Rows flagged unknown are blocked until GST treatment is confirmed',
+          ? 'Say whether this price includes GST before saving.'
+          : 'Confirm whether GST is included before saving this cost.',
     });
   }
 }
@@ -95,7 +95,11 @@ const createSchema = z
     priceIncludesGst: z.boolean().optional(),
     sourceTaxFlag: taxFlagSchema.optional(),
     source: z.enum(['manual', 'file']).optional(),
-    checkedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    checkedAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter a real date, like 2026-11-19.')
+      .nullable()
+      .optional(),
     isPreferred: z.boolean().optional(),
     currency: z.string().trim().optional(),
   })
@@ -111,18 +115,22 @@ const updateSchema = z
     priceIncludesGst: z.boolean().optional(),
     sourceTaxFlag: taxFlagSchema.optional(),
     source: z.enum(['manual', 'file']).optional(),
-    checkedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    checkedAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter a real date, like 2026-11-19.')
+      .nullable()
+      .optional(),
     isPreferred: z.boolean().optional(),
     currency: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => rejectUnresolvedTax(value, ctx, false));
 
 const productParamsSchema = z.object({
-  productId: z.string().uuid('Product id must be a UUID'),
+  productId: z.string().uuid('That product link is not valid.'),
 });
 
 const supplierParamsSchema = productParamsSchema.extend({
-  supplierId: z.string().uuid('Supplier cost id must be a UUID'),
+  supplierId: z.string().uuid('That supplier cost link is not valid.'),
 });
 
 function sendValidation(res: Response, error: z.ZodError): void {

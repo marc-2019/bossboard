@@ -8,11 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { QueryResultRow } from 'pg';
 import db from './database.js';
 import { createError } from '../middleware/error.js';
-import {
-  exGstCentsFromInclusive,
-  sellCentsFromCostAndMargin,
-  SupplierCostMathError,
-} from './supplier-cost-math.js';
+import { priceFromCost, PricingError } from './pricing.js';
 
 export type SourceTaxFlag = 'inclusive' | 'exclusive' | 'unknown';
 export type SupplierCostSource = 'manual' | 'file';
@@ -74,12 +70,13 @@ interface ProductLockRow extends QueryResultRow {
   unit_cost: number | null;
   unit_price: number;
   default_margin_percent: string | number | null;
+  unit_cost_is_annual: boolean;
 }
 
 const MAX_COST_CENTS = 1_000_000_000_000;
 
 function mathError(error: unknown): never {
-  if (error instanceof SupplierCostMathError) {
+  if (error instanceof PricingError) {
     throw createError(error.message, 400, 'VALIDATION_ERROR');
   }
   throw error;
@@ -128,7 +125,7 @@ function assertGtin(gtin: string | null): void {
 
 function assertCheckedAt(checkedAt: string | null): void {
   if (checkedAt != null && !isIsoDate(checkedAt)) {
-    throw createError('checkedAt must be a real YYYY-MM-DD date', 400, 'VALIDATION_ERROR');
+    throw createError('Enter a real date, like 2026-11-19.', 400, 'VALIDATION_ERROR');
   }
 }
 
@@ -151,7 +148,7 @@ export function resolveEnteredCost(input: {
       : 'exclusive';
     if (flag && flag !== 'unknown' && flag !== fromToggle) {
       throw createError(
-        'priceIncludesGst does not match sourceTaxFlag',
+        "The GST answers don't match. Choose whether the price includes GST.",
         400,
         'VALIDATION_ERROR',
       );
@@ -161,7 +158,7 @@ export function resolveEnteredCost(input: {
 
   if (!flag) {
     throw createError(
-      'priceIncludesGst or sourceTaxFlag is required when a cost is sent',
+      'Tick whether the price includes GST.',
       400,
       'VALIDATION_ERROR',
     );
@@ -170,19 +167,30 @@ export function resolveEnteredCost(input: {
   if (flag === 'unknown') {
     const message =
       source === 'manual'
-        ? 'Unknown GST treatment cannot be saved for manual entry'
-        : 'Rows flagged unknown are blocked until GST treatment is confirmed';
+        ? 'Say whether this price includes GST before saving.'
+        : 'Confirm whether GST is included before saving this cost.';
     throw createError(message, 400, 'VALIDATION_ERROR');
   }
 
   if (!Number.isInteger(input.costCents) || input.costCents < 0 || input.costCents > MAX_COST_CENTS) {
-    throw createError('Cost must be a non-negative integer number of cents', 400, 'VALIDATION_ERROR');
+    throw createError(
+      input.costCents > MAX_COST_CENTS
+        ? 'That cost is too large to save.'
+        : 'Enter the cost in whole cents, zero or more.',
+      400,
+      'VALIDATION_ERROR',
+    );
   }
 
   if (flag === 'inclusive') {
     try {
       return {
-        costExGstCents: exGstCentsFromInclusive(input.costCents),
+        costExGstCents: priceFromCost({
+          costCents: input.costCents,
+          gstTreatment: 'inclusive',
+          unitBasis: 'per_unit',
+          markupPercent: 0,
+        }).exGstSellCents,
         sourceTaxFlag: 'inclusive',
       };
     } catch (error) {
@@ -257,7 +265,7 @@ async function lockProduct(
   userId: string,
 ): Promise<ProductLockRow> {
   const result = await client.query<ProductLockRow>(
-    `SELECT id, unit_cost, unit_price, default_margin_percent
+    `SELECT id, unit_cost, unit_price, default_margin_percent, unit_cost_is_annual
      FROM products_services
      WHERE id = $1 AND user_id = $2
      FOR UPDATE`,
@@ -300,6 +308,7 @@ async function copyPreferredCost(
   productId: string,
   costExGstCents: number,
   marginRaw: string | number | null,
+  unitCostIsAnnual: boolean,
 ): Promise<ProductCostSnapshot> {
   const margin =
     marginRaw == null || marginRaw === ''
@@ -308,7 +317,14 @@ async function copyPreferredCost(
   if (margin != null && Number.isFinite(margin)) {
     let unitPrice: number;
     try {
-      unitPrice = sellCentsFromCostAndMargin(costExGstCents, margin);
+      // costExGstCents is already ex-GST. Pass exclusive so GST is not removed again.
+      // An annual catalogue cost is divided by 12 once inside priceFromCost.
+      unitPrice = priceFromCost({
+        costCents: costExGstCents,
+        gstTreatment: 'exclusive',
+        unitBasis: unitCostIsAnnual ? 'annual' : 'per_unit',
+        markupPercent: margin,
+      }).exGstSellCents;
     } catch (error) {
       mathError(error);
     }
@@ -456,6 +472,7 @@ export async function createSupplierCost(
             productId,
             resolved.costExGstCents,
             product.default_margin_percent,
+            Boolean(product.unit_cost_is_annual),
           )
         : null;
       return { supplier, product: copied };
@@ -479,7 +496,7 @@ export async function updateSupplierCost(
     input.sourceTaxFlag !== undefined;
   if (taxTouched && input.costCents === undefined) {
     throw createError(
-      'costCents is required when setting GST treatment',
+      'Enter the cost when you say whether GST is included.',
       400,
       'VALIDATION_ERROR',
     );
@@ -586,6 +603,7 @@ export async function updateSupplierCost(
             productId,
             supplier.cost_ex_gst_cents as number,
             product.default_margin_percent,
+            Boolean(product.unit_cost_is_annual),
           )
         : null;
       return { supplier, product: copied };

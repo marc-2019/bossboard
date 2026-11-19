@@ -111,7 +111,8 @@ describe('supplier cost routes', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('VALIDATION_ERROR');
-    expect(response.body.message).toMatch(/Unknown GST/);
+    expect(response.body.message).toBe('Say whether this price includes GST before saving.');
+    expect(response.body.message).not.toMatch(/priceIncludesGst|sourceTaxFlag|costCents|unknown/i);
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -147,6 +148,54 @@ describe('supplier cost routes', () => {
       expect.not.objectContaining({ userId: USER_A }),
     );
     expect(mockDelete).toHaveBeenCalledWith(USER_B, PRODUCT_A, SUPPLIER_A);
+  });
+
+  it('uses plain wording when GST or the link is missing', async () => {
+    const missingGst = await request(app)
+      .post(`/api/v1/products/${PRODUCT_A}/suppliers`)
+      .send({ supplierName: 'Hardware Panel', costCents: 1000 });
+    expect(missingGst.status).toBe(400);
+    expect(missingGst.body.message).toBe('Tick whether the price includes GST.');
+
+    const split = await request(app)
+      .put(`/api/v1/products/${PRODUCT_A}/suppliers/${SUPPLIER_A}`)
+      .send({ priceIncludesGst: true });
+    expect(split.status).toBe(400);
+    expect(split.body.message).toBe(
+      'Enter the cost and say whether it includes GST. Send both together.',
+    );
+
+    const badDate = await request(app)
+      .post(`/api/v1/products/${PRODUCT_A}/suppliers`)
+      .send({
+        supplierName: 'Hardware Panel',
+        costCents: 1000,
+        priceIncludesGst: false,
+        checkedAt: 'yesterday',
+      });
+    expect(badDate.status).toBe(400);
+    expect(badDate.body.message).toBe('Enter a real date, like 2026-11-19.');
+
+    const badProduct = await request(app).get('/api/v1/products/not-a-uuid/suppliers');
+    expect(badProduct.status).toBe(400);
+    expect(badProduct.body.message).toBe('That product link is not valid.');
+
+    const badSupplier = await request(app).get(
+      `/api/v1/products/${PRODUCT_A}/suppliers/not-a-uuid`,
+    );
+    expect(badSupplier.status).toBe(400);
+    expect(badSupplier.body.message).toBe('That supplier cost link is not valid.');
+
+    for (const message of [
+      missingGst.body.message,
+      split.body.message,
+      badDate.body.message,
+      badProduct.body.message,
+      badSupplier.body.message,
+    ]) {
+      expect(message).not.toMatch(/priceIncludesGst|sourceTaxFlag|costCents|checkedAt|UUID/);
+    }
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it('lists only the rows the service returns for the authenticated user', async () => {

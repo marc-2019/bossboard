@@ -13,6 +13,7 @@ interface ProductRow {
   unit_cost: number | null;
   unit_price: number;
   default_margin_percent: number | null;
+  unit_cost_is_annual: boolean;
 }
 
 interface CostRow {
@@ -106,7 +107,11 @@ function mockQuery(sql: string, params: unknown[] = []): { rows: unknown[]; rowC
     return { rows, rowCount: rows.length };
   }
 
-  if (compact.startsWith('select id, unit_cost, unit_price, default_margin_percent from products_services')) {
+  if (
+    compact.startsWith(
+      'select id, unit_cost, unit_price, default_margin_percent, unit_cost_is_annual from products_services',
+    )
+  ) {
     const [productId] = params;
     const userId = userParam(sql, params);
     const rows = products.filter((row) => row.id === productId && row.user_id === userId);
@@ -267,6 +272,7 @@ function seedProduct(row: Partial<ProductRow> & Pick<ProductRow, 'id' | 'user_id
     unit_cost: null,
     unit_price: 5000,
     default_margin_percent: null,
+    unit_cost_is_annual: false,
     ...row,
   });
 }
@@ -377,6 +383,51 @@ describe('product supplier costs', () => {
     expect(products[0].unit_price).toBe(13000);
   });
 
+  it('divides an annual preferred cost by 12 before markup', async () => {
+    seedProduct({
+      id: PRODUCT_A,
+      user_id: USER_A,
+      unit_cost: 1,
+      unit_price: 1,
+      default_margin_percent: 20,
+      unit_cost_is_annual: true,
+    });
+
+    const created = await createSupplierCost(USER_A, PRODUCT_A, {
+      supplierName: 'Hosting Co',
+      costCents: 120000,
+      sourceTaxFlag: 'exclusive',
+      isPreferred: true,
+    });
+
+    expect(created.product?.unit_cost).toBe(120000);
+    expect(created.product?.unit_price).toBe(12000);
+    expect(products[0].unit_price).not.toBe(144000);
+    expect(calls.some((call) => /unit_cost_is_annual/i.test(call.sql))).toBe(true);
+  });
+
+  it('does not strip GST a second time when a preferred inclusive cost is copied', async () => {
+    seedProduct({
+      id: PRODUCT_A,
+      user_id: USER_A,
+      default_margin_percent: 0,
+      unit_price: 1,
+      unit_cost_is_annual: false,
+    });
+
+    const created = await createSupplierCost(USER_A, PRODUCT_A, {
+      supplierName: 'Hardware Panel',
+      costCents: 11500,
+      priceIncludesGst: true,
+      isPreferred: true,
+    });
+
+    expect(created.supplier.cost_ex_gst_cents).toBe(10000);
+    expect(created.product?.unit_cost).toBe(10000);
+    expect(created.product?.unit_price).toBe(10000);
+    expect(created.product?.unit_price).not.toBe(8696);
+  });
+
   it('rounds preferred sell prices on the half-cent and large edges', async () => {
     seedProduct({
       id: PRODUCT_A,
@@ -485,6 +536,35 @@ describe('product supplier costs', () => {
     const ownList = await listSupplierCosts(USER_B, PRODUCT_B);
     expect(ownList).toEqual([]);
     expect(visible.some((row) => row.user_id === USER_B)).toBe(false);
+  });
+
+  it('rejects B using A\'s supplier id on B\'s own product, and lets the owner delete', async () => {
+    seedProduct({ id: PRODUCT_A, user_id: USER_A, unit_price: 1 });
+    seedProduct({ id: PRODUCT_B, user_id: USER_B, unit_price: 1 });
+    const created = await createSupplierCost(USER_A, PRODUCT_A, {
+      supplierName: 'Mico',
+      supplierSku: 'M-1',
+      costCents: 1000,
+      sourceTaxFlag: 'exclusive',
+    });
+    const supplierId = created.supplier.id;
+
+    await expect(getSupplierCost(USER_B, PRODUCT_B, supplierId)).rejects.toMatchObject({
+      statusCode: 404,
+    });
+    await expect(
+      updateSupplierCost(USER_B, PRODUCT_B, supplierId, { supplierName: 'Stolen' }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(deleteSupplierCost(USER_B, PRODUCT_B, supplierId)).rejects.toMatchObject({
+      statusCode: 404,
+    });
+
+    expect(costs.map((row) => row.id)).toEqual([supplierId]);
+    expect(costs[0].user_id).toBe(USER_A);
+    expect(costs[0].supplier_name).toBe('Mico');
+
+    await deleteSupplierCost(USER_A, PRODUCT_A, supplierId);
+    expect(costs).toHaveLength(0);
   });
 
   it('rejects a second row with the same supplier SKU for the account', async () => {
