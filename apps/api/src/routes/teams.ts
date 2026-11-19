@@ -37,6 +37,10 @@ const updateMemberRoleSchema = z.object({
   role: z.enum(['admin', 'worker']),
 });
 
+const catalogueAccessSchema = z.object({
+  catalogueAccess: z.enum(['none', 'view', 'edit']),
+});
+
 // =============================================================================
 // STATIC ROUTES (must be before /:teamId)
 // =============================================================================
@@ -277,6 +281,39 @@ router.put('/:teamId/members/:memberId/role', authenticate, async (req: Request,
     success: true,
     data: { member },
   });
+});
+
+/**
+ * PATCH /api/v1/teams/:teamId/members/:memberId
+ * Set catalogue access (none, view, or edit). Owner and admin only.
+ * memberId is the user id. Workers cannot change any member, including themselves.
+ */
+router.patch('/:teamId/members/:memberId', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validation = catalogueAccessSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: validation.error.errors.map((e) => e.message).join(', '),
+      });
+      return;
+    }
+
+    const member = await teamsService.setMemberCatalogueAccess(
+      req.user!.userId,
+      req.params.teamId as string,
+      req.params.memberId as string,
+      validation.data.catalogueAccess,
+    );
+
+    res.json({
+      success: true,
+      data: { member },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**

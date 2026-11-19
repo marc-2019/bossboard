@@ -539,6 +539,8 @@ export interface ProductService {
   type: ProductType;
   isGstApplicable: boolean;
   isActive: boolean;
+  /** Team catalogue id. Null is a solo product owned by userId. */
+  teamId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -968,6 +970,8 @@ export interface JobLogUpdateInput {
 
 export type TeamRole = 'owner' | 'admin' | 'worker';
 export type InviteStatus = 'pending' | 'accepted' | 'declined';
+/** Worker catalogue level. Owner and admin are always edit in the API. */
+export type CatalogueAccess = 'none' | 'view' | 'edit';
 
 export interface Team {
   id: string;
@@ -989,6 +993,8 @@ export interface TeamMember {
   acceptedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Effective level. Owner and admin are edit even when the column is view. */
+  catalogueAccess: CatalogueAccess;
   userName?: string;
   userEmail?: string;
 }

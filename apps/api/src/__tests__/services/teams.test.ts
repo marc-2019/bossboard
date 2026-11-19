@@ -1078,3 +1078,85 @@ describe('invitee email verification', () => {
     expect(sqlText()).toMatch(/DELETE FROM team_invites/i);
   });
 });
+
+describe('catalogue join and leave', () => {
+  it('moves solo products onto the team when the owner creates it', async () => {
+    mockQuery([]);
+    mockQuery([makeTeamRow()]);
+    mockQuery([makeMemberRow()]);
+    mockQuery([]);
+    mockQuery([]);
+
+    await teamsService.createTeam('user-owner', { name: 'Test Team' });
+
+    const productCall = mockDbQuery.mock.calls.find((call) =>
+      String(call[0]).includes('UPDATE products_services'),
+    );
+    expect(productCall).toBeDefined();
+    expect(String(productCall?.[0])).toContain('team_id IS NULL');
+    expect(productCall?.[1]).toEqual(['team-1', 'user-owner']);
+  });
+
+  it('moves solo products when a joiner has no primary team yet', async () => {
+    const memberRow = makeMemberRow({ role: 'worker', user_id: 'user-new' });
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
+    mockQuery([{
+      id: 'inv-1',
+      team_id: 'team-1',
+      email: 'newmember@example.com',
+      role: 'worker',
+      expires_at: FUTURE,
+      accepted_at: null,
+    }]);
+    mockQuery([]);
+    mockQuery([memberRow]);
+    mockQuery([{ id: 'user-new' }]);
+    mockQuery([]);
+
+    await teamsService.acceptInvite('user-new', 'valid-code');
+
+    const productCall = mockDbQuery.mock.calls.find((call) =>
+      String(call[0]).includes('UPDATE products_services'),
+    );
+    expect(String(productCall?.[0])).toContain('team_id IS NULL');
+    expect(productCall?.[1]).toEqual(['team-1', 'user-new']);
+  });
+
+  it('does not move products when the joiner already has a primary team', async () => {
+    const memberRow = makeMemberRow({ role: 'worker', user_id: 'user-new' });
+    mockQuery([{ email: 'newmember@example.com', is_verified: true }]);
+    mockQuery([{
+      id: 'inv-1',
+      team_id: 'team-1',
+      email: 'newmember@example.com',
+      role: 'worker',
+      expires_at: FUTURE,
+      accepted_at: null,
+    }]);
+    mockQuery([]);
+    mockQuery([memberRow]);
+    mockQuery([]);
+
+    await teamsService.acceptInvite('user-new', 'valid-code');
+    expect(sqlText()).not.toContain('products_services');
+  });
+
+  it('leaves catalogue products on the team when a member leaves', async () => {
+    mockQuery([{ role: 'worker' }]);
+    mockQuery([]);
+    mockQuery([]);
+    await teamsService.leaveTeam('user-worker', 'team-1');
+    expect(sqlText()).not.toContain('products_services');
+    expect(sqlText()).toContain('UPDATE users SET team_id = NULL');
+  });
+
+  it('leaves catalogue products on the team when a member is removed', async () => {
+    mockQuery([{ role: 'owner' }]);
+    mockQuery([{ role: 'worker' }]);
+    mockQuery([{ role: 'owner' }]);
+    mockQuery([]);
+    mockQuery([]);
+    await teamsService.removeMember('user-owner', 'team-1', 'user-worker');
+    expect(sqlText()).not.toContain('products_services');
+  });
+});

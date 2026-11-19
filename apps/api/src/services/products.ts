@@ -1,6 +1,7 @@
 /**
  * Products/Services Service
- * Product and service catalog management for invoicing
+ * Product and service catalog management for invoicing.
+ * Reads and writes are scoped to the caller's team catalogue or their solo rows.
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -11,6 +12,17 @@ import {
   ProductServiceCreateInput,
   ProductServiceUpdateInput,
 } from '../types/index.js';
+import {
+  CatalogueActor,
+  canEditTeamCatalogue,
+  canReadTeamCatalogue,
+  catalogueEditableSql,
+  catalogueForbidden,
+  catalogueVisibilitySql,
+  loadCatalogueActor,
+  productEditableBy,
+  productVisibleTo,
+} from './catalogue-access.js';
 
 /**
  * Transform DB row to ProductService type with proper casing
@@ -37,6 +49,7 @@ function transformProduct(row: Record<string, unknown>): ProductService {
     type: row.type as ProductType,
     isGstApplicable: row.is_gst_applicable as boolean,
     isActive: row.is_active as boolean,
+    teamId: (row.team_id as string | null) ?? null,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
   };
@@ -49,6 +62,7 @@ function transformForMobile(product: ProductService): Record<string, unknown> {
   return {
     id: product.id,
     user_id: product.userId,
+    team_id: product.teamId,
     name: product.name,
     description: product.description,
     unit_price: product.unitPrice,
@@ -63,25 +77,46 @@ function transformForMobile(product: ProductService): Record<string, unknown> {
   };
 }
 
+async function selectProductRow(
+  actor: CatalogueActor,
+  productId: string,
+): Promise<Record<string, unknown> | null> {
+  const result = await db.query<Record<string, unknown>>(
+    `SELECT * FROM products_services
+     WHERE id = $1 AND ${catalogueVisibilitySql(2, 3, 4)}`,
+    [productId, actor.userId, canReadTeamCatalogue(actor), actor.teamId],
+  );
+  const row = result.rows[0];
+  if (!row || !productVisibleTo(actor, row)) return null;
+  return row;
+}
+
 /**
- * Create a new product/service
+ * Create a new product/service.
+ * On a team, only owner, admin, or catalogue_access edit may create.
+ * The row is stamped with the creator's current team_id (null when solo).
  */
 export async function createProduct(
   userId: string,
   input: ProductServiceCreateInput
 ): Promise<Record<string, unknown>> {
-  const productId = uuidv4();
+  const actor = await loadCatalogueActor(userId);
+  if (actor.teamId && !canEditTeamCatalogue(actor)) {
+    throw catalogueForbidden();
+  }
 
+  const productId = uuidv4();
   const result = await db.query<Record<string, unknown>>(
     `INSERT INTO products_services (
-      id, user_id, name, description, unit_price, unit_cost, unit_cost_is_annual,
+      id, user_id, team_id, name, description, unit_price, unit_cost, unit_cost_is_annual,
       default_margin_percent, type, is_gst_applicable
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING *`,
     [
       productId,
       userId,
+      actor.teamId,
       input.name,
       input.description || null,
       input.unitPrice,
@@ -99,36 +134,32 @@ export async function createProduct(
 }
 
 /**
- * Get product/service by ID
+ * Get product/service by ID when the caller may see it.
  */
 export async function getProductById(
   productId: string,
   userId: string
 ): Promise<Record<string, unknown> | null> {
-  const result = await db.query<Record<string, unknown>>(
-    `SELECT * FROM products_services WHERE id = $1 AND user_id = $2`,
-    [productId, userId]
-  );
-
-  if (result.rows.length === 0) {
-    return null;
-  }
-
-  return transformForMobile(transformProduct(result.rows[0]));
+  const actor = await loadCatalogueActor(userId);
+  const row = await selectProductRow(actor, productId);
+  if (!row) return null;
+  return transformForMobile(transformProduct(row));
 }
 
 /**
- * List products/services for user
+ * List products/services the caller may see.
+ * Search is the same list with a name/description filter (GET ?search=).
  */
 export async function listProducts(
   userId: string,
   options: { limit?: number; offset?: number; type?: ProductType; search?: string; includeInactive?: boolean } = {}
 ): Promise<{ products: Record<string, unknown>[]; total: number }> {
+  const actor = await loadCatalogueActor(userId);
   const { limit = 50, offset = 0, type, search, includeInactive = false } = options;
 
-  const conditions: string[] = ['user_id = $1'];
-  const params: unknown[] = [userId];
-  let paramIndex = 2;
+  const conditions: string[] = [catalogueVisibilitySql(1, 2, 3)];
+  const params: unknown[] = [userId, canReadTeamCatalogue(actor), actor.teamId];
+  let paramIndex = 4;
 
   if (!includeInactive) {
     conditions.push('is_active = true');
@@ -147,14 +178,12 @@ export async function listProducts(
 
   const whereClause = conditions.join(' AND ');
 
-  // Get total count
   const countResult = await db.query<{ count: string }>(
     `SELECT COUNT(*) as count FROM products_services WHERE ${whereClause}`,
     params
   );
-  const total = parseInt(countResult.rows[0].count, 10);
+  const parsedCount = parseInt(countResult.rows[0].count, 10);
 
-  // Get items ordered by name
   const result = await db.query<Record<string, unknown>>(
     `SELECT * FROM products_services
      WHERE ${whereClause}
@@ -163,21 +192,28 @@ export async function listProducts(
     [...params, limit, offset]
   );
 
-  const products = result.rows.map((row) =>
-    transformForMobile(transformProduct(row))
-  );
+  const visibleRows = result.rows.filter((row) => productVisibleTo(actor, row));
+  const products = visibleRows.map((row) => transformForMobile(transformProduct(row)));
+  const total = visibleRows.length === result.rows.length ? parsedCount : visibleRows.length;
 
   return { products, total };
 }
 
 /**
- * Update product/service
+ * Update product/service. View and none cannot change team catalogue rows.
  */
 export async function updateProduct(
   productId: string,
   userId: string,
   updates: ProductServiceUpdateInput
 ): Promise<Record<string, unknown> | null> {
+  const actor = await loadCatalogueActor(userId);
+  const existing = await selectProductRow(actor, productId);
+  if (!existing) return null;
+  if (!productEditableBy(actor, existing)) {
+    throw catalogueForbidden();
+  }
+
   const fields: string[] = [];
   const values: unknown[] = [];
   let paramIndex = 1;
@@ -202,24 +238,26 @@ export async function updateProduct(
   }
 
   if (fields.length === 0) {
-    return getProductById(productId, userId);
+    return transformForMobile(transformProduct(existing));
   }
 
   fields.push('updated_at = NOW()');
-  values.push(productId, userId);
+  const idParam = paramIndex++;
+  const userParam = paramIndex++;
+  const canEditParam = paramIndex++;
+  const teamParam = paramIndex;
+  values.push(productId, actor.userId, canEditTeamCatalogue(actor), actor.teamId);
 
   const result = await db.query<Record<string, unknown>>(
     `UPDATE products_services SET ${fields.join(', ')}
-     WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
+     WHERE id = $${idParam} AND ${catalogueEditableSql(userParam, canEditParam, teamParam)}
      RETURNING *`,
     values
   );
 
-  if (result.rows.length === 0) {
-    return null;
-  }
-
-  return transformForMobile(transformProduct(result.rows[0]));
+  const row = result.rows[0];
+  if (!row || !productEditableBy(actor, row)) return null;
+  return transformForMobile(transformProduct(row));
 }
 
 /**
@@ -229,12 +267,33 @@ export async function deleteProduct(
   productId: string,
   userId: string
 ): Promise<boolean> {
+  const actor = await loadCatalogueActor(userId);
+  const existing = await selectProductRow(actor, productId);
+  if (!existing) return false;
+  if (!productEditableBy(actor, existing)) {
+    throw catalogueForbidden();
+  }
+
   const result = await db.query(
     `UPDATE products_services SET is_active = false, updated_at = NOW()
-     WHERE id = $1 AND user_id = $2 AND is_active = true`,
-    [productId, userId]
+     WHERE id = $1 AND is_active = true
+       AND ${catalogueEditableSql(2, 3, 4)}`,
+    [productId, actor.userId, canEditTeamCatalogue(actor), actor.teamId]
   );
   return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Move the user's solo products onto a team they just joined.
+ * Leave and removal do not call this — those products stay on the team.
+ */
+export async function attachSoloProductsToTeam(userId: string, teamId: string): Promise<void> {
+  await db.query(
+    `UPDATE products_services
+     SET team_id = $1, updated_at = NOW()
+     WHERE user_id = $2 AND team_id IS NULL`,
+    [teamId, userId]
+  );
 }
 
 export default {
@@ -243,4 +302,5 @@ export default {
   listProducts,
   updateProduct,
   deleteProduct,
+  attachSoloProductsToTeam,
 };

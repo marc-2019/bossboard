@@ -7,6 +7,7 @@
 import crypto from 'crypto';
 import db from './database.js';
 import {
+  CatalogueAccess,
   Team,
   TeamMember,
   TeamInvite,
@@ -15,6 +16,8 @@ import {
   TeamInviteMemberInput,
 } from '../types/index.js';
 import { createError } from '../middleware/error.js';
+import { callerMaySetCatalogueAccess, effectiveCatalogueLevel } from './catalogue-access.js';
+import { attachSoloProductsToTeam } from './products.js';
 
 // =============================================================================
 // TEAM CRUD
@@ -80,18 +83,19 @@ async function createTeam(userId: string, input: TeamCreateInput): Promise<{ tea
     `INSERT INTO team_members (team_id, user_id, role, invite_status, accepted_at)
      VALUES ($1, $2, 'owner', 'accepted', NOW())
      RETURNING id, team_id, user_id, role, invite_status, invited_by, invited_email,
-               invited_at, accepted_at, created_at, updated_at`,
+               invited_at, accepted_at, created_at, updated_at, catalogue_access`,
     [team.id, userId]
   );
 
   const memberRow = memberResult.rows[0];
   const membership = mapMemberRow(memberRow);
 
-  // Set this team as the user's primary team
+  // Set this team as the user's primary team and bring their solo products in.
   await db.query(
     'UPDATE users SET team_id = $1 WHERE id = $2',
     [team.id, userId]
   );
+  await attachSoloProductsToTeam(userId, team.id);
 
   return { team, membership };
 }
@@ -236,7 +240,7 @@ async function listMembers(userId: string, teamId: string): Promise<TeamMember[]
   }>(
     `SELECT tm.id, tm.team_id, tm.user_id, tm.role, tm.invite_status,
             tm.invited_by, tm.invited_email, tm.invited_at, tm.accepted_at,
-            tm.created_at, tm.updated_at,
+            tm.created_at, tm.updated_at, tm.catalogue_access,
             u.name as user_name, u.email as user_email
      FROM team_members tm
      JOIN users u ON u.id = tm.user_id
@@ -440,15 +444,19 @@ async function acceptInvite(userId: string, inviteCode: string): Promise<TeamMem
      ON CONFLICT (team_id, user_id)
      DO UPDATE SET invite_status = 'accepted', role = $3, accepted_at = NOW(), updated_at = NOW()
      RETURNING id, team_id, user_id, role, invite_status, invited_by, invited_email,
-               invited_at, accepted_at, created_at, updated_at`,
+               invited_at, accepted_at, created_at, updated_at, catalogue_access`,
     [invite.team_id, userId, invite.role, invite.email]
   );
 
-  // Set this team as the user's primary team if they don't have one
-  await db.query(
-    'UPDATE users SET team_id = $1 WHERE id = $2 AND team_id IS NULL',
+  // Set this team as the user's primary team if they don't have one.
+  // Only then do their solo products join this catalogue.
+  const primary = await db.query<{ id: string }>(
+    'UPDATE users SET team_id = $1 WHERE id = $2 AND team_id IS NULL RETURNING id',
     [invite.team_id, userId]
   );
+  if (primary.rows.length > 0) {
+    await attachSoloProductsToTeam(userId, invite.team_id);
+  }
 
   return mapMemberRow(memberResult.rows[0]);
 }
@@ -691,13 +699,13 @@ async function removeMember(userId: string, teamId: string, memberId: string): P
     throw createError('Admins cannot remove other admins', 403, 'INSUFFICIENT_ROLE');
   }
 
-  // Remove the member
+  // Remove the member. Catalogue rows stay on the team.
   await db.query(
     'DELETE FROM team_members WHERE team_id = $1 AND user_id = $2',
     [teamId, memberId]
   );
 
-  // Clear their team_id if it was this team
+  // Clear their current team. Catalogue rows stay where they are.
   await db.query(
     'UPDATE users SET team_id = NULL WHERE id = $1 AND team_id = $2',
     [memberId, teamId]
@@ -740,7 +748,7 @@ async function updateMemberRole(
     `UPDATE team_members SET role = $1, updated_at = NOW()
      WHERE team_id = $2 AND user_id = $3 AND role != 'owner'
      RETURNING id, team_id, user_id, role, invite_status, invited_by, invited_email,
-               invited_at, accepted_at, created_at, updated_at`,
+               invited_at, accepted_at, created_at, updated_at, catalogue_access`,
     [newRole, teamId, memberId]
   );
 
@@ -792,6 +800,7 @@ async function leaveTeam(userId: string, teamId: string): Promise<void> {
     throw createError('Owner cannot leave the team. Transfer ownership or delete the team.', 400, 'OWNER_CANNOT_LEAVE');
   }
 
+  // Membership ends. Catalogue rows stay on the team.
   await db.query(
     'DELETE FROM team_members WHERE team_id = $1 AND user_id = $2',
     [teamId, userId]
@@ -801,6 +810,75 @@ async function leaveTeam(userId: string, teamId: string): Promise<void> {
     'UPDATE users SET team_id = NULL WHERE id = $1 AND team_id = $2',
     [userId, teamId]
   );
+}
+
+/**
+ * Set a member's catalogue level. Owner and admin only.
+ * Workers cannot change it, including their own. Owner and admin stay edit.
+ * memberId is the user id, matching remove and role routes.
+ */
+async function setMemberCatalogueAccess(
+  userId: string,
+  teamId: string,
+  memberId: string,
+  access: CatalogueAccess,
+): Promise<TeamMember> {
+  const callerRole = await getUserRole(userId, teamId);
+  if (!callerRole) {
+    throw createError('You are not a member of this team', 403, 'NOT_A_MEMBER');
+  }
+  if (!callerMaySetCatalogueAccess(callerRole)) {
+    throw createError(
+      'Only a team owner or admin can change catalogue access',
+      403,
+      'INSUFFICIENT_ROLE',
+    );
+  }
+  if (access !== 'none' && access !== 'view' && access !== 'edit') {
+    throw createError('Catalogue access must be none, view, or edit', 400, 'VALIDATION_ERROR');
+  }
+
+  const target = await db.query<{ role: string }>(
+    `SELECT role FROM team_members
+     WHERE team_id = $1 AND user_id = $2 AND invite_status = 'accepted'`,
+    [teamId, memberId],
+  );
+  if (target.rows.length === 0) {
+    throw createError('Member not found', 404, 'MEMBER_NOT_FOUND');
+  }
+  if ((target.rows[0].role === 'owner' || target.rows[0].role === 'admin') && access !== 'edit') {
+    throw createError(
+      'Team owners and admins always have edit access to the catalogue',
+      400,
+      'CATALOGUE_ROLE_LOCKED',
+    );
+  }
+
+  const result = await db.query<{
+    id: string;
+    team_id: string;
+    user_id: string;
+    role: string;
+    invite_status: string;
+    invited_by: string | null;
+    invited_email: string | null;
+    invited_at: Date;
+    accepted_at: Date | null;
+    created_at: Date;
+    updated_at: Date;
+    catalogue_access: string;
+  }>(
+    `UPDATE team_members
+     SET catalogue_access = $1, updated_at = NOW()
+     WHERE team_id = $2 AND user_id = $3 AND invite_status = 'accepted'
+     RETURNING id, team_id, user_id, role, invite_status, invited_by, invited_email,
+               invited_at, accepted_at, created_at, updated_at, catalogue_access`,
+    [access, teamId, memberId],
+  );
+  if (result.rows.length === 0) {
+    throw createError('Member not found', 404, 'MEMBER_NOT_FOUND');
+  }
+  return mapMemberRow(result.rows[0]);
 }
 
 // =============================================================================
@@ -878,12 +956,18 @@ function mapMemberRow(row: {
   accepted_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  catalogue_access?: string | null;
 }): TeamMember {
+  const role = row.role as TeamRole;
+  const catalogueAccess =
+    role === 'owner' || role === 'admin' || role === 'worker'
+      ? effectiveCatalogueLevel(role, row.catalogue_access)
+      : 'view';
   return {
     id: row.id,
     teamId: row.team_id,
     userId: row.user_id,
-    role: row.role as TeamRole,
+    role,
     inviteStatus: row.invite_status as 'pending' | 'accepted' | 'declined',
     invitedBy: row.invited_by,
     invitedEmail: row.invited_email,
@@ -891,6 +975,7 @@ function mapMemberRow(row: {
     acceptedAt: row.accepted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    catalogueAccess,
   };
 }
 
@@ -909,6 +994,7 @@ export default {
   claimPendingInvites,
   removeMember,
   updateMemberRole,
+  setMemberCatalogueAccess,
   cancelInvite,
   leaveTeam,
   getUserRole,
