@@ -705,7 +705,7 @@ export default function CreateInvoiceScreen() {
                   )}
                 </View>
                 <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
-                  Cost + margin internal only — PDF shows sell
+                  Cost + markup internal only — PDF shows sell
                 </Text>
               </View>
             </View>
@@ -932,7 +932,7 @@ export default function CreateInvoiceScreen() {
             <Text style={styles.hint}>
               The customer sees this on the invoice PDF and email. Use payment thanks or
               terms — not system test / seed notes. Leave blank if not needed. Cost and
-              margin stay internal on line items.
+              markup stay internal on line items.
             </Text>
           </View>
         </View>

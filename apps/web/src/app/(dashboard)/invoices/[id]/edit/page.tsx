@@ -344,7 +344,7 @@ export default function EditInvoicePage() {
         return;
       }
       if (cents === null) {
-        setError(`Line "${desc}" needs a valid sell amount (or cost + margin %).`);
+        setError(`Line "${desc}" needs a valid sell amount (or cost + markup %).`);
         return;
       }
       cleanedItems.push({
@@ -630,7 +630,7 @@ export default function EditInvoicePage() {
                   </div>
                   <div className="w-24">
                     <Input
-                      label={idx === 0 ? 'Margin %' : undefined}
+                      label={idx === 0 ? 'Markup %' : undefined}
                       type="number"
                       inputMode="decimal"
                       step="0.1"
@@ -688,7 +688,7 @@ export default function EditInvoicePage() {
               ))}
             </ul>
             <p className="mt-2 text-xs text-gray-500">
-              Cost and margin are internal only — PDF and email show sell amounts only.
+              Cost and markup are internal only — PDF and email show sell amounts only.
             </p>
             {profitPreview.linesWithCost > 0 && (
               <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-100 text-sm text-amber-950 space-y-1">

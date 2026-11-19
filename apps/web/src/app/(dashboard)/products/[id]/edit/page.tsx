@@ -106,7 +106,7 @@ export default function EditProductPage() {
     if (marginPercent.trim()) {
       const m = Number(marginPercent.trim());
       if (!Number.isFinite(m) || m < 0) {
-        setError('Margin % must be 0 or more.');
+        setError('Markup % must be 0 or more.');
         return;
       }
       defaultMarginPercent = m;
@@ -214,7 +214,7 @@ export default function EditProductPage() {
               placeholder="0.00"
             />
             <Input
-              label="Margin %"
+              label="Markup %"
               type="number"
               inputMode="decimal"
               step="0.1"
@@ -241,7 +241,7 @@ export default function EditProductPage() {
                     ? ` (≈ $${(Number(costDollars) / 12).toFixed(2)}/mo)`
                     : ''
                 }. Customers only see sell price.`
-              : 'Cost + margin % calculate sell price. Customers only ever see sell price on invoices.'}
+              : 'Cost + markup % calculate sell price. Customers only ever see sell price on invoices.'}
           </p>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
