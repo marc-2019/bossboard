@@ -8,6 +8,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import db from '../services/database.js';
+import { canReadTeamCatalogue, loadCatalogueActor } from '../services/catalogue-access.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -57,6 +58,9 @@ async function loadStatus(userId: string): Promise<GettingStartedStatus> {
     throw err;
   }
 
+  const actor = await loadCatalogueActor(userId);
+  const canReadCatalogue = canReadTeamCatalogue(actor);
+
   const counts = await db.query<{
     products: string;
     customers: string;
@@ -66,7 +70,12 @@ async function loadStatus(userId: string): Promise<GettingStartedStatus> {
     has_bank: string;
   }>(
     `SELECT
-       (SELECT COUNT(*)::text FROM products_services WHERE user_id = $1 AND is_active = true) AS products,
+       (SELECT COUNT(*)::text FROM products_services
+         WHERE is_active = true
+           AND (
+             (team_id IS NULL AND user_id = $1)
+             OR ($2::boolean IS TRUE AND team_id = $3::uuid)
+           )) AS products,
        (SELECT COUNT(*)::text FROM customers WHERE user_id = $1 AND is_active = true) AS customers,
        (SELECT COUNT(*)::text FROM invoices WHERE user_id = $1) AS invoices,
        (SELECT COUNT(*)::text FROM invoices WHERE user_id = $1 AND status IN ('sent', 'paid', 'overdue')) AS sent_invoices,
@@ -80,7 +89,7 @@ async function loadStatus(userId: string): Promise<GettingStartedStatus> {
           WHERE user_id = $1
             AND bank_account_number IS NOT NULL AND TRIM(bank_account_number) <> ''
         ) THEN '1' ELSE '0' END) AS has_bank`,
-    [userId],
+    [userId, canReadCatalogue, actor.teamId],
   );
 
   const row = counts.rows[0];

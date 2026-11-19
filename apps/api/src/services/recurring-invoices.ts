@@ -8,6 +8,14 @@ import db from './database.js';
 import invoicesService from './invoices.js';
 import * as productsService from './products.js';
 import {
+  canEditTeamCatalogue,
+  canReadTeamCatalogue,
+  catalogueForbidden,
+  catalogueVisibilitySql,
+  loadCatalogueActor,
+  productVisibleTo,
+} from './catalogue-access.js';
+import {
   RecurringInvoice,
   RecurringLineItem,
   ProductType,
@@ -246,7 +254,9 @@ export async function getRecurringInvoiceById(
     updatedAt: new Date(),
   };
 
-  // Fetch line items with product names
+  // Product name only. Line unit_price is stored on recurring_line_items, not read
+  // from the catalogue. OPEN: a 'none' member who can open their own recurring
+  // invoice still receives that stored price and the linked product name.
   const liResult = await db.query<Record<string, unknown>>(
     `SELECT rli.*, ps.name as product_name
      FROM recurring_line_items rli
@@ -729,17 +739,30 @@ export async function createRecurringFromInvoice(
     });
   }
 
+  const actor = await loadCatalogueActor(userId);
+  const canRead = canReadTeamCatalogue(actor);
   const productsResult = await db.query<{
     id: string;
     name: string;
     unit_price: number;
     type: string;
+    team_id: string | null;
+    user_id: string;
   }>(
-    `SELECT id, name, unit_price, type FROM products_services
-     WHERE user_id = $1 AND is_active = true`,
-    [userId]
+    `SELECT id, name, unit_price, type, team_id, user_id
+     FROM products_services
+     WHERE is_active = true
+       AND ${catalogueVisibilitySql(1, 2, 3)}`,
+    [userId, canRead, actor.teamId]
   );
-  const products = productsResult.rows;
+  const products = productsResult.rows
+    .filter((row) => productVisibleTo(actor, row))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      unit_price: row.unit_price,
+      type: row.type,
+    }));
 
   const lineItems: {
     productServiceId: string;
@@ -758,7 +781,10 @@ export async function createRecurringFromInvoice(
 
     let product = matchProduct(products, description);
     if (!product) {
-      // Auto-create catalog entry so recurring_line_items FK is satisfied
+      // Auto-create is a catalogue write. View and none cannot add items.
+      if (actor.teamId && !canEditTeamCatalogue(actor)) {
+        throw catalogueForbidden();
+      }
       const created = await productsService.createProduct(userId, {
         name: description.slice(0, 255),
         description: `Auto-created from invoice ${inv.invoice_number as string}`,

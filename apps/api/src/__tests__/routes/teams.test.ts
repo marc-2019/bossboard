@@ -13,6 +13,7 @@ const mockUpdateTeam = jest.fn();
 const mockListMembers = jest.fn();
 const mockRemoveMember = jest.fn();
 const mockUpdateMemberRole = jest.fn();
+const mockSetMemberCatalogueAccess = jest.fn();
 const mockLeaveTeam = jest.fn();
 const mockInviteMember = jest.fn();
 const mockListInvites = jest.fn();
@@ -39,6 +40,7 @@ jest.mock('../../services/teams.js', () => ({
     listMembers: mockListMembers,
     removeMember: mockRemoveMember,
     updateMemberRole: mockUpdateMemberRole,
+    setMemberCatalogueAccess: mockSetMemberCatalogueAccess,
     leaveTeam: mockLeaveTeam,
     inviteMember: mockInviteMember,
     listInvites: mockListInvites,
@@ -287,6 +289,35 @@ describe('Team Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('VALIDATION_ERROR');
+    });
+  });
+
+  describe('PATCH /api/v1/teams/:teamId/members/:memberId', () => {
+    it('passes catalogueAccess to the service', async () => {
+      mockSetMemberCatalogueAccess.mockResolvedValue({ userId: 'm-1', catalogueAccess: 'edit' });
+
+      const response = await request(app)
+        .patch('/api/v1/teams/t-1/members/m-1')
+        .send({ catalogueAccess: 'edit' });
+
+      expect(response.status).toBe(200);
+      expect(mockSetMemberCatalogueAccess).toHaveBeenCalledWith(
+        'test-user-id',
+        't-1',
+        'm-1',
+        'edit',
+      );
+      expect(response.body.data.member.catalogueAccess).toBe('edit');
+    });
+
+    it('rejects an unknown catalogue level before the service', async () => {
+      const response = await request(app)
+        .patch('/api/v1/teams/t-1/members/m-1')
+        .send({ catalogueAccess: 'all' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(mockSetMemberCatalogueAccess).not.toHaveBeenCalled();
     });
   });
 
