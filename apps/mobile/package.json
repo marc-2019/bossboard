@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "build:ios": "eas build --platform ios",
     "build:android": "eas build --platform android",
-    "test": "jest",
+    "test": "node scripts/check-uiscene-manifest.js && jest",
     "lint": "eslint .",
     "clean": "rm -rf node_modules .expo",
     "generate:assets": "node scripts/generate-assets.js",
