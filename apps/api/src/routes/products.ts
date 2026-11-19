@@ -6,9 +6,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import productsService from '../services/products.js';
+import productSupplierRoutes from './product-suppliers.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
+
+// Nested supplier costs. Registered before /:id; two-segment paths do not match /:id.
+router.use('/:productId/suppliers', productSupplierRoutes);
 
 // =============================================================================
 // VALIDATION SCHEMAS
@@ -21,6 +25,7 @@ const createSchema = z.object({
   description: z.string().optional(),
   unitPrice: z.number().int().min(0, 'Price must be a positive number in cents'),
   unitCost: z.number().int().min(0).nullable().optional(),
+  unitCostIsAnnual: z.boolean().optional(),
   defaultMarginPercent: z.number().min(0).max(1000).nullable().optional(),
   type: z.enum(productTypes).optional(),
   isGstApplicable: z.boolean().optional(),
@@ -31,6 +36,7 @@ const updateSchema = z.object({
   description: z.string().optional().nullable(),
   unitPrice: z.number().int().min(0).optional(),
   unitCost: z.number().int().min(0).nullable().optional(),
+  unitCostIsAnnual: z.boolean().optional(),
   defaultMarginPercent: z.number().min(0).max(1000).nullable().optional(),
   type: z.enum(productTypes).optional(),
   isGstApplicable: z.boolean().optional(),

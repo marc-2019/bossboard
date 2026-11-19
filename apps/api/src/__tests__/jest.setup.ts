@@ -3,6 +3,8 @@
  * Global setup for all tests
  */
 
+import './install-network-guard';
+
 // Set test environment variables.
 // Preserve a caller-provided DATABASE_URL (GitHub Actions api-ci.yml) so live
 // SQL proofs hit the CI Postgres service instead of a hardcoded compose port.

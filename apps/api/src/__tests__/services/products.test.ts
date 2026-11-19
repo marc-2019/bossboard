@@ -76,6 +76,22 @@ describe('createProduct', () => {
     expect(params[8]).toBe('fixed');
     expect(params[9]).toBe(true);
   });
+
+  it('recomputes an annual create to 12000 cents at 20% markup', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeRow({ unit_price: 12000, unit_cost: 120000 })] });
+    await createProduct('user-1', {
+      name: 'Hosting',
+      unitPrice: 1,
+      unitCost: 120000,
+      unitCostIsAnnual: true,
+      defaultMarginPercent: 20,
+    });
+    const params = mockDbQuery.mock.calls[0][1] as unknown[];
+    expect(params[4]).toBe(12000);
+    expect(params[5]).toBe(120000);
+    expect(params[6]).toBe(true);
+    expect(params[7]).toBe(20);
+  });
 });
 
 describe('getProductById', () => {
@@ -160,6 +176,119 @@ describe('updateProduct', () => {
     mockDbQuery.mockResolvedValueOnce({ rows: [] });
     const result = await updateProduct('missing', 'user-1', { name: 'x' });
     expect(result).toBeNull();
+  });
+
+  it('recomputes unit_price when cost or margin changes and both are present', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({
+        rows: [{ unit_cost: 1000, default_margin_percent: '30.00' }],
+      })
+      .mockResolvedValueOnce({ rows: [makeRow({ unit_cost: 2000, unit_price: 2600 })] });
+
+    await updateProduct('prod-1', 'user-1', { unitCost: 2000, unitPrice: 9999 });
+
+    const params = mockDbQuery.mock.calls[1][1] as unknown[];
+    expect(params).toContain(2600);
+    expect(params).not.toContain(9999);
+
+    mockDbQuery.mockReset();
+    mockDbQuery
+      .mockResolvedValueOnce({
+        rows: [{ unit_cost: 10000, default_margin_percent: '10.00' }],
+      })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
+    await updateProduct('prod-1', 'user-1', { defaultMarginPercent: 10 });
+    expect(mockDbQuery.mock.calls[1][1] as unknown[]).toContain(11000);
+  });
+
+  it('rounds half-up edges when recomputing the sell price', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ unit_cost: null, default_margin_percent: null }] })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
+    await updateProduct('prod-1', 'user-1', { unitCost: 1, defaultMarginPercent: 50 });
+    expect(mockDbQuery.mock.calls[1][1] as unknown[]).toContain(2);
+
+    mockDbQuery.mockReset();
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ unit_cost: 10, default_margin_percent: '5.00' }] })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
+    await updateProduct('prod-1', 'user-1', { unitCost: 10 });
+    expect(mockDbQuery.mock.calls[1][1] as unknown[]).toContain(11);
+
+    mockDbQuery.mockReset();
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ unit_cost: null, default_margin_percent: null }] })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
+    await updateProduct('prod-1', 'user-1', {
+      unitCost: 1_000_000_000,
+      defaultMarginPercent: 15,
+    });
+    expect(mockDbQuery.mock.calls[1][1] as unknown[]).toContain(1_150_000_000);
+  });
+
+  it('MUST-FAIL: annual web edit stores unit_price 12000, not 12× the year', async () => {
+    // Web edit payload for $1,200/yr hosting at 20% markup.
+    // Attributed cost is round(120000/12)=10000, then 20% → 12000 cents.
+    // Pricing the full year yields 144000. That is the 12× bug.
+    mockDbQuery
+      .mockResolvedValueOnce({
+        rows: [{
+          unit_cost: 120000,
+          default_margin_percent: '20.00',
+          unit_cost_is_annual: true,
+        }],
+      })
+      .mockResolvedValueOnce({
+        rows: [makeRow({ unit_cost: 120000, unit_price: 12000, unit_cost_is_annual: true })],
+      });
+
+    await updateProduct('prod-1', 'user-1', {
+      unitPrice: 12000,
+      unitCost: 120000,
+      unitCostIsAnnual: true,
+      defaultMarginPercent: 20,
+    });
+
+    const params = mockDbQuery.mock.calls[1][1] as unknown[];
+    expect(mockDbQuery.mock.calls[0][0] as string).toContain('unit_cost_is_annual');
+    expect(params[0]).toBe(12000);
+    expect(params).not.toContain(144000);
+  });
+
+  it('uses the stored annual flag when the edit does not send one', async () => {
+    mockDbQuery
+      .mockResolvedValueOnce({
+        rows: [{
+          unit_cost: 120000,
+          default_margin_percent: '20.00',
+          unit_cost_is_annual: true,
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
+
+    await updateProduct('prod-1', 'user-1', { unitCost: 120000, unitPrice: 1 });
+
+    const params = mockDbQuery.mock.calls[1][1] as unknown[];
+    expect(params).toContain(12000);
+    expect(params).not.toContain(144000);
+  });
+
+  it('does not recompute unit_price when cost or margin is absent', async () => {
+    mockDbQuery.mockResolvedValueOnce({ rows: [makeRow({ unit_price: 5000 })] });
+    await updateProduct('prod-1', 'user-1', { unitPrice: 5000 });
+    expect(mockDbQuery).toHaveBeenCalledTimes(1);
+    const sql = mockDbQuery.mock.calls[0][0] as string;
+    expect(sql).toContain('unit_price = $1');
+    expect(sql).not.toContain('SELECT unit_cost');
+
+    mockDbQuery.mockReset();
+    mockDbQuery
+      .mockResolvedValueOnce({ rows: [{ unit_cost: null, default_margin_percent: null }] })
+      .mockResolvedValueOnce({ rows: [makeRow()] });
+    await updateProduct('prod-1', 'user-1', { unitCost: 4000, unitPrice: 9000 });
+    const params = mockDbQuery.mock.calls[1][1] as unknown[];
+    expect(params).toContain(4000);
+    expect(params).toContain(9000);
   });
 });
 

@@ -5,6 +5,8 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import db from './database.js';
+import { createError } from '../middleware/error.js';
+import { priceFromCost, PricingError } from './pricing.js';
 import {
   ProductService,
   ProductType,
@@ -64,6 +66,37 @@ function transformForMobile(product: ProductService): Record<string, unknown> {
 }
 
 /**
+ * Catalogue unit_cost is the ex-GST figure (a supplier inclusive price is
+ * converted once before it is copied here). Annual costs are divided by 12
+ * inside priceFromCost, then marked up once.
+ */
+function sellCentsForCatalogueCost(
+  costCents: number,
+  markupPercent: number,
+  unitCostIsAnnual: boolean,
+): number {
+  try {
+    return priceFromCost({
+      costCents,
+      gstTreatment: 'exclusive',
+      unitBasis: unitCostIsAnnual ? 'annual' : 'per_unit',
+      markupPercent,
+    }).exGstSellCents;
+  } catch (error) {
+    if (error instanceof PricingError) {
+      throw createError(error.message, 400, 'VALIDATION_ERROR');
+    }
+    throw error;
+  }
+}
+
+function finiteMargin(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const margin = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(margin) ? margin : null;
+}
+
+/**
  * Create a new product/service
  */
 export async function createProduct(
@@ -71,6 +104,12 @@ export async function createProduct(
   input: ProductServiceCreateInput
 ): Promise<Record<string, unknown>> {
   const productId = uuidv4();
+  const annual = Boolean(input.unitCostIsAnnual);
+  const margin = finiteMargin(input.defaultMarginPercent);
+  let unitPrice = input.unitPrice;
+  if (input.unitCost != null && margin != null) {
+    unitPrice = sellCentsForCatalogueCost(input.unitCost, margin, annual);
+  }
 
   const result = await db.query<Record<string, unknown>>(
     `INSERT INTO products_services (
@@ -84,12 +123,10 @@ export async function createProduct(
       userId,
       input.name,
       input.description || null,
-      input.unitPrice,
-      input.unitCost != null && input.unitCost >= 0 ? Math.round(input.unitCost) : null,
-      Boolean(input.unitCostIsAnnual),
-      input.defaultMarginPercent != null && Number.isFinite(input.defaultMarginPercent)
-        ? input.defaultMarginPercent
-        : null,
+      unitPrice,
+      input.unitCost != null ? input.unitCost : null,
+      annual,
+      margin,
       input.type || 'fixed',
       input.isGstApplicable !== undefined ? input.isGstApplicable : true,
     ]
@@ -182,6 +219,41 @@ export async function updateProduct(
   const values: unknown[] = [];
   let paramIndex = 1;
 
+  const effective: ProductServiceUpdateInput = { ...updates };
+  const costChanging = updates.unitCost !== undefined;
+  const marginChanging = updates.defaultMarginPercent !== undefined;
+  const annualChanging = updates.unitCostIsAnnual !== undefined;
+
+  // Recompute when cost, markup, or the annual flag is in this request and
+  // both cost and markup end up present. A unitPrice-only update keeps the
+  // price the client sent. Catalogue cost is ex-GST; priceFromCost divides
+  // an annual cost by 12 once before markup.
+  if (costChanging || marginChanging || annualChanging) {
+    const existing = await db.query<Record<string, unknown>>(
+      `SELECT unit_cost, default_margin_percent, unit_cost_is_annual
+       FROM products_services
+       WHERE id = $1 AND user_id = $2`,
+      [productId, userId]
+    );
+    if (existing.rows.length === 0) {
+      return null;
+    }
+    const row = existing.rows[0];
+    const nextCost =
+      updates.unitCost !== undefined ? updates.unitCost : (row.unit_cost as number | null);
+    const nextMargin =
+      updates.defaultMarginPercent !== undefined
+        ? finiteMargin(updates.defaultMarginPercent)
+        : finiteMargin(row.default_margin_percent);
+    const nextAnnual =
+      updates.unitCostIsAnnual !== undefined
+        ? Boolean(updates.unitCostIsAnnual)
+        : Boolean(row.unit_cost_is_annual);
+    if (nextCost != null && nextMargin != null) {
+      effective.unitPrice = sellCentsForCatalogueCost(nextCost, nextMargin, nextAnnual);
+    }
+  }
+
   const fieldMap: Record<string, string> = {
     name: 'name',
     description: 'description',
@@ -194,7 +266,7 @@ export async function updateProduct(
     isActive: 'is_active',
   };
 
-  for (const [key, value] of Object.entries(updates)) {
+  for (const [key, value] of Object.entries(effective)) {
     if (fieldMap[key] && value !== undefined) {
       fields.push(`${fieldMap[key]} = $${paramIndex++}`);
       values.push(value ?? null);
