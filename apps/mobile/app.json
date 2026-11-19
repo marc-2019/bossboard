@@ -184,7 +184,8 @@
           "project": "bossboard-mobile",
           "url": "https://sentry.io/"
         }
-      ]
+      ],
+      "./plugins/withUIScene"
     ],
     "experiments": {
       "typedRoutes": true
