@@ -262,7 +262,7 @@ export default function NewInvoicePage() {
         return;
       }
       if (cents === null) {
-        setError(`Line "${desc}" needs a valid sell amount (or cost + margin %).`);
+        setError(`Line "${desc}" needs a valid sell amount (or cost + markup %).`);
         return;
       }
       cleanedItems.push({
@@ -481,7 +481,7 @@ export default function NewInvoicePage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              Cost + margin % set sell amount (customer only sees the sell price).
+              Cost + markup % set sell amount (customer only sees the sell price).
             </p>
           </div>
 
@@ -519,7 +519,7 @@ export default function NewInvoicePage() {
                 </div>
                 <div className="w-24">
                   <Input
-                    label={idx === 0 ? 'Margin %' : undefined}
+                    label={idx === 0 ? 'Markup %' : undefined}
                     type="number"
                     inputMode="decimal"
                     step="0.1"
@@ -577,7 +577,7 @@ export default function NewInvoicePage() {
             ))}
           </ul>
           <p className="mt-2 text-xs text-gray-500">
-            Cost and margin stay on your draft only — PDF and email show sell amounts only.
+            Cost and markup stay on your draft only — PDF and email show sell amounts only.
             Tick <strong>Annual</strong> for yearly costs (e.g. hosting) so profit uses 1/12
             per invoice.
           </p>
@@ -731,7 +731,7 @@ export default function NewInvoicePage() {
           />
           <p className="mt-1.5 text-xs text-gray-500">
             The customer sees this on the PDF and email. Use payment thanks, terms, or how to pay —
-            not “system test”, seed notes, or “review before send”. Cost/margin stay in line items
+            not “system test”, seed notes, or “review before send”. Cost/markup stay in line items
             (internal). Company template = Settings → Company notes.
           </p>
         </Card>

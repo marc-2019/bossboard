@@ -107,7 +107,7 @@ export default function CreateProductScreen() {
       unitPriceCents = Math.round(unitCostCents * (1 + marginPct / 100));
     }
     if (unitPriceCents <= 0 && unitCostCents == null) {
-      Alert.alert('Error', 'Please enter a valid sell price or cost + margin %');
+      Alert.alert('Error', 'Please enter a valid sell price or cost + markup %');
       return;
     }
 
@@ -254,7 +254,7 @@ export default function CreateProductScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Margin %</Text>
+            <Text style={styles.label}>Markup %</Text>
             <TextInput
               style={styles.input}
               value={marginDisplay}
@@ -286,7 +286,7 @@ export default function CreateProductScreen() {
               />
             </View>
             <Text style={styles.hint}>
-              Customer sees sell price only. Cost + margin stay internal.
+              Customer sees sell price only. Cost + markup stay internal.
             </Text>
           </View>
         </View>

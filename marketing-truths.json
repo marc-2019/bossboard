@@ -670,6 +670,27 @@
       "verdict": "IMPLEMENTED",
       "last_verified": "2026-08-09",
       "previous_overclaim": "Do not claim BossBoard provides legal advice, vetted contracts, or compliance with any contract law."
+    },
+    {
+      "id": "bossboard.pricing-markup-label",
+      "claim": "In the product and invoice forms, the percent on cost is labelled Markup %. Sell amount is cost times (1 + markup percent / 100). Customers only see the sell price. Stored field names stay marginPercent and default_margin_percent.",
+      "surfaces": [
+        "apps/web/src/app/(dashboard)/products/new/page.tsx",
+        "apps/web/src/app/(dashboard)/products/[id]/edit/page.tsx",
+        "apps/web/src/app/(dashboard)/invoices/new/page.tsx",
+        "apps/web/src/app/(dashboard)/invoices/[id]/edit/page.tsx",
+        "apps/web/src/app/(dashboard)/invoices/[id]/page.tsx",
+        "apps/mobile/app/products/create.tsx",
+        "apps/mobile/app/invoices/create.tsx"
+      ],
+      "evidence_references": [
+        "Marc decision 2026-11-19 (CF b1634d6d): the visible label margin % is a markup on cost",
+        "apps/mobile/app/products/create.tsx sell = cost * (1 + percent / 100); apps/web uses the same formula via sellAmountFromCostMargin",
+        "Customer PDF and email still show sell amounts only; this commit does not change PDF output"
+      ],
+      "verdict": "IMPLEMENTED",
+      "last_verified": "2026-11-19",
+      "previous_overclaim": "The same control was labelled Margin % while the maths was a markup on cost (sell = cost × (1 + %/100)), which is not an accounting margin on sell price."
     }
   ],
   "recall_history": [

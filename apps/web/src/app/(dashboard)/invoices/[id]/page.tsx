@@ -571,7 +571,7 @@ export default function InvoiceDetailPage() {
                         ? ' (annual, attributed monthly)'
                         : ''}
                     {item.marginPercent != null
-                      ? ` · margin ${item.marginPercent}%`
+                      ? ` · markup ${item.marginPercent}%`
                       : ''}
                     {margin$ != null ? ` · markup ${formatCents(margin$)}` : ''}
                     <span className="text-gray-400"> · not on PDF</span>
