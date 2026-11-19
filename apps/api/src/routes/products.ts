@@ -6,9 +6,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import productsService from '../services/products.js';
+import productSupplierRoutes from './product-suppliers.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
+
+// Nested supplier costs. Registered before /:id; two-segment paths do not match /:id.
+router.use('/:productId/suppliers', productSupplierRoutes);
 
 // =============================================================================
 // VALIDATION SCHEMAS

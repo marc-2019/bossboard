@@ -5,6 +5,8 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import db from './database.js';
+import { createError } from '../middleware/error.js';
+import { sellCentsFromCostAndMargin, SupplierCostMathError } from './supplier-cost-math.js';
 import {
   ProductService,
   ProductType,
@@ -182,6 +184,51 @@ export async function updateProduct(
   const values: unknown[] = [];
   let paramIndex = 1;
 
+  const effective: ProductServiceUpdateInput = { ...updates };
+  const costChanging = updates.unitCost !== undefined;
+  const marginChanging = updates.defaultMarginPercent !== undefined;
+
+  // Recompute sell price only when cost or margin is in this request and both
+  // end up present. A unitPrice-only update keeps the price the client sent.
+  if (costChanging || marginChanging) {
+    const existing = await db.query<Record<string, unknown>>(
+      `SELECT unit_cost, default_margin_percent
+       FROM products_services
+       WHERE id = $1 AND user_id = $2`,
+      [productId, userId]
+    );
+    if (existing.rows.length === 0) {
+      return null;
+    }
+    const row = existing.rows[0];
+    const nextCost =
+      updates.unitCost !== undefined ? updates.unitCost : (row.unit_cost as number | null);
+    const marginSource =
+      updates.defaultMarginPercent !== undefined
+        ? updates.defaultMarginPercent
+        : row.default_margin_percent;
+    const nextMargin =
+      marginSource == null || marginSource === '' ? null : Number(marginSource);
+    const nextCostNum =
+      nextCost == null ? null : Math.round(Number(nextCost));
+    if (
+      nextCostNum != null &&
+      Number.isInteger(nextCostNum) &&
+      nextCostNum >= 0 &&
+      nextMargin != null &&
+      Number.isFinite(nextMargin)
+    ) {
+      try {
+        effective.unitPrice = sellCentsFromCostAndMargin(nextCostNum, nextMargin);
+      } catch (error) {
+        if (error instanceof SupplierCostMathError) {
+          throw createError(error.message, 400, 'VALIDATION_ERROR');
+        }
+        throw error;
+      }
+    }
+  }
+
   const fieldMap: Record<string, string> = {
     name: 'name',
     description: 'description',
@@ -194,7 +241,7 @@ export async function updateProduct(
     isActive: 'is_active',
   };
 
-  for (const [key, value] of Object.entries(updates)) {
+  for (const [key, value] of Object.entries(effective)) {
     if (fieldMap[key] && value !== undefined) {
       fields.push(`${fieldMap[key]} = $${paramIndex++}`);
       values.push(value ?? null);

@@ -23,6 +23,11 @@ jest.mock('../../services/products.js', () => ({
   },
 }));
 
+jest.mock('../../services/product-suppliers.js', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 jest.mock('../../middleware/auth.js', () => ({
   authenticate: function (req: any, _res: any, next: any) {
     req.user = { userId: 'test-user-id', email: 'test@example.com' };
